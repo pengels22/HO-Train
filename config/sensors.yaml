@@ -1,0 +1,5 @@
+polarity: active_low
+debounce_ms: 30
+mcp23017:
+  "0x20": {GPA0: turnout_A_1, GPA1: turnout_A_2, GPA2: turnout_A_3, GPA3: turnout_B_1, GPA4: turnout_B_2, GPA5: turnout_B_3, GPA6: turnout_C_1, GPA7: turnout_C_2, GPB0: turnout_C_3, GPB1: turnout_D_1, GPB2: turnout_D_2, GPB3: turnout_D_3, GPB4: turnout_E_1, GPB5: turnout_E_2, GPB6: turnout_E_3}
+  "0x21": {GPA0: turnout_F_1, GPA1: turnout_F_2, GPA2: turnout_F_3, GPA3: turnout_G_1, GPA4: turnout_G_2, GPA5: turnout_G_3, GPA6: mine_loading, GPA7: farm_loading, GPB0: ski_lodge, GPB1: town}

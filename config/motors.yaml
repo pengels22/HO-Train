@@ -1,0 +1,9 @@
+motors:
+  1: {channels: [0, 1], function: mine_ore_lift}
+  2: {channels: [2, 3], function: ski_chairlift}
+  3: {channels: [4, 5], function: grain_auger}
+  4: {channels: [6, 7], function: farm_road_loop}
+  5: {channels: [8, 9], function: ski_lodge_road_loop}
+  6: {channels: [10, 11], function: long_road_loop}
+  7: {channels: [12, 13], function: town_road_loop}
+  8: {channels: [14, 15], function: rotary_tipper}

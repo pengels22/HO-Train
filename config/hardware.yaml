@@ -1,0 +1,6 @@
+mode: simulation
+i2c:
+  bus: 1
+  level_shifter_required: true
+  boards: {motor_1: 0x40, motor_2: 0x41, servo: 0x42, sensors_1: 0x20, sensors_2: 0x21}
+gpio_safe_start: true

@@ -1,0 +1,13 @@
+[Unit]
+Description=HO Railroad Control (simulation-safe default)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ho-railroad-control
+ExecStart=/opt/ho-railroad-control/.venv/bin/python -m railroad.main --mode simulation --dashboard
+Restart=on-failure
+Environment=RAILROAD_MODE=simulation
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+board: {address: 0x42}
+servos:
+  farm_gates: {channel: 0, min_us: 600, max_us: 2400}
+  turnout_A: {channel: 1}
+  turnout_B: {channel: 2}
+  turnout_C: {channel: 3}
+  town_gates: {channel: 4}
+  yard_1: {channel: 5}
+  yard_2: {channel: 6}
+  yard_3: {channel: 7}
+  tipper_locks: {channel: 8}
+  turnout_D: {channel: 9}
+  turnout_E: {channel: 10}
+  turnout_F: {channel: 11}
+  turnout_G: {channel: 12}

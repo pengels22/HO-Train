@@ -1,0 +1,2 @@
+tipper: {max_rotation_seconds: 30, decoupler_max_seconds: 5, home_alignment_verified: false}
+communication_watchdog_seconds: 3

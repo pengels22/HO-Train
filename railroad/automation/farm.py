@@ -1,0 +1,1 @@
+class FarmAutomation: pass

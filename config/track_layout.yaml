@@ -1,0 +1,4 @@
+# Topology is intentionally a configurable placeholder until the physical layout is surveyed.
+sections: []
+powered_turnouts: [A, B, C, D, E, F, G]
+passive_turnouts: [P1, P2, P3]

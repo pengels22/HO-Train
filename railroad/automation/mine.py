@@ -1,0 +1,1 @@
+class MineAutomation: pass
