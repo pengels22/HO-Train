@@ -6,6 +6,28 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class DashboardHandler(BaseHTTPRequestHandler):
     state = {"mode": "simulation", "emergency_stop": False, "trains": 4}
+    def do_POST(self):
+        if self.path != "/api/zones/boundaries":
+            self.send_error(404); return
+        import yaml
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(length))
+            zone_id, polygon = payload["zone_id"], payload["polygon"]
+            if len(polygon) < 3 or any(len(p) != 2 or not all(0 <= float(v) <= 1 for v in p) for p in polygon):
+                raise ValueError("polygon must contain normalized x/y pairs")
+            path = ROOT / "config/zone_boundaries.yaml"
+            data = yaml.safe_load(path.read_text())
+            if zone_id not in data["boundaries"]:
+                raise ValueError("unknown zone")
+            data["boundaries"][zone_id] = {"polygon": [[float(x), float(y)] for x, y in polygon], "verified": False}
+            path.write_text(yaml.safe_dump(data, sort_keys=False))
+            body = json.dumps({"saved": True, "zone_id": zone_id, "verified": False}).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            body = json.dumps({"saved": False, "error": str(exc)}).encode()
+            self.send_response(400); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+
     def do_GET(self):
         if self.path == "/api/status":
             body = json.dumps(self.state).encode()
@@ -17,6 +39,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/zones":
             body = b'''<!doctype html><meta charset="utf-8"><title>HO Railroad Zones</title><style>body{background:#111;color:#eee;font:16px sans-serif}main{max-width:1200px;margin:auto}img{max-width:100%;border:1px solid #555}.note{color:#ffd85a}</style><main><h1>Operating Zones</h1><p class="note">Proposed overlay only. Zone geometry and topology are unverified; live routing is disabled.</p><img src="/assets/layout/zone-overlay-preview.svg" alt="Proposed 15-zone overlay"></main>'''
+            self.send_response(200); self.send_header("Content-Type", "text/html"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        elif self.path == "/zones/edit":
+            body = b'''<!doctype html><meta charset="utf-8"><title>Edit proposed zones</title><style>body{background:#111;color:#eee;font:16px sans-serif}main{max-width:1200px;margin:auto}input{width:90%;background:#222;color:#eee;border:1px solid #555;padding:6px}button{padding:7px;margin:4px}.note{color:#ffd85a}</style><main><h1>Proposed zone editor</h1><p class="note">Simulation/configuration only. Saves force verified=false and cannot authorize hardware routing.</p><p>Zone ID <input id="zone" value="MAIN-1"></p><p>Polygon JSON <input id="polygon" value="[[0.3,0.4],[0.6,0.4],[0.6,0.55],[0.3,0.55]]"></p><button onclick="save()">Save proposed boundary</button><pre id="result"></pre><script>async function save(){let r=await fetch('/api/zones/boundaries',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({zone_id:document.querySelector('#zone').value,polygon:JSON.parse(document.querySelector('#polygon').value)})});document.querySelector('#result').textContent=await r.text()}</script></main>'''
             self.send_response(200); self.send_header("Content-Type", "text/html"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path.startswith("/assets/layout/"):
             relative = self.path.removeprefix("/assets/layout/")
