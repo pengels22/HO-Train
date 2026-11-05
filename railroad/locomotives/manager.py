@@ -7,6 +7,11 @@ class Locomotive:
     name: str = ""
     throttle: Throttle = field(default_factory=Throttle)
     section: str | None = None
+    current_zone: str | None = None
+    previous_zone: str | None = None
+    target_zone: str | None = None
+    reserved_zones: list[str] = field(default_factory=list)
+    last_ir_checkpoint: str | None = None
     confidence: float = 0.0
 
 class LocomotiveManager:

@@ -1,2 +1,13 @@
-receivers: [tunnel_entrance, yard_entrance, ski_entrance, tunnel_exit_west, tunnel_exit_east, underground_entrance, tipper_entrance, stall_1a, stall_1b, stall_2, stall_3]
+receivers:
+  - {id: tunnel_entrance, description: Tunnel Entrance, zones: [MAIN-1]}
+  - {id: yard_entrance, description: Yard Entrance, zones: [MAIN-1]}
+  - {id: ski_entrance, description: Ski Entrance, zones: [SKI-1]}
+  - {id: tunnel_exit_west, description: Tunnel Exit West, zones: [UND-1]}
+  - {id: tunnel_exit_east, description: Tunnel Exit East, zones: [UND-3]}
+  - {id: underground_entrance, description: Underground Entrance, zones: [UND-1]}
+  - {id: tipper_entrance, description: Tipper Entrance, zones: [MAIN-3]}
+  - {id: stall_1a, description: Stall 1A, zones: []}
+  - {id: stall_1b, description: Stall 1B, zones: []}
+  - {id: stall_2, description: Stall 2, zones: []}
+  - {id: stall_3, description: Stall 3, zones: []}
 carrier_hz: 38000
