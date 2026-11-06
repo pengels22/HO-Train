@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import yaml
+from railroad.track_geometry import load_centerlines, point_at_distance, project_point, normalized_projection
 
 CLEAN_WIDTH, CLEAN_HEIGHT = 752.0, 602.0
 DESIGN_WIDTH, DESIGN_HEIGHT = 739.0, 593.0
@@ -30,28 +31,56 @@ def _position(value):
     return [float(value[0]), float(value[1])]
 
 
+def _project(geometry, path_id, raw_position, record=None):
+    record = record or {}
+    if record.get("distance_px") is not None:
+        point = point_at_distance(geometry, path_id, record["distance_px"])
+        return {"track_path": path_id, "segment_id": record.get("segment_id"), "distance_px": float(record["distance_px"]),
+                "position": [point[0] / CLEAN_WIDTH, point[1] / CLEAN_HEIGHT],
+                "alignment_error_px": float(record.get("alignment_error_px", 0.0))}
+    raw = [float(raw_position[0]) * CLEAN_WIDTH, float(raw_position[1]) * CLEAN_HEIGHT]
+    return normalized_projection(project_point(geometry, path_id, raw), CLEAN_WIDTH, CLEAN_HEIGHT)
+
+
 def load_geography(root: Path) -> dict:
     boundaries = yaml.safe_load((root / "config/zone_boundaries.yaml").read_text()) or {}
     design = yaml.safe_load((root / "config/geography_design_v05.yaml").read_text()) or {}
+    geometry = load_centerlines(root)
+    marker_geometry = yaml.safe_load((root / "config/marker_geometry_v05.yaml").read_text()) or {}
     track = yaml.safe_load((root / "config/track_layout.yaml").read_text()) or {}
     ir = yaml.safe_load((root / "config/ir_receivers.yaml").read_text()) or {}
     zones = {}
     for zone_id, data in (boundaries.get("boundaries", {}) or {}).items():
-        zones[zone_id] = {"start": _position(data.get("start")), "end": _position(data.get("end")),
+        path_id = zone_id.split("-")[0].replace("UND", "Underground").title()
+        if path_id == "Ski": path_id = "Ski"
+        elif path_id == "Farm": path_id = "Farm"
+        elif path_id == "Mine": path_id = "Mine"
+        elif path_id == "Main": path_id = "Main"
+        elif path_id == "Underground": path_id = "Underground"
+        start = _project(geometry, path_id, data.get("start")) if data.get("start") else None
+        end = _project(geometry, path_id, data.get("end")) if data.get("end") else None
+        zones[zone_id] = {"start": start["position"] if start else None, "end": end["position"] if end else None,
+                          "track_path": path_id, "start_geometry": start, "end_geometry": end,
                           "calibrated": bool(data.get("calibrated", False))}
     receivers = []
     design_receivers = design.get("receivers", {})
     for receiver in ir.get("receivers", []):
         source = design_receivers.get(receiver["id"], {})
+        association = (marker_geometry.get("markers", {}) or {}).get(receiver["id"], {})
+        projection = _project(geometry, association.get("track_path", "Main"), source.get("position"), association) if source.get("position") else None
         receivers.append({"id": receiver["id"], "name": receiver.get("description", receiver["id"]),
                           "channel": receiver.get("channel"), "zones": receiver.get("zones", []),
-                          "position": _position(source.get("position")),
+                          "position": projection["position"] if projection else None,
+                          "geometry": projection,
                           "calibrated": bool(source.get("verified", False))})
     turnouts = {}
     design_turnouts = design.get("turnouts", {})
     for turnout_id, data in (track.get("powered_turnouts", {}) or {}).items():
         source = design_turnouts.get(turnout_id, {})
-        turnouts[turnout_id] = {**data, "position": _position(source.get("position")),
+        association = (marker_geometry.get("markers", {}) or {}).get(turnout_id, {})
+        projection = _project(geometry, association.get("track_path", "Main"), source.get("position"), association) if source.get("position") else None
+        turnouts[turnout_id] = {**data, "position": projection["position"] if projection else None,
+                                "geometry": projection,
                                 "calibrated": bool(source.get("verified", False))}
     return {"coordinate_system": "clean_image_normalized_0_to_1",
             "image": {"path": "/dashboard/images/railroad-layout-clean.png", "width": int(CLEAN_WIDTH), "height": int(CLEAN_HEIGHT),
@@ -60,4 +89,6 @@ def load_geography(root: Path) -> dict:
                       "crop_offset": [0, 0],
                       "coordinate_transform": "scale only; source is already cropped"},
             "design_verified": bool((design.get("meta") or {}).get("verified", design.get("verified", False))),
+            "geometry_verified": bool(geometry.get("verified", False)),
+            "centerlines": geometry.get("paths", {}),
             "zones": zones, "ir_receivers": receivers, "turnouts": turnouts}

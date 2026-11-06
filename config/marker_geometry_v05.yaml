@@ -1,0 +1,21 @@
+# Track associations for calibration proposals. Null distance means the
+# recovered v05 point is only an approximate starting reference.
+markers:
+  tunnel_entrance: {kind: receiver, track_path: Ski}
+  yard_entrance: {kind: receiver, track_path: Underground}
+  ski_entrance: {kind: receiver, track_path: Ski}
+  tunnel_exit_west: {kind: receiver, track_path: Underground}
+  tunnel_exit_east: {kind: receiver, track_path: Main}
+  underground_entrance: {kind: receiver, track_path: Main}
+  tipper_entrance: {kind: receiver, track_path: Main}
+  stall_1a: {kind: receiver, track_path: Underground}
+  stall_1b: {kind: receiver, track_path: Underground}
+  stall_2: {kind: receiver, track_path: Underground}
+  stall_3: {kind: receiver, track_path: Underground}
+  A: {kind: turnout, track_path: Main}
+  B: {kind: turnout, track_path: Underground}
+  C: {kind: turnout, track_path: Main}
+  D: {kind: turnout, track_path: Underground}
+  E: {kind: turnout, track_path: Underground}
+  F: {kind: turnout, track_path: Underground}
+  G: {kind: turnout, track_path: Underground}

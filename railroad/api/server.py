@@ -30,6 +30,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if self.path == "/api/geography/marker":
             self._save_geography_marker()
             return
+        if self.path == "/api/track-geometry":
+            self._save_track_geometry()
+            return
         if self.path != "/api/zones/boundaries":
             self.send_error(404); return
         import yaml
@@ -99,6 +102,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         elif self.path == "/api/geography":
             body = json.dumps(load_geography(ROOT)).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        elif self.path == "/api/track-geometry":
+            import yaml
+            body = json.dumps(yaml.safe_load((ROOT / "config/track_centerlines.yaml").read_text()) or {}).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path in ("/", "/track-map"):
             self._serve_dashboard_file("index.html", "text/html; charset=utf-8")
         elif self.path.startswith("/dashboard/"):
@@ -146,11 +153,31 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 raise ValueError("unknown geography marker")
             section[marker_id]["position"] = [float(position[0]), float(position[1])]
             path.write_text(yaml.safe_dump(data, sort_keys=False))
+            if payload.get("geometry"):
+                geometry_path = ROOT / "config/marker_geometry_v05.yaml"
+                geometry = yaml.safe_load(geometry_path.read_text()) or {}
+                geometry.setdefault("markers", {}).setdefault(marker_id, {})
+                geometry["markers"][marker_id].update({k: payload["geometry"][k] for k in ("track_path", "segment_id", "distance_px", "alignment_error_px") if k in payload["geometry"]})
+                geometry_path.write_text(yaml.safe_dump(geometry, sort_keys=False))
             body = json.dumps({"saved": True, "kind": kind, "id": marker_id, "position": section[marker_id]["position"], "verified": bool(section[marker_id].get("verified", False))}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             body = json.dumps({"saved": False, "error": str(exc)}).encode()
             self.send_response(400); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+
+    def _save_track_geometry(self):
+        import yaml
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(length))
+            paths = payload["paths"]
+            if not isinstance(paths, dict) or any(len(p.get("points", [])) < 2 for p in paths.values()):
+                raise ValueError("each centerline needs at least two points")
+            data = {"verified": False, "coordinate_system": "clean_image_pixels", "width": 752, "height": 602, "paths": paths}
+            (ROOT / "config/track_centerlines.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+            self._json_response({"saved": True, "verified": False, "paths": paths})
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            self._json_response({"saved": False, "error": str(exc)}, 400)
     def _json_body(self):
         length = int(self.headers.get("Content-Length", "0"))
         return json.loads(self.rfile.read(length))
