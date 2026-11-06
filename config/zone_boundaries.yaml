@@ -1,20 +1,20 @@
-# Authoritative zone endpoint storage in clean-image normalized coordinates.
-# No polygon fallback is permitted. Null means the endpoint is uncalibrated.
+# Imported from railroad-layout-turnouts-v05.json in clean-image normalized space.
+# These design endpoints remain unverified and are not polygons.
 coordinate_system: clean_image_normalized_0_to_1
-source_image: dashboard/public/images/railroad-layout-clean.png
+source_image: railroad-map-exact.png
 boundaries:
-  SKI-1: {start: null, end: null, calibrated: false}
-  SKI-2: {start: null, end: null, calibrated: false}
-  SKI-3: {start: null, end: null, calibrated: false}
-  FARM-1: {start: null, end: null, calibrated: false}
-  FARM-2: {start: null, end: null, calibrated: false}
-  FARM-3: {start: null, end: null, calibrated: false}
-  UND-1: {start: null, end: null, calibrated: false}
-  UND-2: {start: null, end: null, calibrated: false}
-  UND-3: {start: null, end: null, calibrated: false}
-  MINE-1: {start: null, end: null, calibrated: false}
-  MINE-2: {start: null, end: null, calibrated: false}
-  MINE-3: {start: null, end: null, calibrated: false}
-  MAIN-1: {start: null, end: null, calibrated: false}
-  MAIN-2: {start: null, end: null, calibrated: false}
-  MAIN-3: {start: null, end: null, calibrated: false}
+  SKI-1: {start: [0.744248985, 0.399662732], end: [0.913396482, 0.305227656], calibrated: false}
+  SKI-2: {start: [0.914749662, 0.305227656], end: [0.828146143, 0.053962901], calibrated: false}
+  SKI-3: {start: [0.826792963, 0.053962901], end: [0.462787551, 0.146711636], calibrated: false}
+  FARM-1: {start: [0.744248985, 0.399662732], end: [0.867388363, 0.635750422], calibrated: false}
+  FARM-2: {start: [0.867388363, 0.632377740], end: [0.962110961, 0.956155143], calibrated: false}
+  FARM-3: {start: [0.967523681, 0.956155143], end: [0.828146143, 0.381112985], calibrated: false}
+  UND-1: {start: [0.326116373, 0.706576728], end: [0.253044655, 0.355817875], calibrated: false}
+  UND-2: {start: [0.257104195, 0.370994941], end: [0.462787551, 0.146711636], calibrated: false}
+  UND-3: {start: [0.250338295, 0.377740304], end: [0.525033829, 0.266441821], calibrated: false}
+  MINE-1: {start: [0.097428958, 0.504215852], end: [0.131258457, 0.337268128], calibrated: false}
+  MINE-2: {start: [0.127198917, 0.333895447], end: [0.123139378, 0.224283305], calibrated: false}
+  MINE-3: {start: [0.128552097, 0.220910624], end: [0.129905277, 0.116357504], calibrated: false}
+  MAIN-1: {start: [0.742895805, 0.399662732], end: [0.392422192, 0.401349073], calibrated: false}
+  MAIN-2: {start: [0.389715832, 0.399662732], end: [0.098782138, 0.504215852], calibrated: false}
+  MAIN-3: {start: [0.098782138, 0.504215852], end: [0.331529093, 0.753794266], calibrated: false}

@@ -1,0 +1,29 @@
+# Direct import of railroad-layout-turnouts-v05.json.
+# Coordinates are already in railroad-map-exact.png (739 x 593) space.
+source_image: railroad-map-exact.png
+source_width: 739
+source_height: 593
+coordinate_transform: scale_only_no_crop_offset
+meta:
+  version: design-mock-v0.5
+  verified: false
+receivers:
+  tunnel_entrance: {position: [0.387009472, 0.035413153], verified: false}
+  yard_entrance: {position: [0.426251691, 0.183811130], verified: false}
+  ski_entrance: {position: [0.745602165, 0.057335582], verified: false}
+  tunnel_exit_west: {position: [0.414073072, 0.416526138], verified: false}
+  tunnel_exit_east: {position: [0.607577808, 0.421585160], verified: false}
+  underground_entrance: {position: [0.116373478, 0.554806071], verified: false}
+  tipper_entrance: {position: [0.312584574, 0.726812816], verified: false}
+  stall_1a: {position: [0.665764547, 0.160202361], verified: false}
+  stall_1b: {position: [0.821380244, 0.163575042], verified: false}
+  stall_2: {position: [0.797023004, 0.207419899], verified: false}
+  stall_3: {position: [0.797023004, 0.231028668], verified: false}
+turnouts:
+  A: {position: [0.104194858, 0.489038786], verified: true}
+  B: {position: [0.515561570, 0.242833052], verified: true}
+  C: {position: [0.683355886, 0.381112985], verified: true}
+  D: {position: [0.254397835, 0.386172007], verified: true}
+  E: {position: [0.422192152, 0.175379427], verified: true}
+  F: {position: [0.522327470, 0.146711636], verified: true}
+  G: {position: [0.638700947, 0.207419899], verified: true}
