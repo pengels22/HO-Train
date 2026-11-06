@@ -1,0 +1,18 @@
+# Proposed logical zones. Geometry and physical connectivity are intentionally unverified.
+# `segments` remain placeholders until the RailModeller reference and surveyed topology are supplied.
+zones:
+  - {id: SKI-1, railway: Ski Line, color: white, segments: [], entrances: [ski_entrance], exits: [], neighbors: [SKI-2], elevation: null, hall_sensors: [ski_lodge], ir_checkpoints: [ski_entrance], turnouts: [], verified: false}
+  - {id: SKI-2, railway: Ski Line, color: white, segments: [], entrances: [], exits: [], neighbors: [SKI-1, SKI-3], elevation: null, hall_sensors: [], ir_checkpoints: [], turnouts: [], verified: false}
+  - {id: SKI-3, railway: Ski Line, color: white, segments: [], entrances: [], exits: [], neighbors: [SKI-2], elevation: null, hall_sensors: [], ir_checkpoints: [], turnouts: [], verified: false}
+  - {id: FARM-1, railway: Farm Line, color: yellow, segments: [], entrances: [], exits: [], neighbors: [FARM-2], elevation: null, hall_sensors: [farm_loading], ir_checkpoints: [], turnouts: [], verified: false}
+  - {id: FARM-2, railway: Farm Line, color: yellow, segments: [], entrances: [], exits: [], neighbors: [FARM-1, FARM-3], elevation: null, hall_sensors: [], ir_checkpoints: [], turnouts: [], verified: false}
+  - {id: FARM-3, railway: Farm Line, color: yellow, segments: [], entrances: [], exits: [], neighbors: [FARM-2], elevation: null, hall_sensors: [], ir_checkpoints: [], turnouts: [], verified: false}
+  - {id: UND-1, railway: Underground, color: blue, segments: [], entrances: [underground_entrance], exits: [tunnel_exit_west], neighbors: [UND-2], elevation: -1, hall_sensors: [], ir_checkpoints: [underground_entrance, tunnel_exit_west], turnouts: [], verified: false}
+  - {id: UND-2, railway: Underground, color: blue, segments: [], entrances: [], exits: [], neighbors: [UND-1, UND-3], elevation: -1, hall_sensors: [], ir_checkpoints: [], turnouts: [], verified: false}
+  - {id: UND-3, railway: Underground, color: blue, segments: [], entrances: [], exits: [tunnel_exit_east], neighbors: [UND-2], elevation: -1, hall_sensors: [], ir_checkpoints: [tunnel_exit_east], turnouts: [], verified: false}
+  - {id: MINE-1, railway: Mine Line, color: red, segments: [], entrances: [], exits: [], neighbors: [MINE-2], elevation: null, hall_sensors: [mine_loading], ir_checkpoints: [], turnouts: [], verified: false}
+  - {id: MINE-2, railway: Mine Line, color: red, segments: [], entrances: [], exits: [], neighbors: [MINE-1, MINE-3], elevation: null, hall_sensors: [], ir_checkpoints: [], turnouts: [], verified: false}
+  - {id: MINE-3, railway: Mine Line, color: red, segments: [], entrances: [], exits: [], neighbors: [MINE-2], elevation: null, hall_sensors: [], ir_checkpoints: [], turnouts: [], verified: false}
+  - {id: MAIN-1, railway: Main Line, color: gray, segments: [], entrances: [tunnel_entrance], exits: [yard_entrance], neighbors: [MAIN-2], elevation: 0, hall_sensors: [town], ir_checkpoints: [tunnel_entrance, yard_entrance], turnouts: [A, B], verified: false}
+  - {id: MAIN-2, railway: Main Line, color: gray, segments: [], entrances: [], exits: [], neighbors: [MAIN-1, MAIN-3], elevation: 0, hall_sensors: [], ir_checkpoints: [], turnouts: [C, D], verified: false}
+  - {id: MAIN-3, railway: Main Line, color: gray, segments: [], entrances: [tipper_entrance], exits: [], neighbors: [MAIN-2], elevation: 0, hall_sensors: [], ir_checkpoints: [tipper_entrance], turnouts: [E, F, G], verified: false}

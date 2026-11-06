@@ -1,18 +1,18 @@
-# 11 demodulated 38kHz channels via a single USB Arduino Nano.
-# Pinout for a classic Nano; simultaneous decode must be bench-verified.
+# Single Nano USB IR decoder; zone labels from track-zones proposal remain unverified.
 controller: nano-1
 transport: usb_serial
 baud: 115200
+carrier_hz: 38000
 target_visibility_ms: 500
 receivers:
-  - {id: 1, pin: D2, name: Tunnel Entrance}
-  - {id: 2, pin: D3, name: Yard Entrance}
-  - {id: 3, pin: D4, name: Ski Entrance}
-  - {id: 4, pin: D5, name: Tunnel Exit East}
-  - {id: 5, pin: D6, name: Tunnel Exit West}
-  - {id: 6, pin: D7, name: Underground Entrance}
-  - {id: 7, pin: D8, name: Tipper Entrance}
-  - {id: 8, pin: D9, name: Stall 1A}
-  - {id: 9, pin: D10, name: Stall 1B}
-  - {id: 10, pin: D11, name: Stall 2}
-  - {id: 11, pin: D12, name: Stall 3}
+  - {id: tunnel_entrance, channel: 1, pin: D2, description: Tunnel Entrance, zones: [MAIN-1]}
+  - {id: yard_entrance, channel: 2, pin: D3, description: Yard Entrance, zones: [MAIN-1]}
+  - {id: ski_entrance, channel: 3, pin: D4, description: Ski Entrance, zones: [SKI-1]}
+  - {id: tunnel_exit_east, channel: 4, pin: D5, description: Tunnel Exit East, zones: [UND-3]}
+  - {id: tunnel_exit_west, channel: 5, pin: D6, description: Tunnel Exit West, zones: [UND-1]}
+  - {id: underground_entrance, channel: 6, pin: D7, description: Underground Entrance, zones: [UND-1]}
+  - {id: tipper_entrance, channel: 7, pin: D8, description: Tipper Entrance, zones: [MAIN-3]}
+  - {id: stall_1a, channel: 8, pin: D9, description: Stall 1A, zones: []}
+  - {id: stall_1b, channel: 9, pin: D10, description: Stall 1B, zones: []}
+  - {id: stall_2, channel: 10, pin: D11, description: Stall 2, zones: []}
+  - {id: stall_3, channel: 11, pin: D12, description: Stall 3, zones: []}
