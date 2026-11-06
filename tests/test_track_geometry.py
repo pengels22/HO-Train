@@ -1,5 +1,6 @@
 from pathlib import Path
 import yaml
+import pytest
 
 from railroad.track_geometry import load_centerlines, point_at_distance, project_point
 
@@ -26,20 +27,20 @@ def test_production_centerlines_are_native_image_space_and_unverified():
     assert (geometry["width"], geometry["height"]) == (752, 602)
     assert geometry["verified"] is False
     assert len(geometry["segments"]) >= 15
-    assert {"A", "B", "C", "D", "E", "F", "G"}.issubset(geometry["junctions"])
+    assert len(geometry["turnouts"]) == 11
 
 def test_graph_has_no_proximity_connections_and_validates_explicit_endpoints():
     geometry = load_centerlines(Path(__file__).parents[1])
     from railroad.track_geometry import validate_graph
     result = validate_graph(geometry)
     assert result["ok"], result["errors"]
-    assert all("via" in c for c in geometry["connections"])
+    assert all(c.get("segment_id") in geometry["segments"] for c in geometry["connections"])
 
 def test_marker_projection_can_be_persisted_to_a_specific_segment():
-    geometry = load_centerlines(Path(__file__).parents[1])
-    projection = project_point(geometry, "Farm", [540, 235], "farm_outer")
+    geometry = {"segments": {"farm_outer": {"track_path": "Farm", "start": "a", "end": "b", "points": [[0, 0], [10, 0], [20, 10]]}}, "junctions": {"a": {}, "b": {}}}
+    projection = project_point(geometry, "Farm", [10, 1], "farm_outer")
     assert projection.segment_id == "farm_outer"
-    assert point_at_distance(geometry, projection.segment_id, projection.distance_px) == projection.point
+    assert point_at_distance(geometry, projection.segment_id, projection.distance_px) == pytest.approx(projection.point)
 
 
 def test_marker_geometry_persists_explicit_track_associations():

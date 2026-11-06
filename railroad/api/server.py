@@ -6,6 +6,7 @@ import time
 from railroad.dispatcher import Dispatcher, SafetyError
 from railroad.simulator.engine import SimulationEngine, SpeedProfile, Consist, Car
 from railroad.geography import load_geography
+from railroad.track_geometry import load_centerlines
 
 DISPATCHER = Dispatcher()
 
@@ -104,7 +105,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/track-geometry":
             import yaml
-            body = json.dumps(yaml.safe_load((ROOT / "config/track_centerlines.yaml").read_text()) or {}).encode()
+            body = json.dumps(load_centerlines(ROOT)).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path in ("/", "/track-map"):
             self._serve_dashboard_file("index.html", "text/html; charset=utf-8")
@@ -181,7 +182,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             validation = validate_graph(data)
             if not validation["ok"]:
                 raise ValueError("; ".join(validation["errors"]))
-            (ROOT / "config/track_centerlines.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+            target = ROOT / "config/jmri_layout_import.yaml" if (ROOT / "config/jmri_layout_import.yaml").exists() else ROOT / "config/track_centerlines.yaml"
+            existing = yaml.safe_load(target.read_text()) if target.exists() else {}
+            data = {**(existing or {}), **data}
+            target.write_text(yaml.safe_dump(data, sort_keys=False))
             self._json_response({"saved": True, "verified": False, "segments": segments, "validation": validation})
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             self._json_response({"saved": False, "error": str(exc)}, 400)

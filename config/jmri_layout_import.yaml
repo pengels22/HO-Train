@@ -1,0 +1,4265 @@
+verified: false
+coordinate_system: clean_image_pixels
+source_format: JMRI LayoutEditor XML
+source_file: dream train lauyout.xml
+source_width: 160.0
+source_height: 117.0
+width: 752.0
+height: 602.0
+transform:
+  scale_x: 4.7
+  scale_y: 5.145299145299146
+  offset_x: 0
+  offset_y: 0
+  method: JMRI panel dimensions to clean image; review required
+junctions:
+  A1:
+    type: anchor
+    source_id: A1
+  A2:
+    type: anchor
+    source_id: A2
+  A3:
+    type: anchor
+    source_id: A3
+  A4:
+    type: anchor
+    source_id: A4
+  A5:
+    type: anchor
+    source_id: A5
+  A6:
+    type: anchor
+    source_id: A6
+  A7:
+    type: anchor
+    source_id: A7
+  A8:
+    type: anchor
+    source_id: A8
+  A9:
+    type: anchor
+    source_id: A9
+  A10:
+    type: anchor
+    source_id: A10
+  A11:
+    type: anchor
+    source_id: A11
+  A13:
+    type: anchor
+    source_id: A13
+  A14:
+    type: anchor
+    source_id: A14
+  A15:
+    type: anchor
+    source_id: A15
+  A16:
+    type: anchor
+    source_id: A16
+  A17:
+    type: anchor
+    source_id: A17
+  A18:
+    type: anchor
+    source_id: A18
+  A21:
+    type: anchor
+    source_id: A21
+  A22:
+    type: anchor
+    source_id: A22
+  A23:
+    type: anchor
+    source_id: A23
+  A24:
+    type: anchor
+    source_id: A24
+  A26:
+    type: anchor
+    source_id: A26
+  A28:
+    type: anchor
+    source_id: A28
+  A29:
+    type: anchor
+    source_id: A29
+  A30:
+    type: anchor
+    source_id: A30
+  A31:
+    type: anchor
+    source_id: A31
+  A32:
+    type: anchor
+    source_id: A32
+  A33:
+    type: anchor
+    source_id: A33
+  A34:
+    type: anchor
+    source_id: A34
+  A35:
+    type: anchor
+    source_id: A35
+  A36:
+    type: anchor
+    source_id: A36
+  A38:
+    type: anchor
+    source_id: A38
+  A39:
+    type: anchor
+    source_id: A39
+  A40:
+    type: anchor
+    source_id: A40
+  A41:
+    type: anchor
+    source_id: A41
+  A42:
+    type: anchor
+    source_id: A42
+  A44:
+    type: anchor
+    source_id: A44
+  A45:
+    type: anchor
+    source_id: A45
+  A46:
+    type: anchor
+    source_id: A46
+  A47:
+    type: anchor
+    source_id: A47
+  A48:
+    type: anchor
+    source_id: A48
+  A49:
+    type: anchor
+    source_id: A49
+  A50:
+    type: anchor
+    source_id: A50
+  A51:
+    type: anchor
+    source_id: A51
+  A52:
+    type: anchor
+    source_id: A52
+  A53:
+    type: anchor
+    source_id: A53
+  A54:
+    type: anchor
+    source_id: A54
+  A55:
+    type: anchor
+    source_id: A55
+  A56:
+    type: anchor
+    source_id: A56
+  A57:
+    type: anchor
+    source_id: A57
+  A58:
+    type: anchor
+    source_id: A58
+  A60:
+    type: anchor
+    source_id: A60
+  A61:
+    type: anchor
+    source_id: A61
+  A62:
+    type: anchor
+    source_id: A62
+  A63:
+    type: anchor
+    source_id: A63
+  A64:
+    type: anchor
+    source_id: A64
+  A65:
+    type: anchor
+    source_id: A65
+  A66:
+    type: anchor
+    source_id: A66
+  A70:
+    type: anchor
+    source_id: A70
+  A71:
+    type: anchor
+    source_id: A71
+  A72:
+    type: anchor
+    source_id: A72
+  A73:
+    type: anchor
+    source_id: A73
+  A75:
+    type: anchor
+    source_id: A75
+  A76:
+    type: anchor
+    source_id: A76
+  A77:
+    type: anchor
+    source_id: A77
+  A79:
+    type: anchor
+    source_id: A79
+  A80:
+    type: anchor
+    source_id: A80
+  A81:
+    type: anchor
+    source_id: A81
+  A82:
+    type: anchor
+    source_id: A82
+  A83:
+    type: anchor
+    source_id: A83
+  A85:
+    type: anchor
+    source_id: A85
+  A86:
+    type: anchor
+    source_id: A86
+  A89:
+    type: anchor
+    source_id: A89
+  A90:
+    type: anchor
+    source_id: A90
+  A91:
+    type: anchor
+    source_id: A91
+  A92:
+    type: anchor
+    source_id: A92
+  A94:
+    type: anchor
+    source_id: A94
+  A95:
+    type: anchor
+    source_id: A95
+  A96:
+    type: anchor
+    source_id: A96
+  A97:
+    type: anchor
+    source_id: A97
+  A98:
+    type: anchor
+    source_id: A98
+  A104:
+    type: anchor
+    source_id: A104
+  A106:
+    type: anchor
+    source_id: A106
+  A108:
+    type: anchor
+    source_id: A108
+  A109:
+    type: anchor
+    source_id: A109
+  A110:
+    type: anchor
+    source_id: A110
+  TO0:
+    type: turnout
+    source_id: TO0
+  TO1:
+    type: turnout
+    source_id: TO1
+  TO2:
+    type: turnout
+    source_id: TO2
+  TO3:
+    type: turnout
+    source_id: TO3
+  TO4:
+    type: turnout
+    source_id: TO4
+  TO5:
+    type: turnout
+    source_id: TO5
+  TO6:
+    type: turnout
+    source_id: TO6
+  TO7:
+    type: turnout
+    source_id: TO7
+  TO8:
+    type: turnout
+    source_id: TO8
+  TO9:
+    type: turnout
+    source_id: TO9
+  TO10:
+    type: turnout
+    source_id: TO10
+  TUR0:
+    type: turntable
+    source_id: TUR0
+segments:
+  T0:
+    track_path: JMRI
+    source_id: T0
+    source_kind: straight
+    start: TUR0
+    end: A1
+    points:
+    - &id037
+      - 188.0
+      - 121.4291
+    - - 240.17
+      - 164.6496
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: TUR0
+      connect2name: A1
+      ident: T0
+      hideConLines: 'yes'
+      type1: TURNTABLE_RAY_0
+      blockname: RM Block
+      mainline: 'yes'
+  T1:
+    track_path: JMRI
+    source_id: T1
+    source_kind: straight
+    start: A2
+    end: A3
+    points:
+    - &id001
+      - 651.42
+      - 173.9111
+    - - 609.12
+      - 174.9402
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A2
+      connect2name: A3
+      ident: T1
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T2:
+    track_path: JMRI
+    source_id: T2
+    source_kind: straight
+    start: A2
+    end: A4
+    points:
+    - *id001
+    - - 693.72
+      - 173.3966
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A2
+      connect2name: A4
+      ident: T2
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T3:
+    track_path: JMRI
+    source_id: T3
+    source_kind: straight
+    start: A5
+    end: A6
+    points:
+    - - 692.78
+      - 188.8325
+    - &id032
+      - 650.48
+      - 187.8034
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A5
+      connect2name: A6
+      ident: T3
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T4:
+    track_path: JMRI
+    source_id: T4
+    source_kind: straight
+    start: A7
+    end: A8
+    points:
+    - &id002
+      - 651.42
+      - 154.359
+    - - 693.72
+      - 155.9026
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A7
+      connect2name: A8
+      ident: T4
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T5:
+    track_path: JMRI
+    source_id: T5
+    source_kind: straight
+    start: A9
+    end: A7
+    points:
+    - &id031
+      - 609.12
+      - 152.8154
+    - *id002
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A9
+      connect2name: A7
+      ident: T5
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T6:
+    track_path: JMRI
+    source_id: T6
+    source_kind: arc
+    start: A10
+    end: A11
+    points:
+    - - 230.77
+      - 275.788
+    - - 233.4395
+      - 274.1972
+    - - 236.1758
+      - 272.7243
+    - - 238.9738
+      - 271.3722
+    - - 241.8281
+      - 270.1435
+    - - 244.7332
+      - 269.0404
+    - - 247.6837
+      - 268.0651
+    - - 250.674
+      - 267.2194
+    - - 253.6983
+      - 266.5049
+    - - 256.7509
+      - 265.9231
+    - - 259.8259
+      - 265.4749
+    - - 262.9176
+      - 265.1613
+    - - 266.02
+      - 264.9829
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A11
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A10
+      ident: T6
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T7:
+    track_path: JMRI
+    source_id: T7
+    source_kind: arc
+    start: TO4
+    end: A13
+    points:
+    - - 433.34
+      - 180.0855
+    - - 432.9732
+      - 185.0865
+    - - 432.3886
+      - 190.0667
+    - - 431.5873
+      - 195.0166
+    - - 430.5708
+      - 199.9269
+    - - 429.3412
+      - 204.7882
+    - - 427.9007
+      - 209.5912
+    - - 426.252
+      - 214.3269
+    - - 424.3983
+      - 218.9861
+    - - 422.3432
+      - 223.56
+    - - 420.0905
+      - 228.0399
+    - - 417.6446
+      - 232.4173
+    - - 415.01
+      - 236.6838
+    source:
+      flip: 'no'
+      type1: TURNOUT_C
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A13
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: TO4
+      ident: T7
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T8:
+    track_path: JMRI
+    source_id: T8
+    source_kind: arc
+    start: A13
+    end: A14
+    points:
+    - - 415.01
+      - 236.6838
+    - - 413.0497
+      - 239.1726
+    - - 410.9826
+      - 241.5736
+    - - 408.8128
+      - 243.882
+    - - 406.5444
+      - 246.0937
+    - - 404.1817
+      - 248.2043
+    - - 401.7291
+      - 250.2098
+    - - 399.1914
+      - 252.1065
+    - - 396.5734
+      - 253.8906
+    - - 393.8801
+      - 255.5588
+    - - 391.1165
+      - 257.108
+    - - 388.288
+      - 258.5352
+    - - 385.4
+      - 259.8376
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A14
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A13
+      ident: T8
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T9:
+    track_path: JMRI
+    source_id: T9
+    source_kind: arc
+    start: A15
+    end: A16
+    points:
+    - - 398.09
+      - 93.1299
+    - - 400.7733
+      - 94.9289
+    - - 403.3756
+      - 96.8432
+    - - 405.8919
+      - 98.8693
+    - - 408.3174
+      - 101.0031
+    - - 410.6475
+      - 103.2408
+    - - 412.8778
+      - 105.5779
+    - - 415.0041
+      - 108.0101
+    - - 417.0222
+      - 110.5327
+    - - 418.9284
+      - 113.141
+    - - 420.719
+      - 115.8299
+    - - 422.3906
+      - 118.5944
+    - - 423.94
+      - 121.4291
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A16
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A15
+      ident: T9
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T10:
+    track_path: JMRI
+    source_id: T10
+    source_kind: arc
+    start: A17
+    end: A15
+    points:
+    - - 362.84
+      - 82.8393
+    - - 365.9321
+      - 82.9756
+    - - 369.0153
+      - 83.2467
+    - - 372.0838
+      - 83.652
+    - - 375.1316
+      - 84.1907
+    - - 378.1531
+      - 84.8619
+    - - 381.1424
+      - 85.6642
+    - - 384.0939
+      - 86.5962
+    - - 387.0019
+      - 87.656
+    - - 389.8609
+      - 88.8417
+    - - 392.6654
+      - 90.1509
+    - - 395.4102
+      - 91.5812
+    - - 398.09
+      - 93.1299
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A15
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A17
+      ident: T10
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T11:
+    track_path: JMRI
+    source_id: T11
+    source_kind: straight
+    start: A18
+    end: TO2
+    points:
+    - &id003
+      - 308.32
+      - 264.9829
+    - &id004
+      - 371.77
+      - 264.9829
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: TURNOUT_A
+      connect1name: A18
+      connect2name: TO2
+      ident: T11
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T12:
+    track_path: JMRI
+    source_id: T12
+    source_kind: straight
+    start: A11
+    end: A18
+    points:
+    - - 266.02
+      - 264.9829
+    - *id003
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A11
+      connect2name: A18
+      ident: T12
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T13:
+    track_path: JMRI
+    source_id: T13
+    source_kind: straight
+    start: TO2
+    end: A21
+    points:
+    - *id004
+    - &id005
+      - 421.12
+      - 264.9829
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: TO2
+      connect2name: A21
+      ident: T13
+      hideConLines: 'yes'
+      type1: TURNOUT_B
+      blockname: RM Block
+      mainline: 'yes'
+  T14:
+    track_path: JMRI
+    source_id: T14
+    source_kind: straight
+    start: A21
+    end: A22
+    points:
+    - *id005
+    - &id006
+      - 449.32
+      - 264.9829
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A21
+      connect2name: A22
+      ident: T14
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T15:
+    track_path: JMRI
+    source_id: T15
+    source_kind: straight
+    start: A22
+    end: A23
+    points:
+    - *id006
+    - &id007
+      - 463.42
+      - 264.9829
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A22
+      connect2name: A23
+      ident: T15
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T16:
+    track_path: JMRI
+    source_id: T16
+    source_kind: straight
+    start: A23
+    end: A24
+    points:
+    - *id007
+    - &id008
+      - 470.47
+      - 264.9829
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A23
+      connect2name: A24
+      ident: T16
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T17:
+    track_path: JMRI
+    source_id: T17
+    source_kind: straight
+    start: A24
+    end: TO3
+    points:
+    - *id008
+    - &id035
+      - 494.91
+      - 264.9829
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: TURNOUT_B
+      connect1name: A24
+      connect2name: TO3
+      ident: T17
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T18:
+    track_path: JMRI
+    source_id: T18
+    source_kind: arc
+    start: A26
+    end: TO4
+    points:
+    - - 451.67
+      - 236.6838
+    - - 449.0354
+      - 232.4173
+    - - 446.5895
+      - 228.0399
+    - - 444.3368
+      - 223.56
+    - - 442.2817
+      - 218.9861
+    - - 440.428
+      - 214.3269
+    - - 438.7793
+      - 209.5912
+    - - 437.3388
+      - 204.7882
+    - - 436.1092
+      - 199.9269
+    - - 435.0927
+      - 195.0166
+    - - 434.2914
+      - 190.0667
+    - - 433.7068
+      - 185.0865
+    - - 433.34
+      - 180.0855
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: TO4
+      type2: TURNOUT_B
+      arc: 'yes'
+      connect1name: A26
+      ident: T18
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T19:
+    track_path: JMRI
+    source_id: T19
+    source_kind: arc
+    start: A28
+    end: A26
+    points:
+    - - 481.28
+      - 259.8376
+    - - 478.392
+      - 258.5352
+    - - 475.5635
+      - 257.108
+    - - 472.7999
+      - 255.5588
+    - - 470.1066
+      - 253.8906
+    - - 467.4886
+      - 252.1065
+    - - 464.9509
+      - 250.2098
+    - - 462.4983
+      - 248.2043
+    - - 460.1356
+      - 246.0937
+    - - 457.8672
+      - 243.882
+    - - 455.6974
+      - 241.5736
+    - - 453.6303
+      - 239.1726
+    - - 451.67
+      - 236.6838
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A26
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A28
+      ident: T19
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T20:
+    track_path: JMRI
+    source_id: T20
+    source_kind: arc
+    start: A29
+    end: A30
+    points:
+    - - 204.92
+      - 519.6752
+    - - 203.3773
+      - 516.7041
+    - - 201.9657
+      - 513.6686
+    - - 200.6878
+      - 510.5744
+    - - 199.5462
+      - 507.4274
+    - - 198.5428
+      - 504.2336
+    - - 197.6798
+      - 500.9991
+    - - 196.9586
+      - 497.73
+    - - 196.3808
+      - 494.4326
+    - - 195.9473
+      - 491.1131
+    - - 195.659
+      - 487.7778
+    - - 195.5165
+      - 484.4332
+    - - 195.52
+      - 481.0855
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A30
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A29
+      ident: T20
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T21:
+    track_path: JMRI
+    source_id: T21
+    source_kind: arc
+    start: A31
+    end: A29
+    points:
+    - - 230.77
+      - 547.9744
+    - - 228.0867
+      - 546.1754
+    - - 225.4844
+      - 544.2611
+    - - 222.9681
+      - 542.235
+    - - 220.5426
+      - 540.1012
+    - - 218.2125
+      - 537.8635
+    - - 215.9822
+      - 535.5264
+    - - 213.8559
+      - 533.0942
+    - - 211.8378
+      - 530.5716
+    - - 209.9316
+      - 527.9633
+    - - 208.141
+      - 525.2744
+    - - 206.4694
+      - 522.5099
+    - - 204.92
+      - 519.6752
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A29
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A31
+      ident: T21
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T22:
+    track_path: JMRI
+    source_id: T22
+    source_kind: arc
+    start: A32
+    end: A31
+    points:
+    - - 266.02
+      - 558.265
+    - - 262.9279
+      - 558.1287
+    - - 259.8447
+      - 557.8576
+    - - 256.7762
+      - 557.4523
+    - - 253.7284
+      - 556.9136
+    - - 250.7069
+      - 556.2424
+    - - 247.7176
+      - 555.4401
+    - - 244.7661
+      - 554.5081
+    - - 241.8581
+      - 553.4483
+    - - 238.9991
+      - 552.2626
+    - - 236.1946
+      - 550.9534
+    - - 233.4498
+      - 549.5231
+    - - 230.77
+      - 547.9744
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A31
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A32
+      ident: T22
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T23:
+    track_path: JMRI
+    source_id: T23
+    source_kind: arc
+    start: A33
+    end: A32
+    points:
+    - - 301.27
+      - 547.9744
+    - - 298.5902
+      - 549.5231
+    - - 295.8454
+      - 550.9534
+    - - 293.0409
+      - 552.2626
+    - - 290.1819
+      - 553.4483
+    - - 287.2739
+      - 554.5081
+    - - 284.3224
+      - 555.4401
+    - - 281.3331
+      - 556.2424
+    - - 278.3116
+      - 556.9136
+    - - 275.2638
+      - 557.4523
+    - - 272.1953
+      - 557.8576
+    - - 269.1121
+      - 558.1287
+    - - 266.02
+      - 558.265
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A32
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A33
+      ident: T23
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T24:
+    track_path: JMRI
+    source_id: T24
+    source_kind: arc
+    start: A34
+    end: A33
+    points:
+    - - 327.12
+      - 519.6752
+    - - 325.5706
+      - 522.5099
+    - - 323.899
+      - 525.2744
+    - - 322.1084
+      - 527.9633
+    - - 320.2022
+      - 530.5716
+    - - 318.1841
+      - 533.0942
+    - - 316.0578
+      - 535.5264
+    - - 313.8275
+      - 537.8635
+    - - 311.4974
+      - 540.1012
+    - - 309.0719
+      - 542.235
+    - - 306.5556
+      - 544.2611
+    - - 303.9533
+      - 546.1754
+    - - 301.27
+      - 547.9744
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A33
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A34
+      ident: T24
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T25:
+    track_path: JMRI
+    source_id: T25
+    source_kind: arc
+    start: A35
+    end: A34
+    points:
+    - - 336.52
+      - 481.0855
+    - - 336.5235
+      - 484.4332
+    - - 336.381
+      - 487.7778
+    - - 336.0927
+      - 491.1131
+    - - 335.6592
+      - 494.4326
+    - - 335.0814
+      - 497.73
+    - - 334.3602
+      - 500.9991
+    - - 333.4972
+      - 504.2336
+    - - 332.4938
+      - 507.4274
+    - - 331.3522
+      - 510.5744
+    - - 330.0743
+      - 513.6686
+    - - 328.6627
+      - 516.7041
+    - - 327.12
+      - 519.6752
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A34
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A35
+      ident: T25
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T26:
+    track_path: JMRI
+    source_id: T26
+    source_kind: straight
+    start: A36
+    end: TO6
+    points:
+    - &id009
+      - 195.52
+      - 388.4701
+    - &id016
+      - 195.52
+      - 319.0085
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: TURNOUT_A
+      connect1name: A36
+      connect2name: TO6
+      ident: T26
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T27:
+    track_path: JMRI
+    source_id: T27
+    source_kind: straight
+    start: A36
+    end: A38
+    points:
+    - *id009
+    - &id010
+      - 195.52
+      - 434.7778
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A36
+      connect2name: A38
+      ident: T27
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T28:
+    track_path: JMRI
+    source_id: T28
+    source_kind: straight
+    start: A38
+    end: A30
+    points:
+    - *id010
+    - - 195.52
+      - 481.0855
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A38
+      connect2name: A30
+      ident: T28
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T29:
+    track_path: JMRI
+    source_id: T29
+    source_kind: arc
+    start: A39
+    end: A35
+    points:
+    - - 334.17
+      - 461.5333
+    - - 334.5606
+      - 463.132
+    - - 334.9162
+      - 464.7389
+    - - 335.2366
+      - 466.3531
+    - - 335.5218
+      - 467.974
+    - - 335.7716
+      - 469.6006
+    - - 335.9858
+      - 471.2324
+    - - 336.1643
+      - 472.8684
+    - - 336.3071
+      - 474.5079
+    - - 336.4142
+      - 476.1502
+    - - 336.4853
+      - 477.7944
+    - - 336.5206
+      - 479.4398
+    - - 336.52
+      - 481.0855
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '15.0'
+      connect2name: A35
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A39
+      ident: T29
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T30:
+    track_path: JMRI
+    source_id: T30
+    source_kind: straight
+    start: A40
+    end: A39
+    points:
+    - &id011
+      - 322.89
+      - 416.7692
+    - - 334.17
+      - 461.5333
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A40
+      connect2name: A39
+      ident: T30
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T31:
+    track_path: JMRI
+    source_id: T31
+    source_kind: straight
+    start: A40
+    end: A41
+    points:
+    - *id011
+    - &id012
+      - 312.08
+      - 372.0051
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A40
+      connect2name: A41
+      ident: T31
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T32:
+    track_path: JMRI
+    source_id: T32
+    source_kind: straight
+    start: A41
+    end: A42
+    points:
+    - *id012
+    - &id013
+      - 301.27
+      - 327.241
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A41
+      connect2name: A42
+      ident: T32
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T33:
+    track_path: JMRI
+    source_id: T33
+    source_kind: straight
+    start: A42
+    end: TO1
+    points:
+    - *id013
+    - &id033
+      - 284.82
+      - 259.8376
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: TURNOUT_A
+      connect1name: A42
+      connect2name: TO1
+      ident: T33
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T34:
+    track_path: JMRI
+    source_id: T34
+    source_kind: straight
+    start: A44
+    end: A17
+    points:
+    - &id014
+      - 348.74
+      - 82.8393
+    - - 362.84
+      - 82.8393
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A44
+      connect2name: A17
+      ident: T34
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T35:
+    track_path: JMRI
+    source_id: T35
+    source_kind: straight
+    start: A44
+    end: A45
+    points:
+    - *id014
+    - - 336.99
+      - 82.8393
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A44
+      connect2name: A45
+      ident: T35
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T36:
+    track_path: JMRI
+    source_id: T36
+    source_kind: arc
+    start: A46
+    end: A45
+    points:
+    - - 301.74
+      - 93.1299
+    - - 304.4198
+      - 91.5812
+    - - 307.1646
+      - 90.1509
+    - - 309.9691
+      - 88.8417
+    - - 312.8281
+      - 87.656
+    - - 315.7361
+      - 86.5962
+    - - 318.6876
+      - 85.6642
+    - - 321.6769
+      - 84.8619
+    - - 324.6984
+      - 84.1907
+    - - 327.7462
+      - 83.652
+    - - 330.8147
+      - 83.2467
+    - - 333.8979
+      - 82.9756
+    - - 336.99
+      - 82.8393
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A45
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A46
+      ident: T36
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T37:
+    track_path: JMRI
+    source_id: T37
+    source_kind: arc
+    start: A47
+    end: A48
+    points:
+    - - 273.07
+      - 123.4872
+    - - 274.6194
+      - 120.6525
+    - - 276.291
+      - 117.888
+    - - 278.0816
+      - 115.1991
+    - - 279.9878
+      - 112.5908
+    - - 282.0059
+      - 110.0682
+    - - 284.1322
+      - 107.636
+    - - 286.3625
+      - 105.2989
+    - - 288.6926
+      - 103.0612
+    - - 291.1181
+      - 100.9274
+    - - 293.6344
+      - 98.9013
+    - - 296.2367
+      - 96.987
+    - - 298.92
+      - 95.188
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A48
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A47
+      ident: T37
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T38:
+    track_path: JMRI
+    source_id: T38
+    source_kind: arc
+    start: A49
+    end: A47
+    points:
+    - - 263.67
+      - 162.0769
+    - - 263.6665
+      - 158.7292
+    - - 263.809
+      - 155.3846
+    - - 264.0973
+      - 152.0493
+    - - 264.5308
+      - 148.7298
+    - - 265.1086
+      - 145.4324
+    - - 265.8298
+      - 142.1633
+    - - 266.6928
+      - 138.9288
+    - - 267.6962
+      - 135.735
+    - - 268.8378
+      - 132.588
+    - - 270.1157
+      - 129.4938
+    - - 271.5273
+      - 126.4583
+    - - 273.07
+      - 123.4872
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A47
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A49
+      ident: T38
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T39:
+    track_path: JMRI
+    source_id: T39
+    source_kind: straight
+    start: A48
+    end: A46
+    points:
+    - - 298.92
+      - 95.188
+    - - 301.74
+      - 93.1299
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A48
+      connect2name: A46
+      ident: T39
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T40:
+    track_path: JMRI
+    source_id: T40
+    source_kind: arc
+    start: A50
+    end: A49
+    points:
+    - - 266.02
+      - 181.6291
+    - - 265.6294
+      - 180.0304
+    - - 265.2738
+      - 178.4235
+    - - 264.9534
+      - 176.8093
+    - - 264.6682
+      - 175.1884
+    - - 264.4184
+      - 173.5618
+    - - 264.2042
+      - 171.93
+    - - 264.0257
+      - 170.294
+    - - 263.8829
+      - 168.6545
+    - - 263.7758
+      - 167.0122
+    - - 263.7047
+      - 165.368
+    - - 263.6694
+      - 163.7226
+    - - 263.67
+      - 162.0769
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '15.0'
+      connect2name: A49
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A50
+      ident: T40
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T41:
+    track_path: JMRI
+    source_id: T41
+    source_kind: arc
+    start: A51
+    end: A52
+    points:
+    - - 567.76
+      - 514.5299
+    - - 566.2173
+      - 511.5588
+    - - 564.8057
+      - 508.5233
+    - - 563.5278
+      - 505.4291
+    - - 562.3862
+      - 502.2821
+    - - 561.3828
+      - 499.0883
+    - - 560.5198
+      - 495.8538
+    - - 559.7986
+      - 492.5847
+    - - 559.2208
+      - 489.2873
+    - - 558.7873
+      - 485.9678
+    - - 558.499
+      - 482.6325
+    - - 558.3565
+      - 479.2879
+    - - 558.36
+      - 475.9402
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A52
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A51
+      ident: T41
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T42:
+    track_path: JMRI
+    source_id: T42
+    source_kind: arc
+    start: A53
+    end: A51
+    points:
+    - - 593.61
+      - 542.8291
+    - - 590.9267
+      - 541.0301
+    - - 588.3244
+      - 539.1158
+    - - 585.8081
+      - 537.0897
+    - - 583.3826
+      - 534.9559
+    - - 581.0525
+      - 532.7182
+    - - 578.8222
+      - 530.3811
+    - - 576.6959
+      - 527.9489
+    - - 574.6778
+      - 525.4263
+    - - 572.7716
+      - 522.818
+    - - 570.981
+      - 520.1291
+    - - 569.3094
+      - 517.3646
+    - - 567.76
+      - 514.5299
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A51
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A53
+      ident: T42
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T43:
+    track_path: JMRI
+    source_id: T43
+    source_kind: arc
+    start: A54
+    end: A53
+    points:
+    - - 628.86
+      - 553.1197
+    - - 625.7679
+      - 552.9834
+    - - 622.6847
+      - 552.7123
+    - - 619.6162
+      - 552.307
+    - - 616.5684
+      - 551.7683
+    - - 613.5469
+      - 551.0971
+    - - 610.5576
+      - 550.2948
+    - - 607.6061
+      - 549.3628
+    - - 604.6981
+      - 548.303
+    - - 601.8391
+      - 547.1173
+    - - 599.0346
+      - 545.8081
+    - - 596.2898
+      - 544.3778
+    - - 593.61
+      - 542.8291
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A53
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A54
+      ident: T43
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T44:
+    track_path: JMRI
+    source_id: T44
+    source_kind: arc
+    start: A55
+    end: A54
+    points:
+    - - 664.11
+      - 542.8291
+    - - 661.4302
+      - 544.3778
+    - - 658.6854
+      - 545.8081
+    - - 655.8809
+      - 547.1173
+    - - 653.0219
+      - 548.303
+    - - 650.1139
+      - 549.3628
+    - - 647.1624
+      - 550.2948
+    - - 644.1731
+      - 551.0971
+    - - 641.1516
+      - 551.7683
+    - - 638.1038
+      - 552.307
+    - - 635.0353
+      - 552.7123
+    - - 631.9521
+      - 552.9834
+    - - 628.86
+      - 553.1197
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A54
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A55
+      ident: T44
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T45:
+    track_path: JMRI
+    source_id: T45
+    source_kind: arc
+    start: A56
+    end: A55
+    points:
+    - - 689.96
+      - 514.5299
+    - - 688.4106
+      - 517.3646
+    - - 686.739
+      - 520.1291
+    - - 684.9484
+      - 522.818
+    - - 683.0422
+      - 525.4263
+    - - 681.0241
+      - 527.9489
+    - - 678.8978
+      - 530.3811
+    - - 676.6675
+      - 532.7182
+    - - 674.3374
+      - 534.9559
+    - - 671.9119
+      - 537.0897
+    - - 669.3956
+      - 539.1158
+    - - 666.7933
+      - 541.0301
+    - - 664.11
+      - 542.8291
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A55
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A56
+      ident: T45
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T46:
+    track_path: JMRI
+    source_id: T46
+    source_kind: arc
+    start: A57
+    end: A56
+    points:
+    - - 699.36
+      - 475.9402
+    - - 699.3635
+      - 479.2879
+    - - 699.221
+      - 482.6325
+    - - 698.9327
+      - 485.9678
+    - - 698.4992
+      - 489.2873
+    - - 697.9214
+      - 492.5847
+    - - 697.2002
+      - 495.8538
+    - - 696.3372
+      - 499.0883
+    - - 695.3338
+      - 502.2821
+    - - 694.1922
+      - 505.4291
+    - - 692.9143
+      - 508.5233
+    - - 691.5027
+      - 511.5588
+    - - 689.96
+      - 514.5299
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A56
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A57
+      ident: T46
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T47:
+    track_path: JMRI
+    source_id: T47
+    source_kind: straight
+    start: A58
+    end: A57
+    points:
+    - &id015
+      - 699.36
+      - 429.6325
+    - - 699.36
+      - 475.9402
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A58
+      connect2name: A57
+      ident: T47
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T48:
+    track_path: JMRI
+    source_id: T48
+    source_kind: arc
+    start: TO5
+    end: A60
+    points:
+    - - 537.21
+      - 264.9829
+    - - 542.044
+      - 264.7376
+    - - 546.8841
+      - 264.7034
+    - - 551.721
+      - 264.8804
+    - - 556.5456
+      - 265.2682
+    - - 561.3488
+      - 265.866
+    - - 566.1213
+      - 266.6728
+    - - 570.854
+      - 267.6871
+    - - 575.538
+      - 268.9067
+    - - 580.1643
+      - 270.3296
+    - - 584.7242
+      - 271.9528
+    - - 589.209
+      - 273.7735
+    - - 593.61
+      - 275.788
+    source:
+      flip: 'no'
+      type1: TURNOUT_B
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A60
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: TO5
+      ident: T48
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T49:
+    track_path: JMRI
+    source_id: T49
+    source_kind: arc
+    start: A60
+    end: A61
+    points:
+    - - 593.61
+      - 275.788
+    - - 596.283
+      - 277.5449
+    - - 598.8768
+      - 279.4167
+    - - 601.3865
+      - 281.3998
+    - - 603.8073
+      - 283.4906
+    - - 606.1346
+      - 285.6849
+    - - 608.364
+      - 287.9787
+    - - 610.4911
+      - 290.3675
+    - - 612.5121
+      - 292.8469
+    - - 614.423
+      - 295.412
+    - - 616.2202
+      - 298.0581
+    - - 617.9003
+      - 300.78
+    - - 619.46
+      - 303.5726
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A61
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A60
+      ident: T49
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T50:
+    track_path: JMRI
+    source_id: T50
+    source_kind: arc
+    start: A61
+    end: A62
+    points:
+    - - 619.46
+      - 303.5726
+    - - 621.0027
+      - 306.5437
+    - - 622.4143
+      - 309.5792
+    - - 623.6922
+      - 312.6734
+    - - 624.8338
+      - 315.8204
+    - - 625.8372
+      - 319.0142
+    - - 626.7002
+      - 322.2487
+    - - 627.4214
+      - 325.5178
+    - - 627.9992
+      - 328.8153
+    - - 628.4327
+      - 332.1348
+    - - 628.721
+      - 335.47
+    - - 628.8635
+      - 338.8147
+    - - 628.86
+      - 342.1624
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A62
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A61
+      ident: T50
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T51:
+    track_path: JMRI
+    source_id: T51
+    source_kind: arc
+    start: A62
+    end: A63
+    points:
+    - - 628.86
+      - 342.1624
+    - - 628.8635
+      - 345.5101
+    - - 628.721
+      - 348.8547
+    - - 628.4327
+      - 352.19
+    - - 627.9992
+      - 355.5095
+    - - 627.4214
+      - 358.8069
+    - - 626.7002
+      - 362.076
+    - - 625.8372
+      - 365.3105
+    - - 624.8338
+      - 368.5043
+    - - 623.6922
+      - 371.6513
+    - - 622.4143
+      - 374.7455
+    - - 621.0027
+      - 377.781
+    - - 619.46
+      - 380.7521
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A63
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A62
+      ident: T51
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T52:
+    track_path: JMRI
+    source_id: T52
+    source_kind: arc
+    start: A63
+    end: A64
+    points:
+    - - 619.46
+      - 380.7521
+    - - 617.9106
+      - 383.5868
+    - - 616.239
+      - 386.3513
+    - - 614.4484
+      - 389.0402
+    - - 612.5422
+      - 391.6485
+    - - 610.5241
+      - 394.1711
+    - - 608.3978
+      - 396.6033
+    - - 606.1675
+      - 398.9404
+    - - 603.8374
+      - 401.1781
+    - - 601.4119
+      - 403.3119
+    - - 598.8956
+      - 405.338
+    - - 596.2933
+      - 407.2523
+    - - 593.61
+      - 409.0513
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A64
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A63
+      ident: T52
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T53:
+    track_path: JMRI
+    source_id: T53
+    source_kind: arc
+    start: A65
+    end: A64
+    points:
+    - - 567.76
+      - 437.3504
+    - - 569.3094
+      - 434.5157
+    - - 570.981
+      - 431.7512
+    - - 572.7716
+      - 429.0623
+    - - 574.6778
+      - 426.454
+    - - 576.6959
+      - 423.9314
+    - - 578.8222
+      - 421.4992
+    - - 581.0525
+      - 419.1621
+    - - 583.3826
+      - 416.9245
+    - - 585.8081
+      - 414.7906
+    - - 588.3244
+      - 412.7646
+    - - 590.9267
+      - 410.8503
+    - - 593.61
+      - 409.0513
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A64
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A65
+      ident: T53
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T54:
+    track_path: JMRI
+    source_id: T54
+    source_kind: arc
+    start: A52
+    end: A65
+    points:
+    - - 558.36
+      - 475.9402
+    - - 558.3565
+      - 472.5925
+    - - 558.499
+      - 469.2478
+    - - 558.7873
+      - 465.9126
+    - - 559.2208
+      - 462.5931
+    - - 559.7986
+      - 459.2956
+    - - 560.5198
+      - 456.0265
+    - - 561.3828
+      - 452.792
+    - - 562.3862
+      - 449.5982
+    - - 563.5278
+      - 446.4512
+    - - 564.8057
+      - 443.357
+    - - 566.2173
+      - 440.3215
+    - - 567.76
+      - 437.3504
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A65
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A52
+      ident: T54
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T55:
+    track_path: JMRI
+    source_id: T55
+    source_kind: straight
+    start: A58
+    end: A66
+    points:
+    - *id015
+    - &id018
+      - 699.36
+      - 383.3248
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A58
+      connect2name: A66
+      ident: T55
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T56:
+    track_path: JMRI
+    source_id: T56
+    source_kind: bezier
+    start: TO6
+    end: A10
+    points:
+    - *id016
+    - - 203.98
+      - 292.253
+    - - 203.98
+      - 292.253
+    - - 230.77
+      - 275.788
+    source:
+      type1: TURNOUT_C
+      blockname: RM Block
+      connect2name: A10
+      type2: POS_POINT
+      connect1name: TO6
+      ident: T56
+      hideConLines: 'yes'
+      hidden: 'no'
+      mainline: 'yes'
+      bezier: 'yes'
+      dashed: 'no'
+  T57:
+    track_path: JMRI
+    source_id: T57
+    source_kind: bezier
+    start: A50
+    end: TO10
+    points:
+    - - 266.02
+      - 181.6291
+    - - 266.49
+      - 185.2308
+    - - 267.43
+      - 189.8615
+    - &id034
+      - 273.54
+      - 215.0735
+    source:
+      type1: POS_POINT
+      blockname: RM Block
+      connect2name: TO10
+      type2: TURNOUT_B
+      connect1name: A50
+      ident: T57
+      hideConLines: 'yes'
+      hidden: 'no'
+      mainline: 'yes'
+      bezier: 'yes'
+      dashed: 'no'
+  T58:
+    track_path: JMRI
+    source_id: T58
+    source_kind: arc
+    start: TO6
+    end: A70
+    points:
+    - - 195.52
+      - 319.0085
+    - - 195.0526
+      - 313.7652
+    - - 194.8144
+      - 308.5065
+    - - 194.8058
+      - 303.2424
+    - - 195.0269
+      - 297.983
+    - - 195.4771
+      - 292.7382
+    - - 196.1557
+      - 287.518
+    - - 197.0613
+      - 282.3324
+    - - 198.1922
+      - 277.1912
+    - - 199.5464
+      - 272.1043
+    - - 201.1211
+      - 267.0812
+    - - 202.9135
+      - 262.1317
+    - - 204.92
+      - 257.265
+    source:
+      flip: 'no'
+      type1: TURNOUT_B
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A70
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: TO6
+      ident: T58
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T59:
+    track_path: JMRI
+    source_id: T59
+    source_kind: arc
+    start: A71
+    end: A70
+    points:
+    - - 214.32
+      - 218.6752
+    - - 214.3235
+      - 222.0229
+    - - 214.181
+      - 225.3676
+    - - 213.8927
+      - 228.7028
+    - - 213.4592
+      - 232.0223
+    - - 212.8814
+      - 235.3198
+    - - 212.1602
+      - 238.5889
+    - - 211.2972
+      - 241.8234
+    - - 210.2938
+      - 245.0172
+    - - 209.1522
+      - 248.1642
+    - - 207.8743
+      - 251.2584
+    - - 206.4627
+      - 254.2939
+    - - 204.92
+      - 257.265
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A70
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A71
+      ident: T59
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T60:
+    track_path: JMRI
+    source_id: T60
+    source_kind: straight
+    start: A72
+    end: A71
+    points:
+    - &id017
+      - 214.32
+      - 172.3675
+    - - 214.32
+      - 218.6752
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A72
+      connect2name: A71
+      ident: T60
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T61:
+    track_path: JMRI
+    source_id: T61
+    source_kind: straight
+    start: A72
+    end: A73
+    points:
+    - *id017
+    - - 214.32
+      - 126.0598
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A72
+      connect2name: A73
+      ident: T61
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T62:
+    track_path: JMRI
+    source_id: T62
+    source_kind: arc
+    start: TO7
+    end: A75
+    points:
+    - - 580.45
+      - 253.6632
+    - - 585.8302
+      - 253.1503
+    - - 591.2277
+      - 252.8726
+    - - 596.6322
+      - 252.8306
+    - - 602.0334
+      - 253.0244
+    - - 607.4209
+      - 253.4535
+    - - 612.7847
+      - 254.1173
+    - - 618.1143
+      - 255.0144
+    - - 623.3998
+      - 256.1432
+    - - 628.631
+      - 257.5014
+    - - 633.7979
+      - 259.0864
+    - - 638.8908
+      - 260.8954
+    - - 643.9
+      - 262.9248
+    source:
+      flip: 'no'
+      type1: TURNOUT_C
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A75
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: TO7
+      ident: T62
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T63:
+    track_path: JMRI
+    source_id: T63
+    source_kind: arc
+    start: A75
+    end: A76
+    points:
+    - - 643.9
+      - 262.9248
+    - - 646.6678
+      - 264.5692
+    - - 649.3613
+      - 266.3327
+    - - 651.9752
+      - 268.2121
+    - - 654.5047
+      - 270.2036
+    - - 656.9449
+      - 272.3037
+    - - 659.2912
+      - 274.5081
+    - - 661.5391
+      - 276.8128
+    - - 663.6843
+      - 279.2134
+    - - 665.7228
+      - 281.7053
+    - - 667.6507
+      - 284.2837
+    - - 669.4642
+      - 286.9437
+    - - 671.16
+      - 289.6803
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A76
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A75
+      ident: T63
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T64:
+    track_path: JMRI
+    source_id: T64
+    source_kind: bezier
+    start: A76
+    end: A66
+    points:
+    - - 671.16
+      - 289.6803
+    - - 699.36
+      - 338.5607
+    - - 699.36
+      - 338.5607
+    - *id018
+    source:
+      type1: POS_POINT
+      blockname: RM Block
+      connect2name: A66
+      type2: POS_POINT
+      connect1name: A76
+      ident: T64
+      hideConLines: 'yes'
+      hidden: 'no'
+      mainline: 'yes'
+      bezier: 'yes'
+      dashed: 'no'
+  T65:
+    track_path: JMRI
+    source_id: T65
+    source_kind: arc
+    start: A77
+    end: TO7
+    points:
+    - - 639.67
+      - 229.4803
+    - - 635.3061
+      - 232.6466
+    - - 630.8082
+      - 235.6195
+    - - 626.1849
+      - 238.3933
+    - - 621.4451
+      - 240.9629
+    - - 616.5976
+      - 243.3233
+    - - 611.6519
+      - 245.47
+    - - 606.6172
+      - 247.3989
+    - - 601.5031
+      - 249.1064
+    - - 596.3194
+      - 250.5891
+    - - 591.076
+      - 251.8444
+    - - 585.7829
+      - 252.8697
+    - - 580.45
+      - 253.6632
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: TO7
+      type2: TURNOUT_B
+      arc: 'yes'
+      connect1name: A77
+      ident: T65
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T66:
+    track_path: JMRI
+    source_id: T66
+    source_kind: arc
+    start: A79
+    end: A77
+    points:
+    - - 659.41
+      - 196.0359
+    - - 658.4639
+      - 199.1695
+    - - 657.382
+      - 202.2588
+    - - 656.1664
+      - 205.298
+    - - 654.8193
+      - 208.2813
+    - - 653.3434
+      - 211.203
+    - - 651.7415
+      - 214.0575
+    - - 650.0166
+      - 216.8394
+    - - 648.172
+      - 219.5435
+    - - 646.2112
+      - 222.1645
+    - - 644.1379
+      - 224.6975
+    - - 641.9561
+      - 227.1376
+    - - 639.67
+      - 229.4803
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A77
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A79
+      ident: T66
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T67:
+    track_path: JMRI
+    source_id: T67
+    source_kind: arc
+    start: A80
+    end: A79
+    points:
+    - - 661.29
+      - 155.9026
+    - - 661.9401
+      - 159.226
+    - - 662.4446
+      - 162.5746
+    - - 662.8026
+      - 165.942
+    - - 663.0133
+      - 169.3219
+    - - 663.0765
+      - 172.7077
+    - - 662.9918
+      - 176.093
+    - - 662.7596
+      - 179.4714
+    - - 662.3803
+      - 182.8365
+    - - 661.8545
+      - 186.1818
+    - - 661.1833
+      - 189.501
+    - - 660.3679
+      - 192.7878
+    - - 659.41
+      - 196.0359
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A79
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A80
+      ident: T67
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T68:
+    track_path: JMRI
+    source_id: T68
+    source_kind: arc
+    start: A81
+    end: A80
+    points:
+    - - 644.84
+      - 120.4
+    - - 646.898
+      - 122.9771
+    - - 648.8417
+      - 125.6415
+    - - 650.6673
+      - 128.3881
+    - - 652.3713
+      - 131.2117
+    - - 653.9505
+      - 134.107
+    - - 655.402
+      - 137.0685
+    - - 656.7229
+      - 140.0904
+    - - 657.9107
+      - 143.167
+    - - 658.9632
+      - 146.2926
+    - - 659.8784
+      - 149.461
+    - - 660.6545
+      - 152.6664
+    - - 661.29
+      - 155.9026
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A80
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A81
+      ident: T68
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T69:
+    track_path: JMRI
+    source_id: T69
+    source_kind: arc
+    start: A82
+    end: A81
+    points:
+    - - 614.29
+      - 98.7897
+    - - 617.2241
+      - 99.9469
+    - - 620.1049
+      - 101.231
+    - - 622.927
+      - 102.6396
+    - - 625.6849
+      - 104.1699
+    - - 628.3735
+      - 105.819
+    - - 630.9875
+      - 107.5839
+    - - 633.5221
+      - 109.461
+    - - 635.9724
+      - 111.447
+    - - 638.3338
+      - 113.538
+    - - 640.6017
+      - 115.7299
+    - - 642.7718
+      - 118.0187
+    - - 644.84
+      - 120.4
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A81
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A82
+      ident: T69
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T70:
+    track_path: JMRI
+    source_id: T70
+    source_kind: arc
+    start: A83
+    end: A82
+    points:
+    - - 577.63
+      - 96.7316
+    - - 580.6726
+      - 96.1657
+    - - 583.737
+      - 95.733
+    - - 586.8174
+      - 95.4344
+    - - 589.9078
+      - 95.2704
+    - - 593.0025
+      - 95.2414
+    - - 596.0955
+      - 95.3475
+    - - 599.1809
+      - 95.5883
+    - - 602.2529
+      - 95.9635
+    - - 605.3055
+      - 96.4723
+    - - 608.3331
+      - 97.1138
+    - - 611.3298
+      - 97.8868
+    - - 614.29
+      - 98.7897
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A82
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A83
+      ident: T70
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T71:
+    track_path: JMRI
+    source_id: T71
+    source_kind: arc
+    start: TO1
+    end: A85
+    points:
+    - - 284.82
+      - 259.8376
+    - - 284.8433
+      - 255.0993
+    - - 285.0732
+      - 250.3665
+    - - 285.5093
+      - 245.6483
+    - - 286.1509
+      - 240.9535
+    - - 286.9966
+      - 236.2912
+    - - 288.0448
+      - 231.6703
+    - - 289.2937
+      - 227.0995
+    - - 290.7407
+      - 222.5874
+    - - 292.3831
+      - 218.1428
+    - - 294.2179
+      - 213.7741
+    - - 296.2415
+      - 209.4896
+    - - 298.45
+      - 205.2974
+    source:
+      flip: 'no'
+      type1: TURNOUT_C
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A85
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: TO1
+      ident: T71
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T72:
+    track_path: JMRI
+    source_id: T72
+    source_kind: arc
+    start: A85
+    end: A86
+    points:
+    - - 298.45
+      - 205.2974
+    - - 300.2049
+      - 202.6356
+    - - 302.0742
+      - 200.0529
+    - - 304.0544
+      - 197.5542
+    - - 306.1417
+      - 195.1443
+    - - 308.3321
+      - 192.8276
+    - - 310.6215
+      - 190.6088
+    - - 313.0055
+      - 188.4919
+    - - 315.4796
+      - 186.481
+    - - 318.039
+      - 184.58
+    - - 320.6789
+      - 182.7924
+    - - 323.3943
+      - 181.1216
+    - - 326.18
+      - 179.5709
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: A86
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A85
+      ident: T72
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T73:
+    track_path: JMRI
+    source_id: T73
+    source_kind: straight
+    start: A86
+    end: TO8
+    points:
+    - - 326.18
+      - 179.5709
+    - &id019
+      - 383.52
+      - 150.2427
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: TURNOUT_A
+      connect1name: A86
+      connect2name: TO8
+      ident: T73
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T74:
+    track_path: JMRI
+    source_id: T74
+    source_kind: straight
+    start: TO8
+    end: A89
+    points:
+    - *id019
+    - - 441.33
+      - 120.9145
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: TO8
+      connect2name: A89
+      ident: T74
+      hideConLines: 'yes'
+      type1: TURNOUT_B
+      blockname: RM Block
+      mainline: 'yes'
+  T75:
+    track_path: JMRI
+    source_id: T75
+    source_kind: arc
+    start: A89
+    end: A90
+    points:
+    - - 441.33
+      - 120.9145
+    - - 442.7111
+      - 120.2283
+    - - 444.1068
+      - 119.5723
+    - - 445.5165
+      - 118.947
+    - - 446.9395
+      - 118.3525
+    - - 448.3751
+      - 117.7893
+    - - 449.8227
+      - 117.2574
+    - - 451.2815
+      - 116.7573
+    - - 452.7509
+      - 116.2892
+    - - 454.2301
+      - 115.8532
+    - - 455.7185
+      - 115.4496
+    - - 457.2154
+      - 115.0785
+    - - 458.72
+      - 114.7402
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '15.0'
+      connect2name: A90
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A89
+      ident: T75
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T76:
+    track_path: JMRI
+    source_id: T76
+    source_kind: straight
+    start: A90
+    end: A91
+    points:
+    - - 458.72
+      - 114.7402
+    - &id020
+      - 500.55
+      - 107.0222
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A90
+      connect2name: A91
+      ident: T76
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T77:
+    track_path: JMRI
+    source_id: T77
+    source_kind: straight
+    start: A91
+    end: A92
+    points:
+    - *id020
+    - &id021
+      - 541.91
+      - 98.7897
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A91
+      connect2name: A92
+      ident: T77
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T78:
+    track_path: JMRI
+    source_id: T78
+    source_kind: bezier
+    start: A92
+    end: A83
+    points:
+    - *id021
+    - - 552.72
+      - 96.7316
+    - - 567.29
+      - 99.3043
+    - - 577.63
+      - 96.7316
+    source:
+      type1: POS_POINT
+      blockname: RM Block
+      connect2name: A83
+      type2: POS_POINT
+      connect1name: A92
+      ident: T78
+      hideConLines: 'yes'
+      hidden: 'no'
+      mainline: 'yes'
+      bezier: 'yes'
+      dashed: 'no'
+  T79:
+    track_path: JMRI
+    source_id: T79
+    source_kind: arc
+    start: A16
+    end: TO4
+    points:
+    - - 423.94
+      - 121.4291
+    - - 425.8847
+      - 126.043
+    - - 427.6263
+      - 130.7374
+    - - 429.1614
+      - 135.5033
+    - - 430.4872
+      - 140.3315
+    - - 431.6012
+      - 145.2131
+    - - 432.5011
+      - 150.1385
+    - - 433.1854
+      - 155.0986
+    - - 433.6526
+      - 160.0837
+    - - 433.902
+      - 165.0845
+    - - 433.933
+      - 170.0914
+    - - 433.7455
+      - 175.0949
+    - - 433.34
+      - 180.0855
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '30.0'
+      connect2name: TO4
+      type2: TURNOUT_A
+      arc: 'yes'
+      connect1name: A16
+      ident: T79
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T80:
+    track_path: JMRI
+    source_id: T80
+    source_kind: straight
+    start: A94
+    end: A94
+    points:
+    - &id022
+      - 26.32
+      - 121.4291
+    - *id022
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A94
+      connect2name: A94
+      ident: T80
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T81:
+    track_path: JMRI
+    source_id: T81
+    source_kind: straight
+    start: A95
+    end: A95
+    points:
+    - &id023
+      - 26.32
+      - 140.4667
+    - *id023
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A95
+      connect2name: A95
+      ident: T81
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T82:
+    track_path: JMRI
+    source_id: T82
+    source_kind: straight
+    start: A96
+    end: A96
+    points:
+    - &id024
+      - 26.32
+      - 163.106
+    - *id024
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A96
+      connect2name: A96
+      ident: T82
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T83:
+    track_path: JMRI
+    source_id: T83
+    source_kind: straight
+    start: A97
+    end: A97
+    points:
+    - &id025
+      - 25.85
+      - 186.2598
+    - *id025
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A97
+      connect2name: A97
+      ident: T83
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T84:
+    track_path: JMRI
+    source_id: T84
+    source_kind: straight
+    start: A98
+    end: A98
+    points:
+    - &id026
+      - 25.85
+      - 209.4137
+    - *id026
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A98
+      connect2name: A98
+      ident: T84
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T85:
+    track_path: JMRI
+    source_id: T85
+    source_kind: arc
+    start: TO8
+    end: TO0
+    points:
+    - - 383.52
+      - 150.2427
+    - - 389.0603
+      - 149.2715
+    - - 394.6205
+      - 148.4214
+    - - 400.198
+      - 147.6929
+    - - 405.7899
+      - 147.0861
+    - - 411.3938
+      - 146.6015
+    - - 417.007
+      - 146.2393
+    - - 422.6267
+      - 145.9996
+    - - 428.2503
+      - 145.8825
+    - - 433.8751
+      - 145.8881
+    - - 439.4984
+      - 146.0165
+    - - 445.1176
+      - 146.2675
+    - - 450.73
+      - 146.641
+    source:
+      flip: 'no'
+      type1: TURNOUT_C
+      blockname: RM Block
+      angle: '15.0'
+      connect2name: TO0
+      type2: TURNOUT_A
+      arc: 'yes'
+      connect1name: TO8
+      ident: T85
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T86:
+    track_path: JMRI
+    source_id: T86
+    source_kind: straight
+    start: TO0
+    end: TO9
+    points:
+    - &id028
+      - 450.73
+      - 146.641
+    - &id027
+      - 521.23
+      - 160.5333
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: TURNOUT_A
+      connect1name: TO0
+      connect2name: TO9
+      ident: T86
+      hideConLines: 'yes'
+      type1: TURNOUT_C
+      blockname: RM Block
+      mainline: 'yes'
+  T87:
+    track_path: JMRI
+    source_id: T87
+    source_kind: straight
+    start: TO9
+    end: A104
+    points:
+    - *id027
+    - - 586.09
+      - 183.1726
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: TO9
+      connect2name: A104
+      ident: T87
+      hideConLines: 'yes'
+      type1: TURNOUT_C
+      blockname: RM Block
+      mainline: 'yes'
+  T88:
+    track_path: JMRI
+    source_id: T88
+    source_kind: straight
+    start: TO9
+    end: A106
+    points:
+    - *id027
+    - - 594.55
+      - 173.3966
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: TO9
+      connect2name: A106
+      ident: T88
+      hideConLines: 'yes'
+      type1: TURNOUT_B
+      blockname: RM Block
+      mainline: 'yes'
+  T89:
+    track_path: JMRI
+    source_id: T89
+    source_kind: straight
+    start: TO0
+    end: A108
+    points:
+    - *id028
+    - &id029
+      - 524.52
+      - 149.7282
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: TO0
+      connect2name: A108
+      ident: T89
+      hideConLines: 'yes'
+      type1: TURNOUT_B
+      blockname: RM Block
+      mainline: 'yes'
+  T90:
+    track_path: JMRI
+    source_id: T90
+    source_kind: straight
+    start: A108
+    end: A109
+    points:
+    - *id029
+    - &id030
+      - 566.82
+      - 151.2718
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A108
+      connect2name: A109
+      ident: T90
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T91:
+    track_path: JMRI
+    source_id: T91
+    source_kind: straight
+    start: A109
+    end: A9
+    points:
+    - *id030
+    - *id031
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A109
+      connect2name: A9
+      ident: T91
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T92:
+    track_path: JMRI
+    source_id: T92
+    source_kind: arc
+    start: A3
+    end: A106
+    points:
+    - - 609.12
+      - 174.9402
+    - - 607.8979
+      - 174.909
+    - - 606.6764
+      - 174.86
+    - - 605.4557
+      - 174.7932
+    - - 604.2361
+      - 174.7087
+    - - 603.0179
+      - 174.6064
+    - - 601.8013
+      - 174.4865
+    - - 600.5866
+      - 174.3488
+    - - 599.374
+      - 174.1936
+    - - 598.1638
+      - 174.0206
+    - - 596.9562
+      - 173.8302
+    - - 595.7515
+      - 173.6221
+    - - 594.55
+      - 173.3966
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '10.0'
+      connect2name: A106
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A3
+      ident: T92
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T93:
+    track_path: JMRI
+    source_id: T93
+    source_kind: straight
+    start: A110
+    end: A6
+    points:
+    - - 608.18
+      - 186.7744
+    - *id032
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: POS_POINT
+      connect1name: A110
+      connect2name: A6
+      ident: T93
+      hideConLines: 'yes'
+      type1: POS_POINT
+      blockname: RM Block
+      mainline: 'yes'
+  T94:
+    track_path: JMRI
+    source_id: T94
+    source_kind: arc
+    start: A110
+    end: A104
+    points:
+    - - 608.18
+      - 186.7744
+    - - 606.3112
+      - 186.6965
+    - - 604.4445
+      - 186.5779
+    - - 602.5809
+      - 186.4186
+    - - 600.7211
+      - 186.2187
+    - - 598.8662
+      - 185.9783
+    - - 597.017
+      - 185.6974
+    - - 595.1743
+      - 185.3763
+    - - 593.3391
+      - 185.0151
+    - - 591.5122
+      - 184.6139
+    - - 589.6944
+      - 184.1729
+    - - 587.8868
+      - 183.6924
+    - - 586.09
+      - 183.1726
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '15.0'
+      connect2name: A104
+      type2: POS_POINT
+      arc: 'yes'
+      connect1name: A110
+      ident: T94
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T95:
+    track_path: JMRI
+    source_id: T95
+    source_kind: arc
+    start: A1
+    end: TO10
+    points:
+    - - 240.17
+      - 164.6496
+    - - 243.6805
+      - 168.3092
+    - - 247.0694
+      - 172.0817
+    - - 250.333
+      - 175.9631
+    - - 253.4679
+      - 179.9491
+    - - 256.4707
+      - 184.0357
+    - - 259.3382
+      - 188.2182
+    - - 262.0673
+      - 192.4924
+    - - 264.655
+      - 196.8535
+    - - 267.0987
+      - 201.297
+    - - 269.3957
+      - 205.8181
+    - - 271.5436
+      - 210.4119
+    - - 273.54
+      - 215.0735
+    source:
+      flip: 'no'
+      type1: POS_POINT
+      blockname: RM Block
+      angle: '22.5'
+      connect2name: TO10
+      type2: TURNOUT_C
+      arc: 'yes'
+      connect1name: A1
+      ident: T95
+      hidden: 'no'
+      hideConLines: 'yes'
+      mainline: 'yes'
+      circle: 'yes'
+      dashed: 'no'
+  T96:
+    track_path: JMRI
+    source_id: T96
+    source_kind: straight
+    start: TO1
+    end: TO10
+    points:
+    - *id033
+    - *id034
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: TURNOUT_A
+      connect1name: TO1
+      connect2name: TO10
+      ident: T96
+      hideConLines: 'yes'
+      type1: TURNOUT_B
+      blockname: RM Block
+      mainline: 'yes'
+  T97:
+    track_path: JMRI
+    source_id: T97
+    source_kind: straight
+    start: TO3
+    end: TO5
+    points:
+    - *id035
+    - &id036
+      - 537.21
+      - 264.9829
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: TURNOUT_A
+      connect1name: TO3
+      connect2name: TO5
+      ident: T97
+      hideConLines: 'yes'
+      type1: TURNOUT_A
+      blockname: RM Block
+      mainline: 'yes'
+  T98:
+    track_path: JMRI
+    source_id: T98
+    source_kind: straight
+    start: TO5
+    end: TO7
+    points:
+    - *id036
+    - - 580.45
+      - 253.6632
+    source:
+      hidden: 'no'
+      dashed: 'no'
+      type2: TURNOUT_A
+      connect1name: TO5
+      connect2name: TO7
+      ident: T98
+      hideConLines: 'yes'
+      type1: TURNOUT_C
+      blockname: RM Block
+      mainline: 'yes'
+connections:
+- segment_id: T0
+  from: TUR0
+  to: A1
+  source_id: T0
+- segment_id: T1
+  from: A2
+  to: A3
+  source_id: T1
+- segment_id: T2
+  from: A2
+  to: A4
+  source_id: T2
+- segment_id: T3
+  from: A5
+  to: A6
+  source_id: T3
+- segment_id: T4
+  from: A7
+  to: A8
+  source_id: T4
+- segment_id: T5
+  from: A9
+  to: A7
+  source_id: T5
+- segment_id: T6
+  from: A10
+  to: A11
+  source_id: T6
+- segment_id: T7
+  from: TO4
+  to: A13
+  source_id: T7
+- segment_id: T8
+  from: A13
+  to: A14
+  source_id: T8
+- segment_id: T9
+  from: A15
+  to: A16
+  source_id: T9
+- segment_id: T10
+  from: A17
+  to: A15
+  source_id: T10
+- segment_id: T11
+  from: A18
+  to: TO2
+  source_id: T11
+- segment_id: T12
+  from: A11
+  to: A18
+  source_id: T12
+- segment_id: T13
+  from: TO2
+  to: A21
+  source_id: T13
+- segment_id: T14
+  from: A21
+  to: A22
+  source_id: T14
+- segment_id: T15
+  from: A22
+  to: A23
+  source_id: T15
+- segment_id: T16
+  from: A23
+  to: A24
+  source_id: T16
+- segment_id: T17
+  from: A24
+  to: TO3
+  source_id: T17
+- segment_id: T18
+  from: A26
+  to: TO4
+  source_id: T18
+- segment_id: T19
+  from: A28
+  to: A26
+  source_id: T19
+- segment_id: T20
+  from: A29
+  to: A30
+  source_id: T20
+- segment_id: T21
+  from: A31
+  to: A29
+  source_id: T21
+- segment_id: T22
+  from: A32
+  to: A31
+  source_id: T22
+- segment_id: T23
+  from: A33
+  to: A32
+  source_id: T23
+- segment_id: T24
+  from: A34
+  to: A33
+  source_id: T24
+- segment_id: T25
+  from: A35
+  to: A34
+  source_id: T25
+- segment_id: T26
+  from: A36
+  to: TO6
+  source_id: T26
+- segment_id: T27
+  from: A36
+  to: A38
+  source_id: T27
+- segment_id: T28
+  from: A38
+  to: A30
+  source_id: T28
+- segment_id: T29
+  from: A39
+  to: A35
+  source_id: T29
+- segment_id: T30
+  from: A40
+  to: A39
+  source_id: T30
+- segment_id: T31
+  from: A40
+  to: A41
+  source_id: T31
+- segment_id: T32
+  from: A41
+  to: A42
+  source_id: T32
+- segment_id: T33
+  from: A42
+  to: TO1
+  source_id: T33
+- segment_id: T34
+  from: A44
+  to: A17
+  source_id: T34
+- segment_id: T35
+  from: A44
+  to: A45
+  source_id: T35
+- segment_id: T36
+  from: A46
+  to: A45
+  source_id: T36
+- segment_id: T37
+  from: A47
+  to: A48
+  source_id: T37
+- segment_id: T38
+  from: A49
+  to: A47
+  source_id: T38
+- segment_id: T39
+  from: A48
+  to: A46
+  source_id: T39
+- segment_id: T40
+  from: A50
+  to: A49
+  source_id: T40
+- segment_id: T41
+  from: A51
+  to: A52
+  source_id: T41
+- segment_id: T42
+  from: A53
+  to: A51
+  source_id: T42
+- segment_id: T43
+  from: A54
+  to: A53
+  source_id: T43
+- segment_id: T44
+  from: A55
+  to: A54
+  source_id: T44
+- segment_id: T45
+  from: A56
+  to: A55
+  source_id: T45
+- segment_id: T46
+  from: A57
+  to: A56
+  source_id: T46
+- segment_id: T47
+  from: A58
+  to: A57
+  source_id: T47
+- segment_id: T48
+  from: TO5
+  to: A60
+  source_id: T48
+- segment_id: T49
+  from: A60
+  to: A61
+  source_id: T49
+- segment_id: T50
+  from: A61
+  to: A62
+  source_id: T50
+- segment_id: T51
+  from: A62
+  to: A63
+  source_id: T51
+- segment_id: T52
+  from: A63
+  to: A64
+  source_id: T52
+- segment_id: T53
+  from: A65
+  to: A64
+  source_id: T53
+- segment_id: T54
+  from: A52
+  to: A65
+  source_id: T54
+- segment_id: T55
+  from: A58
+  to: A66
+  source_id: T55
+- segment_id: T56
+  from: TO6
+  to: A10
+  source_id: T56
+- segment_id: T57
+  from: A50
+  to: TO10
+  source_id: T57
+- segment_id: T58
+  from: TO6
+  to: A70
+  source_id: T58
+- segment_id: T59
+  from: A71
+  to: A70
+  source_id: T59
+- segment_id: T60
+  from: A72
+  to: A71
+  source_id: T60
+- segment_id: T61
+  from: A72
+  to: A73
+  source_id: T61
+- segment_id: T62
+  from: TO7
+  to: A75
+  source_id: T62
+- segment_id: T63
+  from: A75
+  to: A76
+  source_id: T63
+- segment_id: T64
+  from: A76
+  to: A66
+  source_id: T64
+- segment_id: T65
+  from: A77
+  to: TO7
+  source_id: T65
+- segment_id: T66
+  from: A79
+  to: A77
+  source_id: T66
+- segment_id: T67
+  from: A80
+  to: A79
+  source_id: T67
+- segment_id: T68
+  from: A81
+  to: A80
+  source_id: T68
+- segment_id: T69
+  from: A82
+  to: A81
+  source_id: T69
+- segment_id: T70
+  from: A83
+  to: A82
+  source_id: T70
+- segment_id: T71
+  from: TO1
+  to: A85
+  source_id: T71
+- segment_id: T72
+  from: A85
+  to: A86
+  source_id: T72
+- segment_id: T73
+  from: A86
+  to: TO8
+  source_id: T73
+- segment_id: T74
+  from: TO8
+  to: A89
+  source_id: T74
+- segment_id: T75
+  from: A89
+  to: A90
+  source_id: T75
+- segment_id: T76
+  from: A90
+  to: A91
+  source_id: T76
+- segment_id: T77
+  from: A91
+  to: A92
+  source_id: T77
+- segment_id: T78
+  from: A92
+  to: A83
+  source_id: T78
+- segment_id: T79
+  from: A16
+  to: TO4
+  source_id: T79
+- segment_id: T80
+  from: A94
+  to: A94
+  source_id: T80
+- segment_id: T81
+  from: A95
+  to: A95
+  source_id: T81
+- segment_id: T82
+  from: A96
+  to: A96
+  source_id: T82
+- segment_id: T83
+  from: A97
+  to: A97
+  source_id: T83
+- segment_id: T84
+  from: A98
+  to: A98
+  source_id: T84
+- segment_id: T85
+  from: TO8
+  to: TO0
+  source_id: T85
+- segment_id: T86
+  from: TO0
+  to: TO9
+  source_id: T86
+- segment_id: T87
+  from: TO9
+  to: A104
+  source_id: T87
+- segment_id: T88
+  from: TO9
+  to: A106
+  source_id: T88
+- segment_id: T89
+  from: TO0
+  to: A108
+  source_id: T89
+- segment_id: T90
+  from: A108
+  to: A109
+  source_id: T90
+- segment_id: T91
+  from: A109
+  to: A9
+  source_id: T91
+- segment_id: T92
+  from: A3
+  to: A106
+  source_id: T92
+- segment_id: T93
+  from: A110
+  to: A6
+  source_id: T93
+- segment_id: T94
+  from: A110
+  to: A104
+  source_id: T94
+- segment_id: T95
+  from: A1
+  to: TO10
+  source_id: T95
+- segment_id: T96
+  from: TO1
+  to: TO10
+  source_id: T96
+- segment_id: T97
+  from: TO3
+  to: TO5
+  source_id: T97
+- segment_id: T98
+  from: TO5
+  to: TO7
+  source_id: T98
+turnouts:
+  TO0:
+    type: '1'
+    continuing: '2'
+    connectaname: T85
+    connectbname: T89
+    connectcname: T86
+  TO1:
+    type: '1'
+    continuing: '2'
+    connectaname: T33
+    connectbname: T96
+    connectcname: T71
+  TO2:
+    type: '2'
+    continuing: '2'
+    connectaname: T11
+    connectbname: T13
+    connectcname: null
+  TO3:
+    type: '1'
+    continuing: '2'
+    connectaname: T97
+    connectbname: T17
+    connectcname: null
+  TO4:
+    type: '3'
+    continuing: '2'
+    connectaname: T79
+    connectbname: T18
+    connectcname: T7
+  TO5:
+    type: '2'
+    continuing: '2'
+    connectaname: T97
+    connectbname: T48
+    connectcname: T98
+  TO6:
+    type: '1'
+    continuing: '2'
+    connectaname: T26
+    connectbname: T58
+    connectcname: T56
+  TO7:
+    type: '1'
+    continuing: '2'
+    connectaname: T98
+    connectbname: T65
+    connectcname: T62
+  TO8:
+    type: '1'
+    continuing: '2'
+    connectaname: T73
+    connectbname: T74
+    connectcname: T85
+  TO9:
+    type: '1'
+    continuing: '2'
+    connectaname: T86
+    connectbname: T88
+    connectcname: T87
+  TO10:
+    type: '2'
+    continuing: '2'
+    connectaname: T96
+    connectbname: T57
+    connectcname: T95
+turntable:
+  id: TUR0
+  center: *id037
+  radius: 24.44
+  rays:
+  - T0
+zero_length_segments:
+- T80
+- T81
+- T82
+- T83
+- T84
+counts:
+  positionable_points: 86
+  segments: 99
+  arcs: 49
+  beziers: 4
+  straight: 46
+  turnouts: 11

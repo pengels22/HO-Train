@@ -17,7 +17,9 @@ class Projection:
 
 
 def load_centerlines(root: Path) -> dict:
-    return yaml.safe_load((root / "config/track_centerlines.yaml").read_text()) or {}
+    imported = root / "config/jmri_layout_import.yaml"
+    source = imported if imported.exists() else root / "config/track_centerlines.yaml"
+    return yaml.safe_load(source.read_text()) or {}
 
 
 def _segment_items(geometry: dict):
@@ -89,6 +91,13 @@ def validate_graph(geometry: dict) -> dict:
             elif endpoint not in junctions and endpoint not in terminals:
                 errors.append(f"{sid}: unsupported {key} endpoint {endpoint}")
     for connection in geometry.get("connections", []):
+        if connection.get("segment_id"):
+            sid = connection["segment_id"]
+            if sid not in segments:
+                errors.append(f"unsupported segment connection {sid}")
+            elif connection.get("from") != segments[sid].get("start") or connection.get("to") != segments[sid].get("end"):
+                errors.append(f"connection endpoints do not match {sid}")
+            continue
         for key in ("from", "to"):
             ref = connection.get(key, "")
             if ":" not in ref or ref.split(":", 1)[0] not in segments:

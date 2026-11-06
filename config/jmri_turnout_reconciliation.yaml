@@ -1,0 +1,20 @@
+# Explicit review record. No JMRI turnout is treated as a powered route until
+# a human confirms the mapping against the physical layout.
+verified: false
+powered_turnouts: [A, B, C, D, E, F, G]
+passive_splitters: [P1, P2, P3]
+jmri_objects:
+  TO0: {status: unmatched}
+  TO1: {status: unmatched}
+  TO2: {status: unmatched}
+  TO3: {status: unmatched}
+  TO4: {status: unmatched}
+  TO5: {status: unmatched}
+  TO6: {status: unmatched}
+  TO7: {status: unmatched}
+  TO8: {status: unmatched}
+  TO9: {status: unmatched}
+  TO10: {status: unmatched}
+notes:
+  - "The export contains 11 turnout objects; the controller has 7 powered turnouts and 3 passive splitters."
+  - "Mapping remains unverified until reviewed against the physical railroad."

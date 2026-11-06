@@ -49,6 +49,7 @@ def load_geography(root: Path) -> dict:
     design = yaml.safe_load((root / "config/geography_design_v05.yaml").read_text()) or {}
     geometry = load_centerlines(root)
     marker_geometry = yaml.safe_load((root / "config/marker_geometry_v05.yaml").read_text()) or {}
+    imported = geometry.get("source_format", "").startswith("JMRI")
     zone_geometry = marker_geometry.get("zone_endpoints", {}) or {}
     track = yaml.safe_load((root / "config/track_layout.yaml").read_text()) or {}
     ir = yaml.safe_load((root / "config/ir_receivers.yaml").read_text()) or {}
@@ -61,8 +62,11 @@ def load_geography(root: Path) -> dict:
         elif path_id == "Main": path_id = "Main"
         elif path_id == "Underground": path_id = "Underground"
         association = zone_geometry.get(zone_id, {})
-        start = _project(geometry, path_id, data.get("start"), {"segment_id": association.get("start")}) if data.get("start") else None
-        end = _project(geometry, path_id, data.get("end"), {"segment_id": association.get("end")}) if data.get("end") else None
+        projection_path = "JMRI" if imported else path_id
+        start_record = {} if imported else {"segment_id": association.get("start")}
+        end_record = {} if imported else {"segment_id": association.get("end")}
+        start = _project(geometry, projection_path, data.get("start"), start_record) if data.get("start") else None
+        end = _project(geometry, projection_path, data.get("end"), end_record) if data.get("end") else None
         zones[zone_id] = {"start": start["position"] if start else None, "end": end["position"] if end else None,
                           "track_path": path_id, "start_geometry": start, "end_geometry": end,
                           "calibrated": bool(data.get("calibrated", False))}
@@ -71,7 +75,7 @@ def load_geography(root: Path) -> dict:
     for receiver in ir.get("receivers", []):
         source = design_receivers.get(receiver["id"], {})
         association = (marker_geometry.get("markers", {}) or {}).get(receiver["id"], {})
-        projection = _project(geometry, association.get("track_path", "Main"), source.get("position"), association) if source.get("position") else None
+        projection = _project(geometry, "JMRI" if imported else association.get("track_path", "Main"), source.get("position"), {} if imported else association) if source.get("position") else None
         receivers.append({"id": receiver["id"], "name": receiver.get("description", receiver["id"]),
                           "channel": receiver.get("channel"), "zones": receiver.get("zones", []),
                           "position": projection["position"] if projection else None,
@@ -82,7 +86,7 @@ def load_geography(root: Path) -> dict:
     for turnout_id, data in (track.get("powered_turnouts", {}) or {}).items():
         source = design_turnouts.get(turnout_id, {})
         association = (marker_geometry.get("markers", {}) or {}).get(turnout_id, {})
-        projection = _project(geometry, association.get("track_path", "Main"), source.get("position"), association) if source.get("position") else None
+        projection = _project(geometry, "JMRI" if imported else association.get("track_path", "Main"), source.get("position"), {} if imported else association) if source.get("position") else None
         turnouts[turnout_id] = {**data, "position": projection["position"] if projection else None,
                                 "geometry": projection,
                                 "calibrated": bool(source.get("verified", False))}
@@ -94,7 +98,7 @@ def load_geography(root: Path) -> dict:
                       "crop_offset": [0, 0],
                       "coordinate_transform": "scale only; source is already cropped"},
             "design_verified": bool((design.get("meta") or {}).get("verified", design.get("verified", False))),
-            "geometry_verified": bool(geometry.get("verified", False)),
+            "geometry_verified": bool(geometry.get("verified", False)), "geometry_source": geometry.get("source_file", "hand-traced"),
             "graph_valid": validation["ok"], "graph_errors": validation["errors"],
             "centerlines": geometry.get("segments", {}), "segments": geometry.get("segments", {}),
             "junctions": geometry.get("junctions", {}), "terminals": geometry.get("terminals", []), "connections": geometry.get("connections", []),

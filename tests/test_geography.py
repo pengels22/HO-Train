@@ -15,10 +15,10 @@ def test_geography_has_fifteen_pairs_eleven_ir_and_seven_turnouts():
     assert len(geo["zones"]) == 15
     assert len(geo["ir_receivers"]) == 11
     assert len(geo["turnouts"]) == 7
-    assert geo["zones"]["SKI-1"]["start_geometry"]["track_path"] == "Ski"
+    assert geo["zones"]["SKI-1"]["start_geometry"]["track_path"] == "JMRI"
     assert geo["zones"]["SKI-1"]["start_geometry"]["segment_id"] in geo["segments"]
-    assert geo["ir_receivers"][0]["geometry"]["track_path"] == "Ski"
-    assert geo["turnouts"]["A"]["geometry"]["track_path"] == "Main"
+    assert geo["ir_receivers"][0]["geometry"]["track_path"] == "JMRI"
+    assert geo["turnouts"]["A"]["geometry"]["track_path"] == "JMRI"
     assert all(v["start"] is not None and v["end"] is not None and not v["calibrated"] for v in geo["zones"].values())
     assert all(v["position"] is not None and not v["calibrated"] for v in geo["ir_receivers"])
     assert all(v["position"] is not None and v["calibrated"] for v in geo["turnouts"].values())
