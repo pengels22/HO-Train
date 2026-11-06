@@ -1,22 +1,50 @@
-# Editable native-pixel centerline proposals. These follow the visible rails
-# but remain unverified until reviewed against the physical railroad.
+# Explicit rail graph in native pixels of railroad-layout-clean.png (752 x 602).
 verified: false
 coordinate_system: clean_image_pixels
 width: 752
 height: 602
-paths:
-  Ski:
-    color: '#f4f4f4'
-    points: [[340,82],[420,35],[520,25],[600,35],[660,90],[680,160],[660,205],[610,225],[540,235]]
-  Farm:
-    color: '#f2d52c'
-    points: [[540,235],[600,225],[660,235],[700,280],[720,360],[720,500],[690,570],[620,595],[560,590],[510,540],[510,470],[525,430],[560,400],[580,360],[580,300],[560,255]]
-  Underground:
-    color: '#5f60ff'
-    points: [[180,240],[160,180],[150,120],[170,45],[230,10],[300,15],[340,55],[355,125],[350,180],[330,220],[300,240],[220,200],[280,170],[340,140],[420,145],[520,150],[650,155]]
-  Mine:
-    color: '#ff5252'
-    points: [[88,66],[88,180],[78,215],[60,270]]
-  Main:
-    color: '#a4adb8'
-    points: [[60,270],[60,500],[80,565],[140,595],[205,595],[245,560],[245,500],[230,430],[205,330],[180,240],[260,240],[360,240],[450,240],[540,240]]
+terminals: [mine_top, ski_west, ski_east, farm_east, yard_1a_end, yard_1b_end, yard_2_end, yard_3_end]
+junctions:
+  A: {type: turnout, turnout: A}
+  B: {type: turnout, turnout: B}
+  C: {type: turnout, turnout: C}
+  D: {type: turnout, turnout: D}
+  E: {type: turnout, turnout: E}
+  F: {type: turnout, turnout: F}
+  G: {type: turnout, turnout: G}
+  main_west: {type: junction}
+  main_center: {type: junction}
+  main_east: {type: junction}
+  yard_throat: {type: junction}
+  yard_1_split: {type: junction}
+  yard_23_split: {type: junction}
+segments:
+  mine_red: {track_path: Mine, color: '#ff5252', start: mine_top, end: A, points: [[88,66],[88,105],[88,145],[88,180],[84,200],[74,220],[65,245],[60,270]]}
+  main_left_loop: {track_path: Main, color: '#a4adb8', start: A, end: main_west, points: [[60,270],[60,330],[60,400],[60,470],[61,515],[72,555],[95,580],[130,595],[170,598],[205,590],[230,565],[245,535],[246,505],[240,470],[230,430],[217,380],[205,330],[190,280],[180,240]]}
+  main_center_west: {track_path: Main, color: '#a4adb8', start: main_west, end: D, points: [[180,240],[220,240],[260,240],[300,240],[340,240],[380,240]]}
+  main_center_east: {track_path: Main, color: '#a4adb8', start: D, end: C, points: [[380,240],[420,240],[460,240],[500,240],[540,240]]}
+  main_to_farm: {track_path: Main, color: '#a4adb8', start: C, end: main_east, points: [[540,240],[560,238],[580,235]]}
+  ski_upper: {track_path: Ski, color: '#f4f4f4', start: ski_west, end: C, points: [[340,82],[365,68],[395,52],[430,38],[470,28],[510,24],[550,25],[585,33],[615,48],[640,72],[658,103],[668,135],[668,165],[660,190],[645,210],[625,222],[600,230],[570,234],[540,235]]}
+  farm_outer: {track_path: Farm, color: '#f2d52c', start: C, end: farm_east, points: [[540,235],[565,230],[595,230],[625,238],[650,252],[675,275],[695,305],[708,340],[714,380],[714,425],[714,470],[714,510],[705,545],[688,572],[662,588],[630,596],[595,597],[565,588],[540,570],[520,545],[510,515],[510,480]]}
+  farm_inner: {track_path: Farm, color: '#f2d52c', start: farm_east, end: C, points: [[510,480],[512,455],[520,430],[535,412],[552,398],[567,380],[577,358],[580,332],[580,305],[577,280],[568,260],[555,247],[540,240]]}
+  underground_loop: {track_path: Underground, color: '#5f60ff', start: D, end: B, points: [[180,240],[170,215],[160,185],[153,155],[150,125],[153,95],[165,65],[185,38],[210,20],[240,12],[270,12],[300,18],[325,35],[342,60],[352,90],[356,122],[355,153],[350,180],[340,205],[325,225],[305,238]]}
+  underground_west_branch: {track_path: Underground, color: '#5f60ff', start: D, end: B, points: [[180,240],[195,220],[215,200],[238,185],[260,174],[285,163],[310,153],[340,145],[380,145]]}
+  underground_east_upper: {track_path: Underground, color: '#5f60ff', start: B, end: ski_east, points: [[380,145],[430,146],[480,148],[530,150],[580,152],[625,153],[675,155]]}
+  underground_east_middle: {track_path: Underground, color: '#5f60ff', start: B, end: ski_east, points: [[380,150],[430,160],[480,168],[530,174],[580,178],[625,180],[675,180]]}
+  underground_east_lower: {track_path: Underground, color: '#5f60ff', start: B, end: ski_east, points: [[380,155],[420,175],[460,193],[505,205],[550,210],[600,210],[645,205],[675,200]]}
+  yard_throat: {track_path: Underground, color: '#5f60ff', start: E, end: F, points: [[320,238],[350,225],[380,205],[410,180],[440,155]]}
+  yard_track_1: {track_path: Underground, color: '#5f60ff', start: F, end: yard_1_split, points: [[440,155],[485,155],[530,156],[575,157],[620,158]]}
+  yard_stall_1a: {track_path: Underground, color: '#5f60ff', start: yard_1_split, end: yard_1a_end, points: [[620,158],[650,158],[675,158]]}
+  yard_stall_1b: {track_path: Underground, color: '#5f60ff', start: yard_1_split, end: yard_1b_end, points: [[620,180],[650,180],[675,180]]}
+  yard_track_23: {track_path: Underground, color: '#5f60ff', start: F, end: G, points: [[440,155],[480,175],[520,195],[560,210],[600,220]]}
+  yard_stall_2: {track_path: Underground, color: '#5f60ff', start: G, end: yard_2_end, points: [[600,220],[640,220],[675,220]]}
+  yard_stall_3: {track_path: Underground, color: '#5f60ff', start: G, end: yard_3_end, points: [[600,240],[640,240],[675,240]]}
+connections:
+  - {from: mine_red:end, to: main_left_loop:start, via: A, alignment: diverging}
+  - {from: main_center_west:end, to: main_center_east:start, via: D, alignment: straight}
+  - {from: main_center_east:end, to: main_to_farm:start, via: C, alignment: straight}
+  - {from: yard_throat:end, to: yard_track_1:start, via: F, alignment: straight}
+  - {from: yard_throat:end, to: yard_track_23:start, via: F, alignment: diverging}
+  - {from: yard_track_23:end, to: yard_stall_2:start, via: G, alignment: straight}
+  - {from: yard_track_23:end, to: yard_stall_3:start, via: G, alignment: diverging}
+yard_tracks: {'1': [yard_stall_1a, yard_stall_1b], '2': [yard_stall_2], '3': [yard_stall_3]}

@@ -5,18 +5,18 @@ from railroad.track_geometry import load_centerlines, point_at_distance, project
 
 
 def test_projection_to_curve_segment_and_distance_persistence():
-    geometry = {"paths": {"curve": {"points": [[0, 0], [10, 10], [20, 0]]}}}
-    projection = project_point(geometry, "curve", [10, 8])
-    assert projection.segment_id == "curve:0"
+    geometry = {"segments": {"curve": {"track_path": "Farm", "start": "a", "end": "b", "points": [[0, 0], [10, 10], [20, 0]]}}, "junctions": {"a": {}, "b": {}}}
+    projection = project_point(geometry, "Farm", [10, 8])
+    assert projection.segment_id == "curve"
     assert projection.point == (9.0, 9.0)
     assert point_at_distance(geometry, "curve", projection.distance_px) == projection.point
 
 
 def test_crossing_selection_is_explicit_path_not_global_nearest():
-    geometry = {"paths": {
-        "north": {"points": [[0, 10], [20, 10]]},
-        "south": {"points": [[0, 12], [20, 12]]},
-    }}
+    geometry = {"segments": {
+        "north": {"track_path": "north", "start": "n0", "end": "n1", "points": [[0, 10], [20, 10]]},
+        "south": {"track_path": "south", "start": "s0", "end": "s1", "points": [[0, 12], [20, 12]]},
+    }, "junctions": {"n0": {}, "n1": {}, "s0": {}, "s1": {}}}
     assert project_point(geometry, "south", [10, 10.1]).path_id == "south"
 
 
@@ -25,7 +25,21 @@ def test_production_centerlines_are_native_image_space_and_unverified():
     assert geometry["coordinate_system"] == "clean_image_pixels"
     assert (geometry["width"], geometry["height"]) == (752, 602)
     assert geometry["verified"] is False
-    assert set(geometry["paths"]) == {"Ski", "Farm", "Underground", "Mine", "Main"}
+    assert len(geometry["segments"]) >= 15
+    assert {"A", "B", "C", "D", "E", "F", "G"}.issubset(geometry["junctions"])
+
+def test_graph_has_no_proximity_connections_and_validates_explicit_endpoints():
+    geometry = load_centerlines(Path(__file__).parents[1])
+    from railroad.track_geometry import validate_graph
+    result = validate_graph(geometry)
+    assert result["ok"], result["errors"]
+    assert all("via" in c for c in geometry["connections"])
+
+def test_marker_projection_can_be_persisted_to_a_specific_segment():
+    geometry = load_centerlines(Path(__file__).parents[1])
+    projection = project_point(geometry, "Farm", [540, 235], "farm_outer")
+    assert projection.segment_id == "farm_outer"
+    assert point_at_distance(geometry, projection.segment_id, projection.distance_px) == projection.point
 
 
 def test_marker_geometry_persists_explicit_track_associations():

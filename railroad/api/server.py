@@ -167,15 +167,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _save_track_geometry(self):
         import yaml
+        from railroad.track_geometry import validate_graph
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length))
-            paths = payload["paths"]
-            if not isinstance(paths, dict) or any(len(p.get("points", [])) < 2 for p in paths.values()):
-                raise ValueError("each centerline needs at least two points")
-            data = {"verified": False, "coordinate_system": "clean_image_pixels", "width": 752, "height": 602, "paths": paths}
+            segments = payload["segments"]
+            if not isinstance(segments, dict) or any(len(p.get("points", [])) < 2 for p in segments.values()):
+                raise ValueError("each rail segment needs at least two points")
+            data = {"verified": False, "coordinate_system": "clean_image_pixels", "width": 752, "height": 602,
+                    "terminals": payload.get("terminals", []), "junctions": payload.get("junctions", {}),
+                    "segments": segments, "connections": payload.get("connections", []),
+                    "yard_tracks": payload.get("yard_tracks", {})}
+            validation = validate_graph(data)
+            if not validation["ok"]:
+                raise ValueError("; ".join(validation["errors"]))
             (ROOT / "config/track_centerlines.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
-            self._json_response({"saved": True, "verified": False, "paths": paths})
+            self._json_response({"saved": True, "verified": False, "segments": segments, "validation": validation})
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             self._json_response({"saved": False, "error": str(exc)}, 400)
     def _json_body(self):

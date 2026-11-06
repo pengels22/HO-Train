@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import yaml
-from railroad.track_geometry import load_centerlines, point_at_distance, project_point, normalized_projection
+from railroad.track_geometry import load_centerlines, point_at_distance, project_point, normalized_projection, validate_graph
 
 CLEAN_WIDTH, CLEAN_HEIGHT = 752.0, 602.0
 DESIGN_WIDTH, DESIGN_HEIGHT = 739.0, 593.0
@@ -33,13 +33,15 @@ def _position(value):
 
 def _project(geometry, path_id, raw_position, record=None):
     record = record or {}
-    if record.get("distance_px") is not None:
-        point = point_at_distance(geometry, path_id, record["distance_px"])
-        return {"track_path": path_id, "segment_id": record.get("segment_id"), "distance_px": float(record["distance_px"]),
+    if record.get("segment_id") and record.get("distance_px") is not None:
+        point = point_at_distance(geometry, record["segment_id"], record["distance_px"])
+        return {"track_path": path_id, "segment_id": record["segment_id"], "distance_px": float(record["distance_px"]),
                 "position": [point[0] / CLEAN_WIDTH, point[1] / CLEAN_HEIGHT],
                 "alignment_error_px": float(record.get("alignment_error_px", 0.0))}
+    if raw_position is None:
+        return None
     raw = [float(raw_position[0]) * CLEAN_WIDTH, float(raw_position[1]) * CLEAN_HEIGHT]
-    return normalized_projection(project_point(geometry, path_id, raw), CLEAN_WIDTH, CLEAN_HEIGHT)
+    return normalized_projection(project_point(geometry, path_id, raw, record.get("segment_id")), CLEAN_WIDTH, CLEAN_HEIGHT)
 
 
 def load_geography(root: Path) -> dict:
@@ -82,6 +84,7 @@ def load_geography(root: Path) -> dict:
         turnouts[turnout_id] = {**data, "position": projection["position"] if projection else None,
                                 "geometry": projection,
                                 "calibrated": bool(source.get("verified", False))}
+    validation = validate_graph(geometry)
     return {"coordinate_system": "clean_image_normalized_0_to_1",
             "image": {"path": "/dashboard/images/railroad-layout-clean.png", "width": int(CLEAN_WIDTH), "height": int(CLEAN_HEIGHT),
                       "source_image": design.get("source_image", "railroad-map-exact.png"),
@@ -90,5 +93,8 @@ def load_geography(root: Path) -> dict:
                       "coordinate_transform": "scale only; source is already cropped"},
             "design_verified": bool((design.get("meta") or {}).get("verified", design.get("verified", False))),
             "geometry_verified": bool(geometry.get("verified", False)),
-            "centerlines": geometry.get("paths", {}),
+            "graph_valid": validation["ok"], "graph_errors": validation["errors"],
+            "centerlines": geometry.get("segments", {}), "segments": geometry.get("segments", {}),
+            "junctions": geometry.get("junctions", {}), "terminals": geometry.get("terminals", []), "connections": geometry.get("connections", []),
+            "turnout_graph": geometry.get("turnouts", {}), "yard_tracks": geometry.get("yard_tracks", {}),
             "zones": zones, "ir_receivers": receivers, "turnouts": turnouts}
