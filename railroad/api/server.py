@@ -5,6 +5,7 @@ from threading import Thread
 import time
 from railroad.dispatcher import Dispatcher, SafetyError
 from railroad.simulator.engine import SimulationEngine, SpeedProfile, Consist, Car
+from railroad.geography import load_geography
 
 DISPATCHER = Dispatcher()
 
@@ -33,16 +34,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length))
             zone_id = payload["zone_id"]
-            if "start" in payload and "end" in payload:
-                start, end = payload["start"], payload["end"]
-                if any(len(p) != 2 or not all(0 <= float(v) <= 1 for v in p) for p in (start, end)):
-                    raise ValueError("START and END must be normalized x/y pairs")
-                markers = {"start": [float(x) for x in start], "end": [float(x) for x in end]}
-            else:
-                polygon = payload["polygon"]
-                if len(polygon) < 3 or any(len(p) != 2 or not all(0 <= float(v) <= 1 for v in p) for p in polygon):
-                    raise ValueError("polygon must contain normalized x/y pairs")
-                markers = {"polygon": [[float(x), float(y)] for x, y in polygon], "start": [float(x) for x in polygon[0]], "end": [float(x) for x in polygon[-1]]}
+            if "start" not in payload or "end" not in payload:
+                raise ValueError("polygon boundaries are obsolete; provide START and END pairs")
+            start, end = payload["start"], payload["end"]
+            if any(len(p) != 2 or not all(0 <= float(v) <= 1 for v in p) for p in (start, end)):
+                raise ValueError("START and END must be normalized x/y pairs")
+            markers = {"start": [float(x) for x in start], "end": [float(x) for x in end], "calibrated": False}
             path = ROOT / "config/zone_boundaries.yaml"
             data = yaml.safe_load(path.read_text())
             if zone_id not in data["boundaries"]:
@@ -80,10 +77,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
         elif self.path == "/api/zone-boundaries":
             import yaml
             data = yaml.safe_load((ROOT / "config/zone_boundaries.yaml").read_text())
-            for boundary in data.get("boundaries", {}).values():
-                polygon = boundary.get("polygon", [])
-                boundary.setdefault("start", polygon[0] if polygon else [0.0, 0.0])
-                boundary.setdefault("end", polygon[-1] if polygon else [1.0, 1.0])
             body = json.dumps(data).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/config":
@@ -99,6 +92,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             for receiver in ir.get("receivers", []):
                 io.append({"device": "Arduino Nano", "io": receiver.get("pin", "unassigned"), "location": ", ".join(receiver.get("zones", [])) or "Yard", "function": receiver.get("description", "IR receiver"), "polarity": "active_high", "status": "configured"})
             body = json.dumps({"io": io, "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": "3 physical sections (1A + 1B share Track 1)"}}).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        elif self.path == "/api/geography":
+            body = json.dumps(load_geography(ROOT)).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path in ("/", "/track-map"):
             self._serve_dashboard_file("index.html", "text/html; charset=utf-8")

@@ -1,20 +1,20 @@
-# Proposed overlay geometry in normalized coordinates relative to railroad-layout.png.
-# These polygons are visual proposals only: every entry is unverified.
-coordinate_system: normalized_image_0_to_1
-source_image: assets/layout/railroad-layout.png
+# Authoritative zone endpoint storage in clean-image normalized coordinates.
+# No polygon fallback is permitted. Null means the endpoint is uncalibrated.
+coordinate_system: clean_image_normalized_0_to_1
+source_image: dashboard/public/images/railroad-layout-clean.png
 boundaries:
-  SKI-1: {polygon: [[0.39,0.20],[0.54,0.18],[0.57,0.31],[0.48,0.45],[0.40,0.40]], verified: false}
-  SKI-2: {polygon: [[0.49,0.25],[0.70,0.25],[0.70,0.38],[0.52,0.39]], verified: false}
-  SKI-3: {polygon: [[0.67,0.25],[0.78,0.26],[0.78,0.37],[0.67,0.35]], verified: false}
-  FARM-1: {polygon: [[0.64,0.42],[0.74,0.40],[0.77,0.54],[0.67,0.57]], verified: false}
-  FARM-2: {polygon: [[0.72,0.43],[0.79,0.48],[0.79,0.67],[0.72,0.67]], verified: false}
-  FARM-3: {polygon: [[0.65,0.64],[0.79,0.64],[0.78,0.80],[0.66,0.80]], verified: false}
-  UND-1: {polygon: [[0.35,0.22],[0.43,0.21],[0.48,0.45],[0.40,0.48]], verified: false}
-  UND-2: {polygon: [[0.38,0.43],[0.50,0.39],[0.55,0.53],[0.43,0.63]], verified: false}
-  UND-3: {polygon: [[0.42,0.57],[0.51,0.52],[0.54,0.70],[0.47,0.76]], verified: false}
-  MINE-1: {polygon: [[0.33,0.25],[0.37,0.25],[0.37,0.40],[0.33,0.40]], verified: false}
-  MINE-2: {polygon: [[0.32,0.39],[0.37,0.39],[0.36,0.48],[0.32,0.48]], verified: false}
-  MINE-3: {polygon: [[0.31,0.46],[0.36,0.46],[0.36,0.55],[0.31,0.55]], verified: false}
-  MAIN-1: {polygon: [[0.32,0.42],[0.66,0.41],[0.66,0.55],[0.32,0.56]], verified: false}
-  MAIN-2: {polygon: [[0.31,0.53],[0.47,0.53],[0.51,0.72],[0.38,0.76],[0.31,0.68]], verified: false}
-  MAIN-3: {polygon: [[0.49,0.52],[0.66,0.52],[0.66,0.81],[0.50,0.81]], verified: false}
+  SKI-1: {start: null, end: null, calibrated: false}
+  SKI-2: {start: null, end: null, calibrated: false}
+  SKI-3: {start: null, end: null, calibrated: false}
+  FARM-1: {start: null, end: null, calibrated: false}
+  FARM-2: {start: null, end: null, calibrated: false}
+  FARM-3: {start: null, end: null, calibrated: false}
+  UND-1: {start: null, end: null, calibrated: false}
+  UND-2: {start: null, end: null, calibrated: false}
+  UND-3: {start: null, end: null, calibrated: false}
+  MINE-1: {start: null, end: null, calibrated: false}
+  MINE-2: {start: null, end: null, calibrated: false}
+  MINE-3: {start: null, end: null, calibrated: false}
+  MAIN-1: {start: null, end: null, calibrated: false}
+  MAIN-2: {start: null, end: null, calibrated: false}
+  MAIN-3: {start: null, end: null, calibrated: false}
