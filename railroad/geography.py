@@ -52,6 +52,7 @@ def load_geography(root: Path) -> dict:
     imported = geometry.get("source_format", "").startswith("JMRI")
     zone_geometry = marker_geometry.get("zone_endpoints", {}) or {}
     track = yaml.safe_load((root / "config/track_layout.yaml").read_text()) or {}
+    reconciliation = yaml.safe_load((root / "config/jmri_turnout_reconciliation.yaml").read_text()) or {} if (root / "config/jmri_turnout_reconciliation.yaml").exists() else {}
     ir = yaml.safe_load((root / "config/ir_receivers.yaml").read_text()) or {}
     zones = {}
     for zone_id, data in (boundaries.get("boundaries", {}) or {}).items():
@@ -102,5 +103,5 @@ def load_geography(root: Path) -> dict:
             "graph_valid": validation["ok"], "graph_errors": validation["errors"],
             "centerlines": geometry.get("segments", {}), "segments": geometry.get("segments", {}),
             "junctions": geometry.get("junctions", {}), "terminals": geometry.get("terminals", []), "connections": geometry.get("connections", []),
-            "turnout_graph": geometry.get("turnouts", {}), "yard_tracks": geometry.get("yard_tracks", {}),
+            "turnout_graph": geometry.get("turnouts", {}), "turnout_reconciliation": reconciliation, "yard_tracks": geometry.get("yard_tracks", {}),
             "zones": zones, "ir_receivers": receivers, "turnouts": turnouts}
