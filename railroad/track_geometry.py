@@ -94,3 +94,23 @@ def validate_graph(geometry: dict) -> dict:
             if ":" not in ref or ref.split(":", 1)[0] not in segments:
                 errors.append(f"unsupported connection {ref}")
     return {"ok": not errors, "errors": errors}
+
+def split_segment(geometry: dict, segment_id: str, index: int) -> dict:
+    """Return a copy with one segment split at a control-point boundary."""
+    import copy
+    result = copy.deepcopy(geometry)
+    seg = result["segments"][segment_id]
+    points = seg.get("points", [])
+    if index < 1 or index >= len(points) - 1:
+        raise ValueError("split index must leave at least one segment on each side")
+    junction = f"{segment_id}_split_{index}"
+    left_id, right_id = f"{segment_id}_a", f"{segment_id}_b"
+    left, right = copy.deepcopy(seg), copy.deepcopy(seg)
+    left["points"], right["points"] = points[:index + 1], points[index:]
+    left["end"], right["start"] = junction, junction
+    result["segments"].pop(segment_id)
+    result["segments"].update({left_id: left, right_id: right})
+    result.setdefault("junctions", {})[junction] = {"type": "split", "source": segment_id}
+    result["connections"] = [c for c in result.get("connections", [])
+                              if not any(str(c.get(k, "")).startswith(segment_id + ":") for k in ("from", "to"))]
+    return result

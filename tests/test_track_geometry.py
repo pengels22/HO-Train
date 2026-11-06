@@ -47,3 +47,19 @@ def test_marker_geometry_persists_explicit_track_associations():
     data = yaml.safe_load((root / "config/marker_geometry_v05.yaml").read_text())
     assert data["markers"]["tunnel_entrance"]["track_path"] == "Ski"
     assert data["markers"]["A"]["track_path"] == "Main"
+
+def test_split_segment_is_explicit_and_does_not_join_nearby_tracks():
+    from railroad.track_geometry import split_segment, validate_graph
+    geometry = {"segments": {"rail": {"track_path": "Main", "start": "a", "end": "b", "points": [[0, 0], [5, 0], [10, 0]]}}, "junctions": {"a": {}, "b": {}}, "connections": []}
+    edited = split_segment(geometry, "rail", 1)
+    assert set(edited["segments"]) == {"rail_a", "rail_b"}
+    assert edited["segments"]["rail_a"]["end"] == edited["segments"]["rail_b"]["start"]
+    assert validate_graph(edited)["ok"]
+    assert geometry["segments"]["rail"]["points"] == [[0, 0], [5, 0], [10, 0]]
+
+def test_invalid_endpoint_connection_is_reported_for_editor_validation():
+    from railroad.track_geometry import validate_graph
+    geometry = {"segments": {"rail": {"track_path": "Main", "start": "missing", "end": "b", "points": [[0, 0], [1, 0]]}}, "junctions": {"b": {}}}
+    result = validate_graph(geometry)
+    assert not result["ok"]
+    assert any("unsupported start endpoint" in error for error in result["errors"])
