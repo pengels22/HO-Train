@@ -1,1 +1,13 @@
-locomotives: [{id: 1, name: Train 1}, {id: 2, name: Train 2}, {id: 3, name: Train 3}, {id: 4, name: Train 4}]
+# Calibration values remain unknown; do not guess speed or braking distance.
+locomotives:
+  - {id: 1, name: Train 1, type: freight, speed_mm_s_at_255: null, braking_mm: null}
+  - {id: 2, name: Train 2, type: freight, speed_mm_s_at_255: null, braking_mm: null}
+  - {id: 3, name: Train 3, type: freight, speed_mm_s_at_255: null, braking_mm: null}
+  - {id: 4, name: Train 4, type: passenger, speed_mm_s_at_255: null, braking_mm: null}
+wifi:
+  ssid: HO-Railroad
+  controller_ip: 10.77.0.1
+  broadcast: 10.77.0.255
+  udp_port: 4210
+  command_interval_ms: 100
+  locomotive_watchdog_ms: 500

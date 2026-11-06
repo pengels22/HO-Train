@@ -1,0 +1,7 @@
+# Design only. Normally open DC-rated relays; no output GPIO armed.
+default_power: off
+tracks:
+  "1": {stalls: ["1A", "1B"], relay_output: unassigned}
+  "2": {stalls: ["2"], relay_output: unassigned}
+  "3": {stalls: ["3"], relay_output: unassigned}
+departure: restore_power_then_require_fresh_zero_speed_command_and_route_clear

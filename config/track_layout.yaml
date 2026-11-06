@@ -1,4 +1,18 @@
-# Topology is intentionally a configurable placeholder until the physical layout is surveyed.
-sections: []
-powered_turnouts: [A, B, C, D, E, F, G]
+# Finalized logical topology; RailModeller source remains authoritative for geometry.
+zones:
+  SKI: [SKI-1, SKI-2, SKI-3]
+  FARM: [FARM-1, FARM-2, FARM-3]
+  UND: [UND-1, UND-2, UND-3]
+  MINE: [MINE-1, MINE-2, MINE-3]
+  MAIN: [MAIN-1, MAIN-2, MAIN-3]
+powered_turnouts:
+  A: {default: diverging, common: MAIN-3, straight: MINE-1, diverging: MAIN-2}
+  B: {default: straight, common: UND-3, straight: MAIN-2, diverging: MAIN-1}
+  C: {default: straight, common: MAIN-1, straight: FARM-1, diverging: SKI-1}
+  D: {default: straight, common: UND-1, straight: UND-3, diverging: UND-2}
+  E: {default: straight, common: UND-2, straight: SKI-3, diverging: yard_throat}
+  F: {default: straight, common: yard_throat, straight: yard_track_1, diverging: yard_track_2_3}
+  G: {default: straight, common: yard_track_2_3, straight: stall_2, diverging: stall_3}
 passive_turnouts: [P1, P2, P3]
+yard_tracks: {"1": ["1A", "1B"], "2": ["2"], "3": ["3"]}
+tipper_protected_zones: [MAIN-3, UND-1]
