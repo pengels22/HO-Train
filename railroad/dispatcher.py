@@ -227,6 +227,10 @@ class Dispatcher:
             train.checkpoint_deadline=None
             if zone is not None: train.zone=zone
 
+    def process_ir_event(self, event, zone: str | None = None):
+        """Common entry point for decoded Nano events and simulated IR events."""
+        return self.checkpoint(event.train_id, event.receiver_id, zone=zone, now=event.timestamp)
+
     def check_deadlines(self, now:float|None=None):
         with self.lock:
             t=time.monotonic() if now is None else now

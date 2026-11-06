@@ -1,15 +1,31 @@
 import json
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from railroad.dispatcher import Dispatcher
+from threading import Thread
+import time
+from railroad.dispatcher import Dispatcher, SafetyError
+from railroad.simulator.engine import SimulationEngine, SpeedProfile, Consist, Car
 
 DISPATCHER = Dispatcher()
 
 ROOT = Path(__file__).resolve().parents[2]
 
+def _load_paths():
+    import yaml
+    path = ROOT / "config/simulation_paths.yaml"
+    return yaml.safe_load(path.read_text()) or {"verified": False, "paths": {}}
+
+SIMULATION = SimulationEngine(DISPATCHER, _load_paths())
+
 class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
+        if self.path == "/api/simulation":
+            self._simulation_command()
+            return
+        if self.path == "/api/simulation/calibration":
+            self._save_calibration()
+            return
         if self.path != "/api/zones/boundaries":
             self.send_error(404); return
         import yaml
@@ -43,7 +59,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/status":
             DISPATCHER.check_deadlines()
-            body = json.dumps(DISPATCHER.snapshot()).encode()
+            status = DISPATCHER.snapshot()
+            status["simulation"] = SIMULATION.snapshot()
+            body = json.dumps(status).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        elif self.path == "/api/simulation":
+            body = json.dumps(SIMULATION.snapshot()).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        elif self.path == "/api/simulation/events":
+            body = json.dumps({"events": SIMULATION.events[-100:]}).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        elif self.path == "/api/simulation/calibration":
+            body = json.dumps(SIMULATION.paths).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/zones":
             import yaml
@@ -105,5 +132,66 @@ class DashboardHandler(BaseHTTPRequestHandler):
         body = asset.read_bytes()
         self.send_response(200); self.send_header("Content-Type", content_type); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
 
+    def _json_body(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        return json.loads(self.rfile.read(length))
+
+    def _json_response(self, payload, status=200):
+        body = json.dumps(payload).encode()
+        self.send_response(status); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+
+    def _simulation_command(self):
+        try:
+            payload = self._json_body()
+            action = payload.get("action")
+            if action == "start": SIMULATION.start()
+            elif action == "pause": SIMULATION.pause()
+            elif action == "resume": SIMULATION.resume()
+            elif action == "reset": SIMULATION.reset()
+            elif action == "speed": SIMULATION.set_speed(float(payload["multiplier"]))
+            elif action == "fault": SIMULATION.inject_fault(payload["fault"], payload.get("train_id"))
+            elif action == "global_stop": DISPATCHER.stop_all(payload.get("reason", "operator global stop"))
+            elif action == "clear_stop": DISPATCHER.clear_stop()
+            elif action == "reconcile":
+                event = type("SimEvent", (), {"train_id": int(payload["train_id"]), "receiver_id": payload["receiver"], "timestamp": SIMULATION.sim_time})()
+                DISPATCHER.process_ir_event(event, zone=payload.get("zone"))
+                DISPATCHER.clear_stop()
+            elif action == "load": SIMULATION.load(int(payload["train_id"]), payload["location"])
+            elif action == "tipper": SIMULATION.unload_tipper(int(payload["train_id"]), success=payload.get("success", True), safe_to_depart=payload.get("safe_to_depart", True))
+            elif action == "yard_power": SIMULATION.set_yard_power(payload["track"], payload["enabled"])
+            elif action == "park": SIMULATION.park(int(payload["train_id"]), payload["stall"])
+            elif action == "dispatch":
+                profile = SpeedProfile(**payload.get("profile", {}))
+                consist = Consist(tuple(Car(**c) for c in payload.get("cars", [{"length_mm": 120.0, "spacing_mm": 25.0, "magnetic_strip": True}])))
+                SIMULATION.dispatch(int(payload["train_id"]), payload["path_id"], target_speed_mm_s=payload.get("target_speed_mm_s"), profile=profile, consist=consist)
+            else: raise ValueError("unknown simulation action")
+            self._json_response({"ok": True, "simulation": SIMULATION.snapshot()})
+        except (KeyError, TypeError, ValueError, SafetyError) as exc:
+            self._json_response({"ok": False, "error": str(exc)}, 400)
+
+    def _save_calibration(self):
+        import yaml
+        try:
+            payload = self._json_body()
+            paths = payload.get("paths", {})
+            if not isinstance(paths, dict): raise ValueError("paths must be an object")
+            for path_id, path in paths.items():
+                points = path.get("points", [])
+                if len(points) < 2 or any(len(p) != 2 or not all(0 <= float(v) <= 1 for v in p) for p in points):
+                    raise ValueError(f"{path_id}: at least two normalized points are required")
+                if float(path.get("length_mm", 0)) <= 0: raise ValueError(f"{path_id}: length_mm must be positive")
+            data = {"verified": bool(payload.get("verified", False)), "source_image": "dashboard/public/images/railroad-layout-clean.png", "paths": paths}
+            (ROOT / "config/simulation_paths.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+            SIMULATION.paths = data
+            SIMULATION._log("calibration_saved", verified=data["verified"], paths=len(paths))
+            self._json_response({"ok": True, "geometry_available": SIMULATION.geometry_available})
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            self._json_response({"ok": False, "error": str(exc)}, 400)
+
 def serve(host="127.0.0.1", port=8080):
+    def tick_loop():
+        while True:
+            SIMULATION.tick()
+            time.sleep(0.05)
+    Thread(target=tick_loop, daemon=True, name="simulation-clock").start()
     ThreadingHTTPServer((host, port), DashboardHandler).serve_forever()

@@ -1,0 +1,6 @@
+# Calibration output for the simulation engine.
+# points are normalized coordinates in the clean layout image.  Distances are mm.
+# This file is intentionally unverified until surveyed centerlines are entered.
+verified: false
+source_image: dashboard/public/images/railroad-layout-clean.png
+paths: {}
