@@ -1,21 +1,37 @@
 # Track associations for calibration proposals. Null distance means the
 # recovered v05 point is only an approximate starting reference.
 markers:
-  tunnel_entrance: {kind: receiver, track_path: Ski}
-  yard_entrance: {kind: receiver, track_path: Underground}
-  ski_entrance: {kind: receiver, track_path: Ski}
-  tunnel_exit_west: {kind: receiver, track_path: Underground}
-  tunnel_exit_east: {kind: receiver, track_path: Main}
-  underground_entrance: {kind: receiver, track_path: Main}
-  tipper_entrance: {kind: receiver, track_path: Main}
-  stall_1a: {kind: receiver, track_path: Underground}
-  stall_1b: {kind: receiver, track_path: Underground}
-  stall_2: {kind: receiver, track_path: Underground}
-  stall_3: {kind: receiver, track_path: Underground}
-  A: {kind: turnout, track_path: Main}
-  B: {kind: turnout, track_path: Underground}
-  C: {kind: turnout, track_path: Main}
-  D: {kind: turnout, track_path: Underground}
-  E: {kind: turnout, track_path: Underground}
-  F: {kind: turnout, track_path: Underground}
-  G: {kind: turnout, track_path: Underground}
+  tunnel_entrance: {kind: receiver, track_path: Ski, segment_id: ski_upper}
+  yard_entrance: {kind: receiver, track_path: Underground, segment_id: underground_west_branch}
+  ski_entrance: {kind: receiver, track_path: Ski, segment_id: ski_upper}
+  tunnel_exit_west: {kind: receiver, track_path: Underground, segment_id: underground_loop}
+  tunnel_exit_east: {kind: receiver, track_path: Main, segment_id: main_center_east}
+  underground_entrance: {kind: receiver, track_path: Main, segment_id: main_left_loop}
+  tipper_entrance: {kind: receiver, track_path: Main, segment_id: main_left_loop}
+  stall_1a: {kind: receiver, track_path: Underground, segment_id: underground_east_upper}
+  stall_1b: {kind: receiver, track_path: Underground, segment_id: underground_east_upper}
+  stall_2: {kind: receiver, track_path: Underground, segment_id: underground_east_middle}
+  stall_3: {kind: receiver, track_path: Underground, segment_id: yard_track_1}
+  A: {kind: turnout, track_path: Main, segment_id: main_left_loop}
+  B: {kind: turnout, track_path: Underground, segment_id: underground_east_lower}
+  C: {kind: turnout, track_path: Main, segment_id: main_center_east}
+  D: {kind: turnout, track_path: Underground, segment_id: underground_west_branch}
+  E: {kind: turnout, track_path: Underground, segment_id: underground_west_branch}
+  F: {kind: turnout, track_path: Underground, segment_id: underground_east_upper}
+  G: {kind: turnout, track_path: Underground, segment_id: underground_east_middle}
+zone_endpoints:
+  SKI-1: {start: ski_upper, end: ski_upper}
+  SKI-2: {start: ski_upper, end: ski_upper}
+  SKI-3: {start: ski_upper, end: ski_upper}
+  FARM-1: {start: farm_inner, end: farm_inner}
+  FARM-2: {start: farm_inner, end: farm_outer}
+  FARM-3: {start: farm_outer, end: farm_outer}
+  UND-1: {start: underground_loop, end: underground_west_branch}
+  UND-2: {start: underground_west_branch, end: underground_loop}
+  UND-3: {start: underground_west_branch, end: yard_throat}
+  MINE-1: {start: mine_red, end: mine_red}
+  MINE-2: {start: mine_red, end: mine_red}
+  MINE-3: {start: mine_red, end: mine_red}
+  MAIN-1: {start: main_to_farm, end: main_center_west}
+  MAIN-2: {start: main_center_west, end: main_left_loop}
+  MAIN-3: {start: main_left_loop, end: main_left_loop}

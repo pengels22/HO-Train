@@ -49,6 +49,7 @@ def load_geography(root: Path) -> dict:
     design = yaml.safe_load((root / "config/geography_design_v05.yaml").read_text()) or {}
     geometry = load_centerlines(root)
     marker_geometry = yaml.safe_load((root / "config/marker_geometry_v05.yaml").read_text()) or {}
+    zone_geometry = marker_geometry.get("zone_endpoints", {}) or {}
     track = yaml.safe_load((root / "config/track_layout.yaml").read_text()) or {}
     ir = yaml.safe_load((root / "config/ir_receivers.yaml").read_text()) or {}
     zones = {}
@@ -59,8 +60,9 @@ def load_geography(root: Path) -> dict:
         elif path_id == "Mine": path_id = "Mine"
         elif path_id == "Main": path_id = "Main"
         elif path_id == "Underground": path_id = "Underground"
-        start = _project(geometry, path_id, data.get("start")) if data.get("start") else None
-        end = _project(geometry, path_id, data.get("end")) if data.get("end") else None
+        association = zone_geometry.get(zone_id, {})
+        start = _project(geometry, path_id, data.get("start"), {"segment_id": association.get("start")}) if data.get("start") else None
+        end = _project(geometry, path_id, data.get("end"), {"segment_id": association.get("end")}) if data.get("end") else None
         zones[zone_id] = {"start": start["position"] if start else None, "end": end["position"] if end else None,
                           "track_path": path_id, "start_geometry": start, "end_geometry": end,
                           "calibrated": bool(data.get("calibrated", False))}
