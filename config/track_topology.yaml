@@ -1,0 +1,5 @@
+# Machine-readable topology placeholder. Populate only from surveyed rail connectivity.
+verified: false
+segments: []
+connections: []
+elevations: {}

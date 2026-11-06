@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HO Railroad Control — Track Map</title><link rel="stylesheet" href="/dashboard/css/styles.css"></head>
+<body>
+<header><div><strong>HO Railroad Control</strong><span class="mode">SIMULATION</span></div><nav><a class="active" href="/track-map">Track Map</a><a href="/api/status">Status JSON</a></nav></header>
+<main>
+  <section class="toolbar"><button id="zoom-out">−</button><button id="zoom-reset">Reset view</button><button id="zoom-in">+</button><button id="fullscreen">Full screen</button><label><input id="show-zones" type="checkbox" checked> Zones</label><label><input id="show-markers" type="checkbox" checked> Sensors & turnouts</label><span id="map-status">Loading map…</span></section>
+  <section class="workspace">
+    <div id="map-viewport" tabindex="0" aria-label="Interactive railroad track map">
+      <div id="map-content"><img id="layout-image" src="/dashboard/images/railroad-layout.png" alt="RailModeller HO railroad layout with colored tracks"><svg id="overlay" viewBox="0 0 1559 1009" preserveAspectRatio="none" aria-label="Interactive railroad overlays"><g id="zone-layer"></g><g id="marker-layer"></g></svg></div>
+    </div>
+    <aside class="panel"><h2>Zone editor</h2><p class="warning">Proposed geometry only. Saving never changes the background image and always leaves a zone unverified.</p><label>Selected zone<select id="zone-select"></select></label><label>Boundary polygon<br><textarea id="polygon-input" spellcheck="false"></textarea></label><div class="actions"><button id="save-zone">Save</button><button id="cancel-zone">Cancel</button><button id="reset-zone">Reset</button><button id="validate-zone">Validate</button></div><pre id="editor-result" aria-live="polite"></pre><h2>Legend</h2><p><span class="legend zone"></span> zone boundary <span class="legend ir"></span> IR <span class="legend hall"></span> Hall <span class="legend turnout"></span> turnout</p><p id="safety-note">Live hardware routing unavailable while zones are unverified.</p></aside>
+  </section>
+</main>
+<script src="/dashboard/js/app.js"></script>
+</body></html>

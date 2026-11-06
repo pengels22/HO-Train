@@ -5,6 +5,8 @@ from railroad.tracking.ir_protocol import Target, decode, encode
 from railroad.tracking.occupancy import OccupancyState, Section
 from railroad.routing.track_graph import TrackGraph
 from railroad.automation.tipper import Tipper, TipperState
+from railroad.config.zones import load_zones
+from railroad.routing.zones import ZoneState
 
 def test_joystick_dead_zone_and_scale():
     m = JoystickMapping()
@@ -38,3 +40,32 @@ def test_tipper_interlock_and_fault():
     assert tipper.state == TipperState.ROTATING
     tipper.fail("timeout")
     assert tipper.state == TipperState.FAULT
+
+def test_fifteen_zone_configuration_is_conservative():
+    engine = load_zones("config/zones.yaml")
+    assert len(engine.zones) == 15
+    assert {z.railway for z in engine.zones.values()} == {"Ski Line", "Farm Line", "Underground", "Mine Line", "Main Line"}
+    with pytest.raises(RuntimeError):
+        engine.reserve_route(["MAIN-1"], 1)
+
+def test_zone_ir_does_not_clear_previous_consist_zone():
+    engine = load_zones("config/zones.yaml")
+    previous = engine.zones["MAIN-1"]
+    previous.verified = True
+    previous.state = ZoneState.CLEAR
+    previous.reserve(1, require_verified=True)
+    previous.observe_ir(1, "tunnel_entrance")
+    next_zone = engine.zones["MAIN-2"]
+    next_zone.verified = True
+    next_zone.state = ZoneState.CLEAR
+    next_zone.reserve(1, require_verified=True)
+    assert previous.state == ZoneState.OCCUPIED
+    assert previous.occupying_train == 1
+
+def test_zone_conflict_blocks_second_train():
+    engine = load_zones("config/zones.yaml")
+    zone = engine.zones["MAIN-1"]
+    zone.verified = True
+    zone.state = ZoneState.CLEAR
+    engine.reserve_route(["MAIN-1"], 1)
+    assert engine.conflict(["MAIN-1"], 2)
