@@ -1,0 +1,10 @@
+# Image-derived bounds calibration. It is deliberately unverified until the
+# imported graph is visually checked against the physical railroad.
+source_width: 160.0
+source_height: 117.0
+width: 752.0
+height: 602.0
+scale_x: 4.7383112352
+scale_y: 6.3744588745
+offset_x: 33.9392882066
+offset_y: -92.6287878788

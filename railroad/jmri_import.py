@@ -8,8 +8,8 @@ import yaml
 
 DEFAULT_SOURCE = Path("/Users/patrickengels/Downloads/dream train lauyout.xml")
 
-def _xy(node, scale_x, scale_y):
-    return [round(float(node.get("x", 0)) * scale_x, 4), round(float(node.get("y", 0)) * scale_y, 4)]
+def _xy(node, scale_x, scale_y, offset_x, offset_y):
+    return [round(float(node.get("x", 0)) * scale_x + offset_x, 4), round(float(node.get("y", 0)) * scale_y + offset_y, 4)]
 
 def _arc_points(start, end, degrees, flip=False, count=13):
     """Sample an arc from the XML endpoints and included angle.
@@ -34,21 +34,23 @@ def _arc_points(start, end, degrees, flip=False, count=13):
     while direction < 0 and a1 > a0: a1 -= 2*math.pi
     return [[round(cx+radius*math.cos(a0+(a1-a0)*i/(count-1)),4), round(cy+radius*math.sin(a0+(a1-a0)*i/(count-1)),4)] for i in range(count)]
 
-def import_jmri(source: Path, source_width=160.0, source_height=117.0, width=752.0, height=602.0) -> dict:
+def import_jmri(source: Path, source_width=160.0, source_height=117.0, width=752.0, height=602.0, scale_x=None, scale_y=None, offset_x=None, offset_y=None) -> dict:
     root = ET.parse(source).getroot()
     layout = root.find(".//LayoutEditor")
     if layout is None: raise ValueError("JMRI LayoutEditor element not found")
-    sx, sy = width/source_width, height/source_height
-    points = {n.get("ident"): _xy(n, sx, sy) for n in layout.findall("positionablepoint")}
+    sx, sy = scale_x or 4.7383112352, scale_y or 6.3744588745
+    offset_x = 33.9392882066 if offset_x is None else offset_x
+    offset_y = -92.6287878788 if offset_y is None else offset_y
+    points = {n.get("ident"): _xy(n, sx, sy, offset_x, offset_y) for n in layout.findall("positionablepoint")}
     turnout_points = {}
     turnouts = {}
     for n in layout.findall("layoutturnout"):
         ident=n.get("ident"); turnouts[ident]={k:n.get(k) for k in ("type","continuing","connectaname","connectbname","connectcname")}
-        turnout_points[ident]=[round(float(n.get("xcen",0))*sx,4),round(float(n.get("ycen",0))*sy,4)]
+        turnout_points[ident]=_xy({"x":n.get("xcen",0),"y":n.get("ycen",0)},sx,sy,offset_x,offset_y)
     tt = layout.find("layoutturntable")
     turntable = None
     if tt is not None:
-        turntable={"id":tt.get("ident"),"center":[round(float(tt.get("xcen",0))*sx,4),round(float(tt.get("ycen",0))*sy,4)],"radius":float(tt.get("radius",0))*sx,"rays":[]}
+        turntable={"id":tt.get("ident"),"center":_xy({"x":tt.get("xcen",0),"y":tt.get("ycen",0)},sx,sy,offset_x,offset_y),"radius":float(tt.get("radius",0))*sx,"rays":[]}
     junctions={k:{"type":"anchor","source_id":k} for k in points}
     junctions.update({k:{"type":"turnout","source_id":k} for k in turnout_points})
     if turntable: junctions[turntable["id"]]={"type":"turntable","source_id":turntable["id"]}
@@ -62,7 +64,7 @@ def import_jmri(source: Path, source_width=160.0, source_height=117.0, width=752
         if n.get("bezier") == "yes":
             cps=[]
             for cp in n.findall("./controlpoints/controlpoint"):
-                cps.append([round(float(cp.get("x",0))*sx,4),round(float(cp.get("y",0))*sy,4)])
+                cps.append(_xy(cp,sx,sy,offset_x,offset_y))
             points_out=[p0]+cps+[p1]
             kind="bezier"
         elif n.get("arc") == "yes":
@@ -76,9 +78,11 @@ def import_jmri(source: Path, source_width=160.0, source_height=117.0, width=752
         if n.get("connect1name","").startswith("TUR") or n.get("connect2name","").startswith("TUR"):
             if turntable: turntable["rays"].append(n.get("ident"))
     connections=[{"segment_id":sid,"from":seg["start"],"to":seg["end"],"source_id":sid} for sid,seg in segments.items()]
-    return {"verified":False,"coordinate_system":"clean_image_pixels","source_format":"JMRI LayoutEditor XML","source_file":source.name,"source_width":source_width,"source_height":source_height,"width":width,"height":height,"transform":{"scale_x":sx,"scale_y":sy,"offset_x":0,"offset_y":0,"method":"JMRI panel dimensions to clean image; review required"},"junctions":junctions,"segments":segments,"connections":connections,"turnouts":turnouts,"turntable":turntable,"zero_length_segments":zero,"counts":{"positionable_points":len(points),"segments":len(segments),"arcs":sum(s["source_kind"]=="arc" for s in segments.values()),"beziers":sum(s["source_kind"]=="bezier" for s in segments.values()),"straight":sum(s["source_kind"]=="straight" for s in segments.values()),"turnouts":len(turnouts)}}
+    return {"verified":False,"coordinate_system":"clean_image_pixels","source_format":"JMRI LayoutEditor XML","source_file":source.name,"source_width":source_width,"source_height":source_height,"width":width,"height":height,"transform":{"scale_x":sx,"scale_y":sy,"offset_x":offset_x,"offset_y":offset_y,"method":"image rail-extents fit from clean background; review required"},"junctions":junctions,"segments":segments,"connections":connections,"turnouts":turnouts,"turntable":turntable,"zero_length_segments":zero,"counts":{"positionable_points":len(points),"segments":len(segments),"arcs":sum(s["source_kind"]=="arc" for s in segments.values()),"beziers":sum(s["source_kind"]=="bezier" for s in segments.values()),"straight":sum(s["source_kind"]=="straight" for s in segments.values()),"turnouts":len(turnouts)}}
 
 def write_import(root: Path, source: Path=DEFAULT_SOURCE) -> dict:
-    data=import_jmri(source)
+    transform_path = root / "config/jmri_transform.yaml"
+    transform = yaml.safe_load(transform_path.read_text()) if transform_path.exists() else {}
+    data=import_jmri(source, **(transform or {}))
     (root/"config/jmri_layout_import.yaml").write_text(yaml.safe_dump(data,sort_keys=False))
     return data

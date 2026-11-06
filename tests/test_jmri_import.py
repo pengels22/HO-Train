@@ -13,7 +13,9 @@ def test_jmri_import_preserves_exported_counts_and_ids():
 def test_jmri_import_preserves_connections_and_marks_transform_unverified():
     data = import_jmri(SOURCE)
     assert data["verified"] is False
-    assert data["transform"]["offset_x"] == 0
+    assert data["transform"]["offset_x"] > 0
+    assert data["transform"]["offset_y"] < 0
+    assert "rail-extents" in data["transform"]["method"]
     assert data["segments"]["T56"]["source_kind"] == "bezier"
     assert data["segments"]["T6"]["source_kind"] == "arc"
     assert data["segments"]["T6"]["start"] == "A10"
