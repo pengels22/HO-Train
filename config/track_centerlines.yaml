@@ -20,18 +20,18 @@ junctions:
   yard_23_split: {type: junction}
 segments:
   mine_red: {track_path: Mine, color: '#ff5252', start: mine_top, end: A, points: [[88,66],[88,105],[88,145],[88,180],[84,200],[74,220],[65,245],[60,270]]}
-  main_left_loop: {track_path: Main, color: '#a4adb8', start: A, end: main_west, points: [[60,270],[60,330],[60,400],[60,470],[61,515],[72,555],[95,580],[130,595],[170,598],[205,590],[230,565],[245,535],[246,505],[240,470],[230,430],[217,380],[205,330],[190,280],[180,240]]}
-  main_center_west: {track_path: Main, color: '#a4adb8', start: main_west, end: D, points: [[180,240],[220,240],[260,240],[300,240],[340,240],[380,240]]}
-  main_center_east: {track_path: Main, color: '#a4adb8', start: D, end: C, points: [[380,240],[420,240],[460,240],[500,240],[540,240]]}
-  main_to_farm: {track_path: Main, color: '#a4adb8', start: C, end: main_east, points: [[540,240],[560,238],[580,235]]}
-  ski_upper: {track_path: Ski, color: '#f4f4f4', start: ski_west, end: C, points: [[340,82],[365,68],[395,52],[430,38],[470,28],[510,24],[550,25],[585,33],[615,48],[640,72],[658,103],[668,135],[668,165],[660,190],[645,210],[625,222],[600,230],[570,234],[540,235]]}
-  farm_outer: {track_path: Farm, color: '#f2d52c', start: C, end: farm_east, points: [[540,235],[565,230],[595,230],[625,238],[650,252],[675,275],[695,305],[708,340],[714,380],[714,425],[714,470],[714,510],[705,545],[688,572],[662,588],[630,596],[595,597],[565,588],[540,570],[520,545],[510,515],[510,480]]}
-  farm_inner: {track_path: Farm, color: '#f2d52c', start: farm_east, end: C, points: [[510,480],[512,455],[520,430],[535,412],[552,398],[567,380],[577,358],[580,332],[580,305],[577,280],[568,260],[555,247],[540,240]]}
+  main_left_loop: {track_path: Main, color: '#a4adb8', start: A, end: main_west, points: [[60,270],[60,330],[60,400],[60,470],[61,515],[72,555],[95,580],[130,595],[170,598],[205,590],[230,565],[245,535],[246,505],[240,470],[230,430],[217,380],[205,330],[190,280],[180,234]]}
+  main_center_west: {track_path: Main, color: '#a4adb8', start: main_west, end: D, points: [[180,234],[220,234],[260,234],[300,234],[340,234],[380,234]]}
+  main_center_east: {track_path: Main, color: '#a4adb8', start: D, end: C, points: [[380,234],[420,234],[460,234],[500,234],[540,234]]}
+  main_to_farm: {track_path: Main, color: '#a4adb8', start: C, end: main_east, points: [[540,234],[560,234],[580,234]]}
+  ski_upper: {track_path: Ski, color: '#f4f4f4', start: ski_west, end: C, points: [[340,82],[375,65],[415,48],[460,34],[510,25],[560,24],[600,30],[635,48],[662,75],[680,110],[689,145],[689,175],[682,200],[665,220],[640,230],[610,235],[575,235],[540,234]]}
+  farm_outer: {track_path: Farm, color: '#f2d52c', start: C, end: farm_east, points: [[540,234],[570,234],[600,238],[630,245],[660,260],[685,285],[705,320],[720,360],[730,410],[730,465],[730,510],[720,545],[700,575],[670,592],[630,600],[590,600],[555,590],[535,570],[520,545],[515,515],[515,480]]}
+  farm_inner: {track_path: Farm, color: '#f2d52c', start: farm_east, end: C, points: [[515,480],[518,455],[530,430],[548,412],[568,398],[583,380],[592,358],[595,332],[595,305],[590,280],[580,260],[565,246],[540,234]]}
   underground_loop: {track_path: Underground, color: '#5f60ff', start: D, end: B, points: [[180,240],[170,215],[160,185],[153,155],[150,125],[153,95],[165,65],[185,38],[210,20],[240,12],[270,12],[300,18],[325,35],[342,60],[352,90],[356,122],[355,153],[350,180],[340,205],[325,225],[305,238]]}
-  underground_west_branch: {track_path: Underground, color: '#5f60ff', start: D, end: B, points: [[180,240],[195,220],[215,200],[238,185],[260,174],[285,163],[310,153],[340,145],[380,145]]}
-  underground_east_upper: {track_path: Underground, color: '#5f60ff', start: B, end: ski_east, points: [[380,145],[430,146],[480,148],[530,150],[580,152],[625,153],[675,155]]}
-  underground_east_middle: {track_path: Underground, color: '#5f60ff', start: B, end: ski_east, points: [[380,150],[430,160],[480,168],[530,174],[580,178],[625,180],[675,180]]}
-  underground_east_lower: {track_path: Underground, color: '#5f60ff', start: B, end: ski_east, points: [[380,155],[420,175],[460,193],[505,205],[550,210],[600,210],[645,205],[675,200]]}
+  underground_west_branch: {track_path: Underground, color: '#5f60ff', start: D, end: B, points: [[180,234],[195,210],[215,185],[240,165],[270,145],[300,125],[325,108],[340,95]]}
+  underground_east_upper: {track_path: Underground, color: '#5f60ff', start: B, end: ski_east, points: [[340,95],[390,96],[440,98],[490,99],[540,100],[590,100],[640,101],[690,102],[730,103]]}
+  underground_east_middle: {track_path: Underground, color: '#5f60ff', start: B, end: ski_east, points: [[340,98],[390,104],[440,108],[490,112],[540,116],[590,120],[640,122],[690,123],[730,124]]}
+  underground_east_lower: {track_path: Underground, color: '#5f60ff', start: B, end: ski_east, points: [[340,101],[380,115],[420,130],[460,143],[500,153],[540,160],[580,164],[630,166],[680,166],[730,166]]}
   yard_throat: {track_path: Underground, color: '#5f60ff', start: E, end: F, points: [[320,238],[350,225],[380,205],[410,180],[440,155]]}
   yard_track_1: {track_path: Underground, color: '#5f60ff', start: F, end: yard_1_split, points: [[440,155],[485,155],[530,156],[575,157],[620,158]]}
   yard_stall_1a: {track_path: Underground, color: '#5f60ff', start: yard_1_split, end: yard_1a_end, points: [[620,158],[650,158],[675,158]]}
