@@ -1,4 +1,5 @@
 from pathlib import Path
+import struct
 
 from railroad.geography import clean_normalized_to_source_pixel, load_geography, source_pixel_to_clean_normalized
 
@@ -22,3 +23,16 @@ def test_geography_has_fifteen_pairs_eleven_ir_and_seven_turnouts():
     assert all(v["position"] is not None and not v["calibrated"] for v in geo["ir_receivers"])
     assert all(v["position"] is not None and v["calibrated"] for v in geo["turnouts"].values())
     assert geo["design_verified"] is False
+
+
+def test_clean_background_dimensions_and_mapping_are_stable():
+    root = Path(__file__).parents[1]
+    png = (root / "dashboard/public/images/railroad-layout-clean.png").read_bytes()
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    width, height = struct.unpack(">II", png[16:24])
+    assert (width, height) == (752, 602)
+    geo = load_geography(root)
+    assert geo["image"]["crop_offset"] == [0, 0]
+    assert geo["image"]["source_width"] == 739
+    assert geo["image"]["source_height"] == 593
+    assert source_pixel_to_clean_normalized([739, 593]) == [1.0, 1.0]

@@ -27,6 +27,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if self.path == "/api/simulation/calibration":
             self._save_calibration()
             return
+        if self.path == "/api/geography/marker":
+            self._save_geography_marker()
+            return
         if self.path != "/api/zones/boundaries":
             self.send_error(404); return
         import yaml
@@ -128,6 +131,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
         body = asset.read_bytes()
         self.send_response(200); self.send_header("Content-Type", content_type); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
 
+    def _save_geography_marker(self):
+        import yaml
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(length))
+            kind, marker_id, position = payload["kind"], payload["id"], payload["position"]
+            if kind not in {"receiver", "turnout"} or len(position) != 2 or any(not 0 <= float(v) <= 1 for v in position):
+                raise ValueError("marker must be a normalized receiver or turnout position")
+            path = ROOT / "config/geography_design_v05.yaml"
+            data = yaml.safe_load(path.read_text()) or {}
+            section = data["receivers"] if kind == "receiver" else data["turnouts"]
+            if marker_id not in section:
+                raise ValueError("unknown geography marker")
+            section[marker_id]["position"] = [float(position[0]), float(position[1])]
+            path.write_text(yaml.safe_dump(data, sort_keys=False))
+            body = json.dumps({"saved": True, "kind": kind, "id": marker_id, "position": section[marker_id]["position"], "verified": bool(section[marker_id].get("verified", False))}).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            body = json.dumps({"saved": False, "error": str(exc)}).encode()
+            self.send_response(400); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
     def _json_body(self):
         length = int(self.headers.get("Content-Length", "0"))
         return json.loads(self.rfile.read(length))
