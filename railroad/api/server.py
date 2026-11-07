@@ -77,14 +77,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             body = json.dumps(SIMULATION.paths).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/zones":
-            import yaml
-            data = yaml.safe_load((ROOT / "config/zones.yaml").read_text())
-            body = json.dumps({"verified": False, "zones": [{**z, "state": "UNKNOWN", "occupying_train": None, "reserved_train": None} for z in data["zones"]]}).encode()
+            geo = load_geography(ROOT)
+            zones = [{"id": zone_id, "railway": value.get("track_path"), "state": "UNKNOWN",
+                      "occupying_train": None, "reserved_train": None} for zone_id, value in geo["zones"].items()]
+            body = json.dumps({"verified": False, "zones": zones}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/zone-boundaries":
-            import yaml
-            data = yaml.safe_load((ROOT / "config/zone_boundaries.yaml").read_text())
-            body = json.dumps(data).encode()
+            geo = load_geography(ROOT)
+            body = json.dumps({"verified": False, "coordinate_system": geo["coordinate_system"], "boundaries": geo["zones"]}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/config":
             import yaml
@@ -104,8 +104,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             body = json.dumps(load_geography(ROOT)).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/track-geometry":
-            import yaml
-            body = json.dumps(load_centerlines(ROOT)).encode()
+            geo = load_geography(ROOT)
+            body = json.dumps({"verified": geo["geometry_verified"], "coordinate_system": geo["coordinate_system"],
+                               "width": geo["image"]["width"], "height": geo["image"]["height"],
+                               "segments": geo["segments"], "junctions": geo["junctions"], "terminals": geo["terminals"],
+                               "connections": geo["connections"], "turnouts": geo["turnout_graph"],
+                               "yard_tracks": geo["yard_tracks"], "validation": {"ok": geo["graph_valid"], "errors": geo["graph_errors"]}}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path in ("/", "/track-map"):
             self._serve_dashboard_file("index.html", "text/html; charset=utf-8")

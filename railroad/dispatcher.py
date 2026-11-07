@@ -7,7 +7,7 @@ import time
 
 ZONES = tuple(f"{line}-{n}" for line in ("SKI", "FARM", "UND", "MINE", "MAIN") for n in (1, 2, 3))
 STALLS = ("1A", "1B", "2", "3")
-TURNOUT_DEFAULTS = {"A":"diverging", "B":"straight", "C":"straight", "D":"straight", "E":"straight", "F":"straight", "G":"straight"}
+TURNOUT_DEFAULTS = {"A":"diverging", "B":"straight", "C":"straight", "D":"straight", "E":"straight", "F":"straight", "G":"straight", "H":"straight"}
 TIPPER_LOCKED = frozenset(("MAIN-3", "UND-1"))
 DESTINATIONS = ("Mine", "Farm", "Ski", "Town", "Tipper", "Yard")
 

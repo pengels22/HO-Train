@@ -10,19 +10,24 @@ def test_clean_image_transform_is_single_crop_transform():
     assert clean_normalized_to_source_pixel([0.5, 0.5]) == [369.5, 296.5]
 
 
-def test_geography_has_fifteen_pairs_eleven_ir_and_seven_turnouts():
+def test_unified_geography_has_fifteen_pairs_eleven_ir_eight_turnouts_and_halls():
     geo = load_geography(Path(__file__).parents[1])
     assert len(geo["zones"]) == 15
     assert len(geo["ir_receivers"]) == 11
-    assert len(geo["turnouts"]) == 7
-    assert geo["zones"]["SKI-1"]["start_geometry"]["track_path"] == "JMRI"
-    assert geo["zones"]["SKI-1"]["start_geometry"]["segment_id"] in geo["segments"]
-    assert geo["ir_receivers"][0]["geometry"]["track_path"] == "JMRI"
-    assert geo["turnouts"]["A"]["geometry"]["track_path"] == "JMRI"
+    assert len(geo["turnouts"]) == 8
+    assert len(geo["hall_sensors"]) == 28
+    assert geo["track_geometry_count"] == 89
+    assert set(geo["turnouts"]) == set("ABCDEFGH")
+    assert geo["zones"]["SKI-1"]["start_geometry"]["source"] == "config/unified_geography.json"
+    assert geo["ir_receivers"][0]["geometry"]["source"] == "config/unified_geography.json"
+    assert geo["turnouts"]["A"]["geometry"]["source"] == "config/unified_geography.json"
     assert all(v["start"] is not None and v["end"] is not None and not v["calibrated"] for v in geo["zones"].values())
     assert all(v["position"] is not None and not v["calibrated"] for v in geo["ir_receivers"])
-    assert all(v["position"] is not None and v["calibrated"] for v in geo["turnouts"].values())
+    assert all(v["calibrated"] is False for v in geo["turnouts"].values())
+    assert geo["turnouts"]["H"]["position"] is None
     assert geo["design_verified"] is False
+    assert geo["geometry_verified"] is False
+    assert geo["graph_valid"] is False
 
 
 def test_clean_background_dimensions_and_mapping_are_stable():
