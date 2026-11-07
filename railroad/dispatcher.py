@@ -54,7 +54,23 @@ class Dispatcher:
     global_stop: bool = False
     stop_reason: str | None = None
     simulation: bool = True
+    estop_controller: object | None = field(default=None, repr=False)
+    _rearm_required: bool = field(default=False, repr=False)
     lock: RLock = field(default_factory=RLock, repr=False)
+
+    def attach_estop(self, controller, *, require_rearm: bool = True) -> None:
+        """Attach the sole hardware command gate.
+
+        Simulation uses the dispatcher latch without a network sender. Hardware
+        and bench runtimes attach ``EmergencyStop`` explicitly at startup.
+        """
+        with self.lock:
+            self.estop_controller = controller
+            self._rearm_required = require_rearm
+
+    @property
+    def estop_active(self) -> bool:
+        return bool(self.estop_controller and self.estop_controller.active)
 
     @property
     def tipper_locked(self) -> bool:
@@ -64,8 +80,11 @@ class Dispatcher:
         with self.lock:
             self.global_stop = True
             self.stop_reason = reason
+            self._rearm_required = True
             for t in self.trains.values():
                 t.velocity = 0
+            if self.estop_controller:
+                self.estop_controller.activate()
 
     def clear_stop(self):
         with self.lock:
@@ -76,6 +95,34 @@ class Dispatcher:
                 raise SafetyError("unresolved checkpoint position fault")
             self.global_stop = False
             self.stop_reason = None
+            # Clearing the broadcast is not permission to move.  The explicit
+            # rearm step below is intentionally separate.
+            if self.estop_controller:
+                self.estop_controller.clear()
+
+    def rearm(self):
+        """Explicitly rearm after an operator has reconciled the layout."""
+        with self.lock:
+            if self.global_stop:
+                raise SafetyError("clear GLOBAL STOP before rearming")
+            if self.estop_controller:
+                self.estop_controller.rearm()
+            self._rearm_required = False
+
+    def command_motion(self, train_id: int, speed: int) -> None:
+        """Set a commanded speed through the E-Stop gate.
+
+        This is the dispatcher-facing path for hardware command writers; it
+        cannot issue a nonzero command while stopped, latched, or disarmed.
+        """
+        with self.lock:
+            if self.global_stop or self._rearm_required:
+                raise SafetyError("motion command blocked by E-Stop/disarmed state")
+            if train_id not in self.trains:
+                raise KeyError(train_id)
+            if self.estop_controller:
+                self.estop_controller.send_motion(train_id, speed)
+            self.trains[train_id].velocity = int(speed)
 
     def set_tipper(self, state: str, reason: str | None = None):
         with self.lock:
@@ -104,7 +151,7 @@ class Dispatcher:
             # Does not independently reset global stop or restore prior routes.
 
     def route_available(self, train_id: int, zones: list[str], *, mine_transit=False) -> bool:
-        if self.global_stop or train_id not in self.trains:
+        if self.global_stop or self._rearm_required or train_id not in self.trains:
             return False
         if len(zones) != len(set(zones)) or any(z not in self.zones for z in zones):
             return False
@@ -255,6 +302,8 @@ class Dispatcher:
             return {
                 "mode":"simulation" if self.simulation else "hardware",
                 "global_stop":self.global_stop,"stop_reason":self.stop_reason,
+                "estop_active":self.estop_active,
+                "motion_armed":not self._rearm_required and not self.global_stop,
                 "tipper":{"state":self.tipper,"fault":self.tipper_fault,"protected_zones":sorted(TIPPER_LOCKED)},
                 "trains":[{"id":t.train_id,"name":t.name,"type":t.kind,"zone":t.zone,
                            "destination":t.destination,"cargo":t.cargo.value,"speed":t.velocity,

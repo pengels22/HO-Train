@@ -7,6 +7,7 @@ from railroad.dispatcher import Dispatcher, SafetyError
 from railroad.simulator.engine import SimulationEngine, SpeedProfile, Consist, Car
 from railroad.geography import load_geography
 from railroad.track_geometry import load_centerlines
+from railroad.transport.estop import create_bench_sender
 
 DISPATCHER = Dispatcher()
 
@@ -18,6 +19,19 @@ def _load_paths():
     return yaml.safe_load(path.read_text()) or {"verified": False, "paths": {}}
 
 SIMULATION = SimulationEngine(DISPATCHER, _load_paths())
+
+
+def configure_runtime(mode: str = "simulation") -> None:
+    """Configure the command gate; network transmission is never implicit."""
+    if mode not in {"simulation", "hardware", "bench"}:
+        raise ValueError("mode must be simulation, hardware, or bench")
+    if mode == "simulation":
+        DISPATCHER.simulation = True
+        return
+    # ``hardware``/``bench`` are explicit opt-ins.  The sender itself remains
+    # disarmed until an operator performs the rearm sequence.
+    DISPATCHER.simulation = False
+    DISPATCHER.attach_estop(create_bench_sender(enable_network=True), require_rearm=True)
 
 class DashboardHandler(BaseHTTPRequestHandler):
 
@@ -213,6 +227,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             elif action == "fault": SIMULATION.inject_fault(payload["fault"], payload.get("train_id"))
             elif action == "global_stop": DISPATCHER.stop_all(payload.get("reason", "operator global stop"))
             elif action == "clear_stop": DISPATCHER.clear_stop()
+            elif action == "rearm": DISPATCHER.rearm()
             elif action == "reconcile":
                 event = type("SimEvent", (), {"train_id": int(payload["train_id"]), "receiver_id": payload["receiver"], "timestamp": SIMULATION.sim_time})()
                 DISPATCHER.process_ir_event(event, zone=payload.get("zone"))
@@ -249,7 +264,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             self._json_response({"ok": False, "error": str(exc)}, 400)
 
-def serve(host="127.0.0.1", port=8080):
+def serve(host="127.0.0.1", port=8080, mode="simulation"):
+    configure_runtime(mode)
     def tick_loop():
         while True:
             SIMULATION.tick()
