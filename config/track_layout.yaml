@@ -13,6 +13,11 @@ powered_turnouts:
   E: {default: straight, common: UND-2, straight: SKI-3, diverging: yard_throat}
   F: {default: straight, common: yard_throat, straight: yard_track_1, diverging: yard_track_2_3}
   G: {default: straight, common: yard_track_2_3, straight: stall_2, diverging: stall_3}
+  H: {default: straight, common: TBD, straight: TBD, diverging: UND-4} # exact straight connection awaiting JMRI graph association
 passive_turnouts: [P1, P2, P3]
 yard_tracks: {"1": ["1A", "1B"], "2": ["2"], "3": ["3"]}
 tipper_protected_zones: [MAIN-3, UND-1]
+
+# UND-4 is a short turntable access spur, not an independently instrumented occupancy zone.
+spur_sections:
+  UND-4: {access_turnout: H, type: turntable_approach, dedicated_occupancy_sensors: 0}
