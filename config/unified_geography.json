@@ -1,0 +1,4260 @@
+{
+  "zones": [
+    {
+      "id": "SKI-1",
+      "line": "Ski",
+      "x": 569,
+      "y": 216,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "SKI-1",
+      "boundaries": {
+        "start": {
+          "x": 550,
+          "y": 237
+        },
+        "end": {
+          "x": 675,
+          "y": 181
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "SKI-2",
+      "line": "Ski",
+      "x": 677,
+      "y": 120,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "SKI-2",
+      "boundaries": {
+        "start": {
+          "x": 676,
+          "y": 181
+        },
+        "end": {
+          "x": 612,
+          "y": 32
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "SKI-3",
+      "line": "Ski",
+      "x": 516,
+      "y": 30,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "SKI-3",
+      "boundaries": {
+        "start": {
+          "x": 611,
+          "y": 32
+        },
+        "end": {
+          "x": 342,
+          "y": 87
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "FARM-1",
+      "line": "Farm",
+      "x": 604,
+      "y": 251,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "FARM-1",
+      "boundaries": {
+        "start": {
+          "x": 550,
+          "y": 237
+        },
+        "end": {
+          "x": 641,
+          "y": 377
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "FARM-2",
+      "line": "Farm",
+      "x": 546,
+      "y": 521,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "FARM-2",
+      "boundaries": {
+        "start": {
+          "x": 641,
+          "y": 375
+        },
+        "end": {
+          "x": 711,
+          "y": 567
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "FARM-3",
+      "line": "Farm",
+      "x": 722,
+      "y": 375,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "FARM-3",
+      "boundaries": {
+        "start": {
+          "x": 715,
+          "y": 567
+        },
+        "end": {
+          "x": 612,
+          "y": 226
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "UND-1",
+      "line": "Underground",
+      "x": 201,
+      "y": 308,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "UND-1",
+      "boundaries": {
+        "start": {
+          "x": 241,
+          "y": 419
+        },
+        "end": {
+          "x": 187,
+          "y": 211
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "UND-2",
+      "line": "Underground",
+      "x": 259,
+      "y": 116,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "UND-2",
+      "boundaries": {
+        "start": {
+          "x": 190,
+          "y": 220
+        },
+        "end": {
+          "x": 342,
+          "y": 87
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "UND-3",
+      "line": "Underground",
+      "x": 293,
+      "y": 13,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "UND-3",
+      "boundaries": {
+        "start": {
+          "x": 185,
+          "y": 224
+        },
+        "end": {
+          "x": 388,
+          "y": 158
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "MINE-1",
+      "line": "Mine",
+      "x": 65,
+      "y": 246,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "MINE-1",
+      "boundaries": {
+        "start": {
+          "x": 72,
+          "y": 299
+        },
+        "end": {
+          "x": 97,
+          "y": 200
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "MINE-2",
+      "line": "Mine",
+      "x": 87,
+      "y": 147,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "MINE-2",
+      "boundaries": {
+        "start": {
+          "x": 94,
+          "y": 198
+        },
+        "end": {
+          "x": 91,
+          "y": 133
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "MINE-3",
+      "line": "Mine",
+      "x": 86,
+      "y": 88,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "MINE-3",
+      "boundaries": {
+        "start": {
+          "x": 95,
+          "y": 131
+        },
+        "end": {
+          "x": 96,
+          "y": 69
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "MAIN-1",
+      "line": "Main",
+      "x": 372,
+      "y": 232,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "MAIN-1",
+      "boundaries": {
+        "start": {
+          "x": 549,
+          "y": 237
+        },
+        "end": {
+          "x": 290,
+          "y": 238
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "MAIN-2",
+      "line": "Main",
+      "x": 126,
+      "y": 241,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "MAIN-2",
+      "boundaries": {
+        "start": {
+          "x": 288,
+          "y": 237
+        },
+        "end": {
+          "x": 73,
+          "y": 299
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "MAIN-3",
+      "line": "Main",
+      "x": 151,
+      "y": 582,
+      "verified": false,
+      "description": "Proposed visual anchor; define exact track boundaries during review.",
+      "name": "MAIN-3",
+      "boundaries": {
+        "start": {
+          "x": 73,
+          "y": 299
+        },
+        "end": {
+          "x": 245,
+          "y": 447
+        }
+      },
+      "notes": ""
+    }
+  ],
+  "receivers": [
+    {
+      "name": "Tunnel Entrance",
+      "x": 286,
+      "y": 21,
+      "verified": false,
+      "displayName": "Tunnel Entrance"
+    },
+    {
+      "name": "Yard Entrance",
+      "x": 322.6,
+      "y": 109.8,
+      "verified": false,
+      "displayName": "Yard Entrance"
+    },
+    {
+      "name": "Ski Entrance",
+      "x": 552.4,
+      "y": 45.9,
+      "verified": false,
+      "displayName": "Ski Entrance"
+    },
+    {
+      "name": "Tunnel Exit West",
+      "x": 306,
+      "y": 247,
+      "verified": false,
+      "displayName": "Tunnel Exit West"
+    },
+    {
+      "name": "Tunnel Exit East",
+      "x": 449,
+      "y": 250,
+      "verified": false,
+      "displayName": "Tunnel Exit East"
+    },
+    {
+      "name": "Underground Entrance",
+      "x": 86,
+      "y": 329,
+      "verified": false,
+      "displayName": "Underground Entrance"
+    },
+    {
+      "name": "Tipper Entrance",
+      "x": 231,
+      "y": 431,
+      "verified": false,
+      "displayName": "Tipper Entrance"
+    },
+    {
+      "name": "Stall 1A",
+      "x": 492,
+      "y": 95,
+      "verified": false,
+      "displayName": "Stall 1A"
+    },
+    {
+      "name": "Stall 1B",
+      "x": 616.2,
+      "y": 100.1,
+      "verified": false,
+      "displayName": "Stall 1B"
+    },
+    {
+      "name": "Stall 2",
+      "x": 619,
+      "y": 124.5,
+      "verified": false,
+      "displayName": "Stall 2"
+    },
+    {
+      "name": "Stall 3",
+      "x": 619.5,
+      "y": 146.2,
+      "verified": false,
+      "displayName": "Stall 3"
+    }
+  ],
+  "lines": {
+    "Ski": "#e2e8f0",
+    "Farm": "#f2d52c",
+    "Underground": "#5f60ff",
+    "Mine": "#ff5252",
+    "Main": "#a4adb8"
+  },
+  "note": "User-approved 89 imported geometry segments and existing 25 Hall placements; corrected G straight; added provisional turnout H and 3 additional Hall feedback sensor IDs. UND-4 uses 180-degree turntable forward and return, with no additional track occupancy Hall sensors.",
+  "meta": {
+    "version": "unified-layout-studio-v2-with-turnout-H",
+    "verified": false,
+    "image": "original-mockup-map.png",
+    "boundaries": "provisional, unsnapped to physical track",
+    "turnout_routes": "review in progress",
+    "editor": "unified-layout-studio-v2",
+    "coordinate_system": "original-mockup-739x593",
+    "coordinate_verified": false,
+    "geometry_source": "RailModeller JMRI export (provisional transform to original-mockup-739x593)",
+    "geometry_transform": {
+      "x_anchor_pairs": [
+        [
+          41.6,
+          70
+        ],
+        [
+          148.8,
+          739
+        ]
+      ],
+      "y_anchor_pairs": [
+        [
+          16.1,
+          15
+        ],
+        [
+          108.5,
+          593
+        ]
+      ],
+      "verified": false
+    },
+    "geometry_missing_or_zero_segments": [
+      "T0",
+      "T80",
+      "T81",
+      "T82",
+      "T83",
+      "T84",
+      "T95",
+      "T96",
+      "T97",
+      "T98"
+    ],
+    "geometry_visual_alignment_verified": true,
+    "geometry_topology_verified": false,
+    "hall_placements_verified_count": 25,
+    "turnout_H_placements_pending": 3,
+    "turnout_H_wiring_proposed": true,
+    "und4_operating_rule": "Short turntable spur; do not require new occupancy sensor; use interlocks and other position evidence."
+  },
+  "turnouts": [
+    {
+      "id": "A",
+      "x": 74.5,
+      "y": 294.4,
+      "verified": false,
+      "common": "MAIN-3",
+      "straight": "MINE-1",
+      "diverging": "MAIN-2",
+      "defaultPosition": "diverging",
+      "notes": "",
+      "sensorPins": [
+        "MCP1 GPA0",
+        "MCP1 GPA1",
+        "MCP1 GPA2"
+      ]
+    },
+    {
+      "id": "B",
+      "x": 381,
+      "y": 144,
+      "verified": true,
+      "common": "UND-3",
+      "straight": "MAIN-2",
+      "diverging": "MAIN-1",
+      "defaultPosition": "straight",
+      "notes": "",
+      "sensorPins": [
+        "MCP1 GPA3",
+        "MCP1 GPA4",
+        "MCP1 GPA5"
+      ]
+    },
+    {
+      "id": "C",
+      "x": 523.4,
+      "y": 235.9,
+      "verified": false,
+      "common": "MAIN-1",
+      "straight": "FARM-1",
+      "diverging": "SKI-1",
+      "defaultPosition": "straight",
+      "notes": "",
+      "sensorPins": [
+        "MCP1 GPA6",
+        "MCP1 GPA7",
+        "MCP1 GPB0"
+      ]
+    },
+    {
+      "id": "D",
+      "x": 188.8,
+      "y": 221.7,
+      "verified": false,
+      "common": "UND-1",
+      "straight": "UND-3",
+      "diverging": "UND-2",
+      "defaultPosition": "straight",
+      "notes": "",
+      "sensorPins": [
+        "MCP1 GPB1",
+        "MCP1 GPB2",
+        "MCP1 GPB3"
+      ]
+    },
+    {
+      "id": "E",
+      "x": 321.6,
+      "y": 101.8,
+      "verified": false,
+      "common": "UND-2",
+      "straight": "SKI-3",
+      "diverging": "NODE:Yard throat",
+      "defaultPosition": "straight",
+      "notes": "",
+      "sensorPins": [
+        "MCP1 GPB4",
+        "MCP1 GPB5",
+        "MCP1 GPB6"
+      ]
+    },
+    {
+      "id": "F",
+      "x": 386,
+      "y": 87,
+      "verified": true,
+      "common": "NODE:Yard throat",
+      "straight": "NODE:Stall 1A",
+      "diverging": "NODE:Stall 2",
+      "defaultPosition": "straight",
+      "notes": "",
+      "sensorPins": [
+        "MCP2 GPA0",
+        "MCP2 GPA1",
+        "MCP2 GPA2"
+      ]
+    },
+    {
+      "id": "G",
+      "x": 514.6,
+      "y": 114.2,
+      "verified": false,
+      "common": "NODE:Stall 1A",
+      "straight": "NODE:Stall 2",
+      "diverging": "NODE:Stall 3",
+      "defaultPosition": "straight",
+      "notes": "",
+      "sensorPins": [
+        "MCP2 GPA3",
+        "MCP2 GPA4",
+        "MCP2 GPA5"
+      ]
+    },
+    {
+      "id": "H",
+      "x": null,
+      "y": null,
+      "verified": false,
+      "common": null,
+      "straight": null,
+      "diverging": "UND-4",
+      "defaultPosition": "straight",
+      "notes": "Turnout at turntable branch. Common/straight JMRI segment mapping and exact marker coordinate pending import; preserve straight-through existing rail. UND-4 is short approach and turntable, without additional occupancy sensors.",
+      "sensorPins": [
+        "MCP2 GPB2",
+        "MCP2 GPB3",
+        "MCP2 GPB4"
+      ]
+    }
+  ],
+  "trackSensors": [
+    {
+      "id": "H01",
+      "name": "Turnout A · Common",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "A",
+      "branch": "common",
+      "x": 70.8,
+      "y": 318.7,
+      "zone": "MAIN-3",
+      "pin": "MCP1 GPA0",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H02",
+      "name": "Turnout A · Straight",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "A",
+      "branch": "straight",
+      "x": 72.5,
+      "y": 257.8,
+      "zone": "MINE-1",
+      "pin": "MCP1 GPA1",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H03",
+      "name": "Turnout A · Diverging",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "A",
+      "branch": "diverging",
+      "x": 87.8,
+      "y": 273.1,
+      "zone": "MAIN-2",
+      "pin": "MCP1 GPA2",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H04",
+      "name": "Turnout B · Common",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "B",
+      "branch": "common",
+      "x": 387,
+      "y": 122.2,
+      "zone": "UND-3",
+      "pin": "MCP1 GPA3",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H05",
+      "name": "Turnout B · Straight",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "B",
+      "branch": "straight",
+      "x": 396.6,
+      "y": 179.6,
+      "zone": "MAIN-1",
+      "pin": "MCP1 GPA4",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H06",
+      "name": "Turnout B · Diverging",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "B",
+      "branch": "diverging",
+      "x": 375.3,
+      "y": 179.6,
+      "zone": "MAIN-2",
+      "pin": "MCP1 GPA5",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H07",
+      "name": "Turnout C · Common",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "C",
+      "branch": "common",
+      "x": 510.1,
+      "y": 240,
+      "zone": "MAIN-1",
+      "pin": "MCP1 GPA6",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H08",
+      "name": "Turnout C · Straight",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "C",
+      "branch": "straight",
+      "x": 563.7,
+      "y": 242.3,
+      "zone": "FARM-1",
+      "pin": "MCP1 GPA7",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H09",
+      "name": "Turnout C · Diverging",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "C",
+      "branch": "diverging",
+      "x": 567.1,
+      "y": 226.7,
+      "zone": "SKI-1",
+      "pin": "MCP1 GPB0",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H10",
+      "name": "Turnout D · Common",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "D",
+      "branch": "common",
+      "x": 193.5,
+      "y": 249.9,
+      "zone": "UND-1",
+      "pin": "MCP1 GPB1",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H11",
+      "name": "Turnout D · Straight",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "D",
+      "branch": "straight",
+      "x": 177.8,
+      "y": 187.3,
+      "zone": "UND-3",
+      "pin": "MCP1 GPB2",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H12",
+      "name": "Turnout D · Diverging",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "D",
+      "branch": "diverging",
+      "x": 195.2,
+      "y": 193.6,
+      "zone": "UND-2",
+      "pin": "MCP1 GPB3",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H13",
+      "name": "Turnout E · Common",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "E",
+      "branch": "common",
+      "x": 321.4,
+      "y": 99.5,
+      "zone": "UND-2",
+      "pin": "MCP1 GPB4",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H14",
+      "name": "Turnout E · Straight",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "E",
+      "branch": "straight",
+      "x": 366.1,
+      "y": 75.4,
+      "zone": "SKI-3",
+      "pin": "MCP1 GPB5",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H15",
+      "name": "Turnout E · Diverging",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "E",
+      "branch": "diverging",
+      "x": 365,
+      "y": 91.6,
+      "zone": "",
+      "pin": "MCP1 GPB6",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H16",
+      "name": "Turnout F · Common",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "F",
+      "branch": "common",
+      "x": 404.6,
+      "y": 93.5,
+      "zone": "",
+      "pin": "MCP2 GPA0",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H17",
+      "name": "Turnout F · Straight",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "F",
+      "branch": "straight",
+      "x": 457.3,
+      "y": 92.1,
+      "zone": "",
+      "pin": "MCP2 GPA1",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H18",
+      "name": "Turnout F · Diverging",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "F",
+      "branch": "diverging",
+      "x": 456.4,
+      "y": 105.8,
+      "zone": "",
+      "pin": "MCP2 GPA2",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H19",
+      "name": "Turnout G · Common",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "G",
+      "branch": "common",
+      "x": 490.9,
+      "y": 111.7,
+      "zone": "",
+      "pin": "MCP2 GPA3",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H20",
+      "name": "Turnout G · Straight",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "G",
+      "branch": "straight",
+      "x": 568.6,
+      "y": 135.9,
+      "zone": "",
+      "pin": "MCP2 GPA4",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H21",
+      "name": "Turnout G · Diverging",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "G",
+      "branch": "diverging",
+      "x": 569.8,
+      "y": 119.9,
+      "zone": "",
+      "pin": "MCP2 GPA5",
+      "verified": true,
+      "placement": "proposed_on_connected_rail",
+      "notes": "Proposed position along the JMRI connected rail segment; verify turnout branch and physical mounting point."
+    },
+    {
+      "id": "H22",
+      "name": "Mine loading station",
+      "type": "hall",
+      "role": "station",
+      "turnout": "",
+      "branch": "",
+      "x": 96.9,
+      "y": 117.5,
+      "zone": "MINE-3",
+      "pin": "",
+      "verified": true,
+      "placement": "proposed_station",
+      "notes": "Provisional placement within operating area; move to real mounting position and confirm sensor type."
+    },
+    {
+      "id": "H23",
+      "name": "Farm loading station",
+      "type": "hall",
+      "role": "station",
+      "turnout": "",
+      "branch": "",
+      "x": 555.6,
+      "y": 504.6,
+      "zone": "FARM-2",
+      "pin": "",
+      "verified": true,
+      "placement": "proposed_station",
+      "notes": "Provisional placement within operating area; move to real mounting position and confirm sensor type."
+    },
+    {
+      "id": "H24",
+      "name": "Ski passenger station",
+      "type": "hall",
+      "role": "station",
+      "turnout": "",
+      "branch": "",
+      "x": 693.8,
+      "y": 116,
+      "zone": "SKI-2",
+      "pin": "",
+      "verified": true,
+      "placement": "proposed_station",
+      "notes": "Provisional placement within operating area; move to real mounting position and confirm sensor type."
+    },
+    {
+      "id": "H25",
+      "name": "Tipper unloading station",
+      "type": "hall",
+      "role": "station",
+      "turnout": "",
+      "branch": "",
+      "x": 238.5,
+      "y": 412.8,
+      "zone": "UND-1",
+      "pin": "",
+      "verified": true,
+      "placement": "proposed_station",
+      "notes": "Provisional placement within operating area; move to real mounting position and confirm sensor type."
+    },
+    {
+      "id": "H26",
+      "name": "Turnout H · Common",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "H",
+      "branch": "common",
+      "x": null,
+      "y": null,
+      "zone": "",
+      "pin": "MCP2 GPB2",
+      "verified": false,
+      "placement": "pending_on_rail",
+      "notes": "New Turnout H position feedback sensor; physical mounting point not yet saved in geography."
+    },
+    {
+      "id": "H27",
+      "name": "Turnout H · Straight",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "H",
+      "branch": "straight",
+      "x": null,
+      "y": null,
+      "zone": "",
+      "pin": "MCP2 GPB3",
+      "verified": false,
+      "placement": "pending_on_rail",
+      "notes": "New Turnout H position feedback sensor; physical mounting point not yet saved in geography."
+    },
+    {
+      "id": "H28",
+      "name": "Turnout H · Diverging",
+      "type": "hall",
+      "role": "turnout_position",
+      "turnout": "H",
+      "branch": "diverging",
+      "x": null,
+      "y": null,
+      "zone": "UND-4",
+      "pin": "MCP2 GPB4",
+      "verified": false,
+      "placement": "pending_on_rail",
+      "notes": "New Turnout H position feedback sensor; physical mounting point not yet saved in geography."
+    }
+  ],
+  "trackGeometry": [
+    {
+      "id": "T1",
+      "name": "JMRI T1 · A2 → A3",
+      "line": "Main",
+      "points": [
+        {
+          "x": 675.35,
+          "y": 125.72
+        },
+        {
+          "x": 619.18,
+          "y": 126.97
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A2",
+        "A3"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T2",
+      "name": "JMRI T2 · A2 → A4",
+      "line": "Main",
+      "points": [
+        {
+          "x": 675.35,
+          "y": 125.72
+        },
+        {
+          "x": 731.51,
+          "y": 125.1
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A2",
+        "A4"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T3",
+      "name": "JMRI T3 · A5 → A6",
+      "line": "Main",
+      "points": [
+        {
+          "x": 730.26,
+          "y": 143.86
+        },
+        {
+          "x": 674.1,
+          "y": 142.61
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A5",
+        "A6"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T4",
+      "name": "JMRI T4 · A7 → A8",
+      "line": "Main",
+      "points": [
+        {
+          "x": 675.35,
+          "y": 101.95
+        },
+        {
+          "x": 731.51,
+          "y": 103.83
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A7",
+        "A8"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T5",
+      "name": "JMRI T5 · A9 → A7",
+      "line": "Main",
+      "points": [
+        {
+          "x": 619.18,
+          "y": 100.07
+        },
+        {
+          "x": 675.35,
+          "y": 101.95
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A9",
+        "A7"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T6",
+      "name": "JMRI T6 · A10 → A11",
+      "line": "Main",
+      "points": [
+        {
+          "x": 116.81,
+          "y": 249.58
+        },
+        {
+          "x": 123.07,
+          "y": 246.19
+        },
+        {
+          "x": 129.48,
+          "y": 243.31
+        },
+        {
+          "x": 136.02,
+          "y": 240.93
+        },
+        {
+          "x": 142.71,
+          "y": 239.05
+        },
+        {
+          "x": 149.53,
+          "y": 237.68
+        },
+        {
+          "x": 156.5,
+          "y": 236.81
+        },
+        {
+          "x": 163.61,
+          "y": 236.44
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A10",
+        "A11"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T7",
+      "name": "JMRI T7 · TO4 → A13",
+      "line": "Main",
+      "points": [
+        {
+          "x": 382.03,
+          "y": 157.62
+        },
+        {
+          "x": 380.52,
+          "y": 164.63
+        },
+        {
+          "x": 378.53,
+          "y": 171.42
+        },
+        {
+          "x": 376.07,
+          "y": 177.98
+        },
+        {
+          "x": 373.13,
+          "y": 184.33
+        },
+        {
+          "x": 369.71,
+          "y": 190.45
+        },
+        {
+          "x": 365.81,
+          "y": 196.36
+        },
+        {
+          "x": 361.44,
+          "y": 202.04
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO4",
+        "A13"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T8",
+      "name": "JMRI T8 · A13 → A14",
+      "line": "Main",
+      "points": [
+        {
+          "x": 361.44,
+          "y": 202.04
+        },
+        {
+          "x": 356.73,
+          "y": 207.33
+        },
+        {
+          "x": 351.72,
+          "y": 212.2
+        },
+        {
+          "x": 346.4,
+          "y": 216.64
+        },
+        {
+          "x": 340.79,
+          "y": 220.66
+        },
+        {
+          "x": 334.87,
+          "y": 224.26
+        },
+        {
+          "x": 328.64,
+          "y": 227.44
+        },
+        {
+          "x": 322.12,
+          "y": 230.19
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A13",
+        "A14"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T9",
+      "name": "JMRI T9 · A15 → A16",
+      "line": "Main",
+      "points": [
+        {
+          "x": 338.97,
+          "y": 27.51
+        },
+        {
+          "x": 344.98,
+          "y": 31.32
+        },
+        {
+          "x": 350.63,
+          "y": 35.5
+        },
+        {
+          "x": 355.9,
+          "y": 40.04
+        },
+        {
+          "x": 360.81,
+          "y": 44.96
+        },
+        {
+          "x": 365.34,
+          "y": 50.24
+        },
+        {
+          "x": 369.51,
+          "y": 55.9
+        },
+        {
+          "x": 373.3,
+          "y": 61.92
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A15",
+        "A16"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T10",
+      "name": "JMRI T10 · A17 → A15",
+      "line": "Main",
+      "points": [
+        {
+          "x": 292.17,
+          "y": 15
+        },
+        {
+          "x": 299.26,
+          "y": 15.28
+        },
+        {
+          "x": 306.21,
+          "y": 16.06
+        },
+        {
+          "x": 313.03,
+          "y": 17.34
+        },
+        {
+          "x": 319.72,
+          "y": 19.13
+        },
+        {
+          "x": 326.27,
+          "y": 21.42
+        },
+        {
+          "x": 332.69,
+          "y": 24.21
+        },
+        {
+          "x": 338.97,
+          "y": 27.51
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A17",
+        "A15"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T11",
+      "name": "JMRI T11 · A18 → TO2",
+      "line": "Main",
+      "points": [
+        {
+          "x": 219.78,
+          "y": 236.44
+        },
+        {
+          "x": 275.94,
+          "y": 236.44
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A18",
+        "TO2"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T12",
+      "name": "JMRI T12 · A11 → A18",
+      "line": "Main",
+      "points": [
+        {
+          "x": 163.61,
+          "y": 236.44
+        },
+        {
+          "x": 219.78,
+          "y": 236.44
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A11",
+        "A18"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T13",
+      "name": "JMRI T13 · TO2 → A21",
+      "line": "Main",
+      "points": [
+        {
+          "x": 332.11,
+          "y": 236.44
+        },
+        {
+          "x": 369.55,
+          "y": 236.44
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO2",
+        "A21"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T14",
+      "name": "JMRI T14 · A21 → A22",
+      "line": "Main",
+      "points": [
+        {
+          "x": 369.55,
+          "y": 236.44
+        },
+        {
+          "x": 407,
+          "y": 236.44
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A21",
+        "A22"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T15",
+      "name": "JMRI T15 · A22 → A23",
+      "line": "Main",
+      "points": [
+        {
+          "x": 407,
+          "y": 236.44
+        },
+        {
+          "x": 425.72,
+          "y": 236.44
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A22",
+        "A23"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T16",
+      "name": "JMRI T16 · A23 → A24",
+      "line": "Main",
+      "points": [
+        {
+          "x": 425.72,
+          "y": 236.44
+        },
+        {
+          "x": 435.08,
+          "y": 236.44
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A23",
+        "A24"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T17",
+      "name": "JMRI T17 · A24 → TO3",
+      "line": "Main",
+      "points": [
+        {
+          "x": 435.08,
+          "y": 236.44
+        },
+        {
+          "x": 439.45,
+          "y": 236.44
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A24",
+        "TO3"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T18",
+      "name": "JMRI T18 · A26 → TO4",
+      "line": "Main",
+      "points": [
+        {
+          "x": 410.12,
+          "y": 202.04
+        },
+        {
+          "x": 405.83,
+          "y": 196.34
+        },
+        {
+          "x": 402.03,
+          "y": 190.42
+        },
+        {
+          "x": 398.7,
+          "y": 184.29
+        },
+        {
+          "x": 395.84,
+          "y": 177.94
+        },
+        {
+          "x": 393.47,
+          "y": 171.38
+        },
+        {
+          "x": 391.57,
+          "y": 164.61
+        },
+        {
+          "x": 390.15,
+          "y": 157.62
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A26",
+        "TO4"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T19",
+      "name": "JMRI T19 · A28 → A26",
+      "line": "Main",
+      "points": [
+        {
+          "x": 449.43,
+          "y": 230.19
+        },
+        {
+          "x": 442.91,
+          "y": 227.44
+        },
+        {
+          "x": 436.69,
+          "y": 224.26
+        },
+        {
+          "x": 430.77,
+          "y": 220.66
+        },
+        {
+          "x": 425.15,
+          "y": 216.64
+        },
+        {
+          "x": 419.84,
+          "y": 212.2
+        },
+        {
+          "x": 414.83,
+          "y": 207.33
+        },
+        {
+          "x": 410.12,
+          "y": 202.04
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A28",
+        "A26"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T20",
+      "name": "JMRI T20 · A29 → A30",
+      "line": "Main",
+      "points": [
+        {
+          "x": 82.48,
+          "y": 546.08
+        },
+        {
+          "x": 79.18,
+          "y": 539.78
+        },
+        {
+          "x": 76.39,
+          "y": 533.35
+        },
+        {
+          "x": 74.11,
+          "y": 526.78
+        },
+        {
+          "x": 72.32,
+          "y": 520.08
+        },
+        {
+          "x": 71.04,
+          "y": 513.24
+        },
+        {
+          "x": 70.27,
+          "y": 506.27
+        },
+        {
+          "x": 70,
+          "y": 499.17
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A29",
+        "A30"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T21",
+      "name": "JMRI T21 · A31 → A29",
+      "line": "Main",
+      "points": [
+        {
+          "x": 116.81,
+          "y": 580.49
+        },
+        {
+          "x": 110.8,
+          "y": 576.68
+        },
+        {
+          "x": 105.15,
+          "y": 572.5
+        },
+        {
+          "x": 99.88,
+          "y": 567.96
+        },
+        {
+          "x": 94.97,
+          "y": 563.04
+        },
+        {
+          "x": 90.44,
+          "y": 557.76
+        },
+        {
+          "x": 86.27,
+          "y": 552.1
+        },
+        {
+          "x": 82.48,
+          "y": 546.08
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A31",
+        "A29"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T22",
+      "name": "JMRI T22 · A32 → A31",
+      "line": "Main",
+      "points": [
+        {
+          "x": 163.61,
+          "y": 593
+        },
+        {
+          "x": 157.33,
+          "y": 589.7
+        },
+        {
+          "x": 150.91,
+          "y": 586.91
+        },
+        {
+          "x": 144.36,
+          "y": 584.62
+        },
+        {
+          "x": 137.67,
+          "y": 582.83
+        },
+        {
+          "x": 130.85,
+          "y": 581.55
+        },
+        {
+          "x": 123.9,
+          "y": 580.77
+        },
+        {
+          "x": 116.81,
+          "y": 580.49
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A32",
+        "A31"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T23",
+      "name": "JMRI T23 · A33 → A32",
+      "line": "Main",
+      "points": [
+        {
+          "x": 210.42,
+          "y": 580.49
+        },
+        {
+          "x": 204.14,
+          "y": 583.79
+        },
+        {
+          "x": 197.72,
+          "y": 586.58
+        },
+        {
+          "x": 191.17,
+          "y": 588.87
+        },
+        {
+          "x": 184.48,
+          "y": 590.66
+        },
+        {
+          "x": 177.66,
+          "y": 591.94
+        },
+        {
+          "x": 170.7,
+          "y": 592.72
+        },
+        {
+          "x": 163.61,
+          "y": 593
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A33",
+        "A32"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T24",
+      "name": "JMRI T24 · A34 → A33",
+      "line": "Main",
+      "points": [
+        {
+          "x": 244.74,
+          "y": 546.08
+        },
+        {
+          "x": 240.95,
+          "y": 552.1
+        },
+        {
+          "x": 236.78,
+          "y": 557.76
+        },
+        {
+          "x": 232.25,
+          "y": 563.04
+        },
+        {
+          "x": 227.35,
+          "y": 567.96
+        },
+        {
+          "x": 222.07,
+          "y": 572.5
+        },
+        {
+          "x": 216.43,
+          "y": 576.68
+        },
+        {
+          "x": 210.42,
+          "y": 580.49
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A34",
+        "A33"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T25",
+      "name": "JMRI T25 · A35 → A34",
+      "line": "Main",
+      "points": [
+        {
+          "x": 257.22,
+          "y": 499.17
+        },
+        {
+          "x": 256.95,
+          "y": 506.27
+        },
+        {
+          "x": 256.18,
+          "y": 513.24
+        },
+        {
+          "x": 254.9,
+          "y": 520.08
+        },
+        {
+          "x": 253.11,
+          "y": 526.78
+        },
+        {
+          "x": 250.83,
+          "y": 533.35
+        },
+        {
+          "x": 248.04,
+          "y": 539.78
+        },
+        {
+          "x": 244.74,
+          "y": 546.08
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A35",
+        "A34"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T26",
+      "name": "JMRI T26 · A36 → TO6",
+      "line": "Main",
+      "points": [
+        {
+          "x": 70,
+          "y": 386.57
+        },
+        {
+          "x": 70,
+          "y": 330.27
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A36",
+        "TO6"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T27",
+      "name": "JMRI T27 · A36 → A38",
+      "line": "Main",
+      "points": [
+        {
+          "x": 70,
+          "y": 386.57
+        },
+        {
+          "x": 70,
+          "y": 442.87
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A36",
+        "A38"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T28",
+      "name": "JMRI T28 · A38 → A30",
+      "line": "Main",
+      "points": [
+        {
+          "x": 70,
+          "y": 442.87
+        },
+        {
+          "x": 70,
+          "y": 499.17
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A38",
+        "A30"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T29",
+      "name": "JMRI T29 · A39 → A35",
+      "line": "Main",
+      "points": [
+        {
+          "x": 254.1,
+          "y": 475.4
+        },
+        {
+          "x": 255.46,
+          "y": 481.27
+        },
+        {
+          "x": 256.44,
+          "y": 487.18
+        },
+        {
+          "x": 257.02,
+          "y": 493.15
+        },
+        {
+          "x": 257.22,
+          "y": 499.17
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A39",
+        "A35"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T30",
+      "name": "JMRI T30 · A40 → A39",
+      "line": "Main",
+      "points": [
+        {
+          "x": 239.12,
+          "y": 420.98
+        },
+        {
+          "x": 254.1,
+          "y": 475.4
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A40",
+        "A39"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T31",
+      "name": "JMRI T31 · A40 → A41",
+      "line": "Main",
+      "points": [
+        {
+          "x": 239.12,
+          "y": 420.98
+        },
+        {
+          "x": 224.77,
+          "y": 366.55
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A40",
+        "A41"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T32",
+      "name": "JMRI T32 · A41 → A42",
+      "line": "Main",
+      "points": [
+        {
+          "x": 224.77,
+          "y": 366.55
+        },
+        {
+          "x": 210.42,
+          "y": 312.13
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A41",
+        "A42"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T33",
+      "name": "JMRI T33 · A42 → TO1",
+      "line": "Main",
+      "points": [
+        {
+          "x": 210.42,
+          "y": 312.13
+        },
+        {
+          "x": 195.44,
+          "y": 257.71
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A42",
+        "TO1"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T34",
+      "name": "JMRI T34 · A44 → A17",
+      "line": "Main",
+      "points": [
+        {
+          "x": 273.45,
+          "y": 15
+        },
+        {
+          "x": 292.17,
+          "y": 15
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A44",
+        "A17"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T35",
+      "name": "JMRI T35 · A44 → A45",
+      "line": "Main",
+      "points": [
+        {
+          "x": 273.45,
+          "y": 15
+        },
+        {
+          "x": 257.84,
+          "y": 15
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A44",
+        "A45"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T36",
+      "name": "JMRI T36 · A46 → A45",
+      "line": "Main",
+      "points": [
+        {
+          "x": 211.04,
+          "y": 27.51
+        },
+        {
+          "x": 218.13,
+          "y": 27.23
+        },
+        {
+          "x": 225.08,
+          "y": 26.45
+        },
+        {
+          "x": 231.9,
+          "y": 25.17
+        },
+        {
+          "x": 238.59,
+          "y": 23.38
+        },
+        {
+          "x": 245.14,
+          "y": 21.09
+        },
+        {
+          "x": 251.56,
+          "y": 18.3
+        },
+        {
+          "x": 257.84,
+          "y": 15
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A46",
+        "A45"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T37",
+      "name": "JMRI T37 · A47 → A48",
+      "line": "Main",
+      "points": [
+        {
+          "x": 172.97,
+          "y": 64.42
+        },
+        {
+          "x": 176.76,
+          "y": 58.4
+        },
+        {
+          "x": 180.93,
+          "y": 52.74
+        },
+        {
+          "x": 185.46,
+          "y": 47.46
+        },
+        {
+          "x": 190.36,
+          "y": 42.54
+        },
+        {
+          "x": 195.64,
+          "y": 38
+        },
+        {
+          "x": 201.28,
+          "y": 33.82
+        },
+        {
+          "x": 207.29,
+          "y": 30.01
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A47",
+        "A48"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T38",
+      "name": "JMRI T38 · A49 → A47",
+      "line": "Main",
+      "points": [
+        {
+          "x": 160.49,
+          "y": 111.33
+        },
+        {
+          "x": 163.79,
+          "y": 105.03
+        },
+        {
+          "x": 166.58,
+          "y": 98.6
+        },
+        {
+          "x": 168.86,
+          "y": 92.03
+        },
+        {
+          "x": 170.65,
+          "y": 85.33
+        },
+        {
+          "x": 171.93,
+          "y": 78.49
+        },
+        {
+          "x": 172.7,
+          "y": 71.52
+        },
+        {
+          "x": 172.97,
+          "y": 64.42
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A49",
+        "A47"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T39",
+      "name": "JMRI T39 · A48 → A46",
+      "line": "Main",
+      "points": [
+        {
+          "x": 207.29,
+          "y": 30.01
+        },
+        {
+          "x": 211.04,
+          "y": 27.51
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A48",
+        "A46"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T40",
+      "name": "JMRI T40 · A50 → A49",
+      "line": "Main",
+      "points": [
+        {
+          "x": 163.61,
+          "y": 135.1
+        },
+        {
+          "x": 163.41,
+          "y": 129.08
+        },
+        {
+          "x": 162.83,
+          "y": 123.11
+        },
+        {
+          "x": 161.85,
+          "y": 117.2
+        },
+        {
+          "x": 160.49,
+          "y": 111.33
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A50",
+        "A49"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T41",
+      "name": "JMRI T41 · A51 → A52",
+      "line": "Main",
+      "points": [
+        {
+          "x": 564.26,
+          "y": 539.83
+        },
+        {
+          "x": 560.96,
+          "y": 533.53
+        },
+        {
+          "x": 558.17,
+          "y": 527.09
+        },
+        {
+          "x": 555.89,
+          "y": 520.53
+        },
+        {
+          "x": 554.1,
+          "y": 513.82
+        },
+        {
+          "x": 552.82,
+          "y": 506.99
+        },
+        {
+          "x": 552.05,
+          "y": 500.02
+        },
+        {
+          "x": 551.78,
+          "y": 492.91
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A51",
+        "A52"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T42",
+      "name": "JMRI T42 · A53 → A51",
+      "line": "Main",
+      "points": [
+        {
+          "x": 598.58,
+          "y": 574.23
+        },
+        {
+          "x": 592.57,
+          "y": 570.42
+        },
+        {
+          "x": 586.93,
+          "y": 566.25
+        },
+        {
+          "x": 581.65,
+          "y": 561.7
+        },
+        {
+          "x": 576.75,
+          "y": 556.79
+        },
+        {
+          "x": 572.22,
+          "y": 551.5
+        },
+        {
+          "x": 568.05,
+          "y": 545.85
+        },
+        {
+          "x": 564.26,
+          "y": 539.83
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A53",
+        "A51"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T43",
+      "name": "JMRI T43 · A54 → A53",
+      "line": "Main",
+      "points": [
+        {
+          "x": 645.39,
+          "y": 586.74
+        },
+        {
+          "x": 638.3,
+          "y": 586.46
+        },
+        {
+          "x": 631.34,
+          "y": 585.68
+        },
+        {
+          "x": 624.52,
+          "y": 584.4
+        },
+        {
+          "x": 617.83,
+          "y": 582.61
+        },
+        {
+          "x": 611.28,
+          "y": 580.32
+        },
+        {
+          "x": 604.86,
+          "y": 577.53
+        },
+        {
+          "x": 598.58,
+          "y": 574.23
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A54",
+        "A53"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T44",
+      "name": "JMRI T44 · A55 → A54",
+      "line": "Main",
+      "points": [
+        {
+          "x": 692.19,
+          "y": 574.23
+        },
+        {
+          "x": 685.91,
+          "y": 577.53
+        },
+        {
+          "x": 679.49,
+          "y": 580.32
+        },
+        {
+          "x": 672.94,
+          "y": 582.61
+        },
+        {
+          "x": 666.25,
+          "y": 584.4
+        },
+        {
+          "x": 659.43,
+          "y": 585.68
+        },
+        {
+          "x": 652.48,
+          "y": 586.46
+        },
+        {
+          "x": 645.39,
+          "y": 586.74
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A55",
+        "A54"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T45",
+      "name": "JMRI T45 · A56 → A55",
+      "line": "Main",
+      "points": [
+        {
+          "x": 726.52,
+          "y": 539.83
+        },
+        {
+          "x": 722.72,
+          "y": 545.85
+        },
+        {
+          "x": 718.56,
+          "y": 551.5
+        },
+        {
+          "x": 714.03,
+          "y": 556.79
+        },
+        {
+          "x": 709.12,
+          "y": 561.7
+        },
+        {
+          "x": 703.85,
+          "y": 566.25
+        },
+        {
+          "x": 698.2,
+          "y": 570.42
+        },
+        {
+          "x": 692.19,
+          "y": 574.23
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A56",
+        "A55"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T46",
+      "name": "JMRI T46 · A57 → A56",
+      "line": "Main",
+      "points": [
+        {
+          "x": 739,
+          "y": 492.91
+        },
+        {
+          "x": 738.73,
+          "y": 500.02
+        },
+        {
+          "x": 737.96,
+          "y": 506.99
+        },
+        {
+          "x": 736.68,
+          "y": 513.82
+        },
+        {
+          "x": 734.89,
+          "y": 520.53
+        },
+        {
+          "x": 732.61,
+          "y": 527.09
+        },
+        {
+          "x": 729.82,
+          "y": 533.53
+        },
+        {
+          "x": 726.52,
+          "y": 539.83
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A57",
+        "A56"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T47",
+      "name": "JMRI T47 · A58 → A57",
+      "line": "Main",
+      "points": [
+        {
+          "x": 739,
+          "y": 436.61
+        },
+        {
+          "x": 739,
+          "y": 492.91
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A58",
+        "A57"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T48",
+      "name": "JMRI T48 · TO5 → A60",
+      "line": "Main",
+      "points": [
+        {
+          "x": 551.78,
+          "y": 236.44
+        },
+        {
+          "x": 558.89,
+          "y": 236.81
+        },
+        {
+          "x": 565.86,
+          "y": 237.68
+        },
+        {
+          "x": 572.68,
+          "y": 239.05
+        },
+        {
+          "x": 579.37,
+          "y": 240.93
+        },
+        {
+          "x": 585.91,
+          "y": 243.31
+        },
+        {
+          "x": 592.32,
+          "y": 246.19
+        },
+        {
+          "x": 598.58,
+          "y": 249.58
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO5",
+        "A60"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T49",
+      "name": "JMRI T49 · A60 → A61",
+      "line": "Main",
+      "points": [
+        {
+          "x": 598.58,
+          "y": 249.58
+        },
+        {
+          "x": 604.57,
+          "y": 253.3
+        },
+        {
+          "x": 610.2,
+          "y": 257.39
+        },
+        {
+          "x": 615.47,
+          "y": 261.84
+        },
+        {
+          "x": 620.38,
+          "y": 266.67
+        },
+        {
+          "x": 624.92,
+          "y": 271.86
+        },
+        {
+          "x": 629.09,
+          "y": 277.43
+        },
+        {
+          "x": 632.91,
+          "y": 283.36
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A60",
+        "A61"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T50",
+      "name": "JMRI T50 · A61 → A62",
+      "line": "Main",
+      "points": [
+        {
+          "x": 632.91,
+          "y": 283.36
+        },
+        {
+          "x": 636.21,
+          "y": 289.66
+        },
+        {
+          "x": 639,
+          "y": 296.09
+        },
+        {
+          "x": 641.28,
+          "y": 302.66
+        },
+        {
+          "x": 643.07,
+          "y": 309.36
+        },
+        {
+          "x": 644.35,
+          "y": 316.2
+        },
+        {
+          "x": 645.12,
+          "y": 323.17
+        },
+        {
+          "x": 645.39,
+          "y": 330.27
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A61",
+        "A62"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T51",
+      "name": "JMRI T51 · A62 → A63",
+      "line": "Main",
+      "points": [
+        {
+          "x": 645.39,
+          "y": 330.27
+        },
+        {
+          "x": 645.12,
+          "y": 337.38
+        },
+        {
+          "x": 644.35,
+          "y": 344.35
+        },
+        {
+          "x": 643.07,
+          "y": 351.18
+        },
+        {
+          "x": 641.28,
+          "y": 357.89
+        },
+        {
+          "x": 639,
+          "y": 364.45
+        },
+        {
+          "x": 636.21,
+          "y": 370.89
+        },
+        {
+          "x": 632.91,
+          "y": 377.19
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A62",
+        "A63"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T52",
+      "name": "JMRI T52 · A63 → A64",
+      "line": "Main",
+      "points": [
+        {
+          "x": 632.91,
+          "y": 377.19
+        },
+        {
+          "x": 629.11,
+          "y": 383.21
+        },
+        {
+          "x": 624.95,
+          "y": 388.86
+        },
+        {
+          "x": 620.42,
+          "y": 394.15
+        },
+        {
+          "x": 615.51,
+          "y": 399.06
+        },
+        {
+          "x": 610.24,
+          "y": 403.61
+        },
+        {
+          "x": 604.59,
+          "y": 407.78
+        },
+        {
+          "x": 598.58,
+          "y": 411.59
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A63",
+        "A64"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T53",
+      "name": "JMRI T53 · A65 → A64",
+      "line": "Main",
+      "points": [
+        {
+          "x": 564.26,
+          "y": 446
+        },
+        {
+          "x": 570.27,
+          "y": 442.19
+        },
+        {
+          "x": 575.91,
+          "y": 438.01
+        },
+        {
+          "x": 581.19,
+          "y": 433.47
+        },
+        {
+          "x": 586.09,
+          "y": 428.55
+        },
+        {
+          "x": 590.62,
+          "y": 423.27
+        },
+        {
+          "x": 594.79,
+          "y": 417.61
+        },
+        {
+          "x": 598.58,
+          "y": 411.59
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A65",
+        "A64"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T54",
+      "name": "JMRI T54 · A52 → A65",
+      "line": "Main",
+      "points": [
+        {
+          "x": 551.78,
+          "y": 492.91
+        },
+        {
+          "x": 555.08,
+          "y": 486.61
+        },
+        {
+          "x": 557.87,
+          "y": 480.18
+        },
+        {
+          "x": 560.15,
+          "y": 473.61
+        },
+        {
+          "x": 561.94,
+          "y": 466.91
+        },
+        {
+          "x": 563.22,
+          "y": 460.07
+        },
+        {
+          "x": 563.99,
+          "y": 453.1
+        },
+        {
+          "x": 564.26,
+          "y": 446
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A52",
+        "A65"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T55",
+      "name": "JMRI T55 · A58 → A66",
+      "line": "Main",
+      "points": [
+        {
+          "x": 739,
+          "y": 436.61
+        },
+        {
+          "x": 739,
+          "y": 380.32
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A58",
+        "A66"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T56",
+      "name": "JMRI T56 · TO6 → A10",
+      "line": "Main",
+      "points": [
+        {
+          "x": 76.86,
+          "y": 282.73
+        },
+        {
+          "x": 78.37,
+          "y": 278.36
+        },
+        {
+          "x": 79.94,
+          "y": 274.83
+        },
+        {
+          "x": 82.04,
+          "y": 271.75
+        },
+        {
+          "x": 85.13,
+          "y": 268.74
+        },
+        {
+          "x": 89.69,
+          "y": 265.4
+        },
+        {
+          "x": 96.17,
+          "y": 261.36
+        },
+        {
+          "x": 105.06,
+          "y": 256.21
+        },
+        {
+          "x": 116.81,
+          "y": 249.58
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO6",
+        "A10"
+      ],
+      "segmentKind": "bezier",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T57",
+      "name": "JMRI T57 · A50 → TO10",
+      "line": "Main",
+      "points": [
+        {
+          "x": 163.61,
+          "y": 135.1
+        },
+        {
+          "x": 164.18,
+          "y": 138.57
+        },
+        {
+          "x": 164.93,
+          "y": 142.22
+        },
+        {
+          "x": 165.8,
+          "y": 145.75
+        },
+        {
+          "x": 166.73,
+          "y": 148.87
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A50",
+        "TO10"
+      ],
+      "segmentKind": "bezier",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T58",
+      "name": "JMRI T58 · TO6 → A70",
+      "line": "Main",
+      "points": [
+        {
+          "x": 70,
+          "y": 273.97
+        },
+        {
+          "x": 73.3,
+          "y": 267.67
+        },
+        {
+          "x": 76.09,
+          "y": 261.24
+        },
+        {
+          "x": 78.37,
+          "y": 254.67
+        },
+        {
+          "x": 80.16,
+          "y": 247.97
+        },
+        {
+          "x": 81.44,
+          "y": 241.13
+        },
+        {
+          "x": 82.21,
+          "y": 234.16
+        },
+        {
+          "x": 82.48,
+          "y": 227.06
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO6",
+        "A70"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T59",
+      "name": "JMRI T59 · A71 → A70",
+      "line": "Main",
+      "points": [
+        {
+          "x": 94.96,
+          "y": 180.14
+        },
+        {
+          "x": 94.69,
+          "y": 187.25
+        },
+        {
+          "x": 93.92,
+          "y": 194.22
+        },
+        {
+          "x": 92.64,
+          "y": 201.05
+        },
+        {
+          "x": 90.85,
+          "y": 207.76
+        },
+        {
+          "x": 88.57,
+          "y": 214.32
+        },
+        {
+          "x": 85.78,
+          "y": 220.76
+        },
+        {
+          "x": 82.48,
+          "y": 227.06
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A71",
+        "A70"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T60",
+      "name": "JMRI T60 · A72 → A71",
+      "line": "Main",
+      "points": [
+        {
+          "x": 94.96,
+          "y": 123.84
+        },
+        {
+          "x": 94.96,
+          "y": 180.14
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A72",
+        "A71"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T61",
+      "name": "JMRI T61 · A72 → A73",
+      "line": "Main",
+      "points": [
+        {
+          "x": 94.96,
+          "y": 123.84
+        },
+        {
+          "x": 94.96,
+          "y": 67.55
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A72",
+        "A73"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T62",
+      "name": "JMRI T62 · TO7 → A75",
+      "line": "Main",
+      "points": [
+        {
+          "x": 618.56,
+          "y": 223.31
+        },
+        {
+          "x": 625.59,
+          "y": 223.32
+        },
+        {
+          "x": 632.5,
+          "y": 223.83
+        },
+        {
+          "x": 639.3,
+          "y": 224.85
+        },
+        {
+          "x": 645.99,
+          "y": 226.37
+        },
+        {
+          "x": 652.56,
+          "y": 228.39
+        },
+        {
+          "x": 659.02,
+          "y": 230.91
+        },
+        {
+          "x": 665.36,
+          "y": 233.94
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO7",
+        "A75"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T63",
+      "name": "JMRI T63 · A75 → A76",
+      "line": "Main",
+      "points": [
+        {
+          "x": 665.36,
+          "y": 233.94
+        },
+        {
+          "x": 671.58,
+          "y": 237.42
+        },
+        {
+          "x": 677.45,
+          "y": 241.29
+        },
+        {
+          "x": 682.97,
+          "y": 245.55
+        },
+        {
+          "x": 688.14,
+          "y": 250.19
+        },
+        {
+          "x": 692.97,
+          "y": 255.23
+        },
+        {
+          "x": 697.44,
+          "y": 260.66
+        },
+        {
+          "x": 701.56,
+          "y": 266.47
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A75",
+        "A76"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T64",
+      "name": "JMRI T64 · A76 → A66",
+      "line": "Main",
+      "points": [
+        {
+          "x": 701.56,
+          "y": 266.47
+        },
+        {
+          "x": 707.46,
+          "y": 275.84
+        },
+        {
+          "x": 712.7,
+          "y": 284.23
+        },
+        {
+          "x": 717.33,
+          "y": 291.76
+        },
+        {
+          "x": 721.38,
+          "y": 298.53
+        },
+        {
+          "x": 724.9,
+          "y": 304.67
+        },
+        {
+          "x": 727.91,
+          "y": 310.3
+        },
+        {
+          "x": 730.46,
+          "y": 315.53
+        },
+        {
+          "x": 732.58,
+          "y": 320.48
+        },
+        {
+          "x": 734.32,
+          "y": 325.27
+        },
+        {
+          "x": 735.71,
+          "y": 330.01
+        },
+        {
+          "x": 736.8,
+          "y": 334.82
+        },
+        {
+          "x": 737.61,
+          "y": 339.82
+        },
+        {
+          "x": 738.2,
+          "y": 345.12
+        },
+        {
+          "x": 738.59,
+          "y": 350.85
+        },
+        {
+          "x": 738.83,
+          "y": 357.11
+        },
+        {
+          "x": 738.95,
+          "y": 364.04
+        },
+        {
+          "x": 738.99,
+          "y": 371.73
+        },
+        {
+          "x": 739,
+          "y": 380.32
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A76",
+        "A66"
+      ],
+      "segmentKind": "bezier",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T65",
+      "name": "JMRI T65 · A77 → TO7",
+      "line": "Main",
+      "points": [
+        {
+          "x": 659.74,
+          "y": 193.28
+        },
+        {
+          "x": 654.29,
+          "y": 197.8
+        },
+        {
+          "x": 648.61,
+          "y": 201.85
+        },
+        {
+          "x": 642.7,
+          "y": 205.44
+        },
+        {
+          "x": 636.55,
+          "y": 208.57
+        },
+        {
+          "x": 630.16,
+          "y": 211.23
+        },
+        {
+          "x": 623.54,
+          "y": 213.43
+        },
+        {
+          "x": 616.68,
+          "y": 215.17
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A77",
+        "TO7"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T66",
+      "name": "JMRI T66 · A79 → A77",
+      "line": "Main",
+      "points": [
+        {
+          "x": 685.95,
+          "y": 152.62
+        },
+        {
+          "x": 683.52,
+          "y": 159.27
+        },
+        {
+          "x": 680.65,
+          "y": 165.65
+        },
+        {
+          "x": 677.34,
+          "y": 171.74
+        },
+        {
+          "x": 673.59,
+          "y": 177.54
+        },
+        {
+          "x": 669.41,
+          "y": 183.07
+        },
+        {
+          "x": 664.8,
+          "y": 188.32
+        },
+        {
+          "x": 659.74,
+          "y": 193.28
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A79",
+        "A77"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T67",
+      "name": "JMRI T67 · A80 → A79",
+      "line": "Main",
+      "points": [
+        {
+          "x": 688.45,
+          "y": 103.83
+        },
+        {
+          "x": 689.67,
+          "y": 110.88
+        },
+        {
+          "x": 690.36,
+          "y": 117.9
+        },
+        {
+          "x": 690.52,
+          "y": 124.9
+        },
+        {
+          "x": 690.17,
+          "y": 131.87
+        },
+        {
+          "x": 689.29,
+          "y": 138.81
+        },
+        {
+          "x": 687.88,
+          "y": 145.73
+        },
+        {
+          "x": 685.95,
+          "y": 152.62
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A80",
+        "A79"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T68",
+      "name": "JMRI T68 · A81 → A80",
+      "line": "Main",
+      "points": [
+        {
+          "x": 666.61,
+          "y": 60.66
+        },
+        {
+          "x": 671.12,
+          "y": 66.12
+        },
+        {
+          "x": 675.17,
+          "y": 71.82
+        },
+        {
+          "x": 678.75,
+          "y": 77.75
+        },
+        {
+          "x": 681.87,
+          "y": 83.92
+        },
+        {
+          "x": 684.53,
+          "y": 90.32
+        },
+        {
+          "x": 686.72,
+          "y": 96.96
+        },
+        {
+          "x": 688.45,
+          "y": 103.83
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A81",
+        "A80"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T69",
+      "name": "JMRI T69 · A82 → A81",
+      "line": "Main",
+      "points": [
+        {
+          "x": 626.04,
+          "y": 34.39
+        },
+        {
+          "x": 632.68,
+          "y": 36.83
+        },
+        {
+          "x": 639.04,
+          "y": 39.72
+        },
+        {
+          "x": 645.12,
+          "y": 43.03
+        },
+        {
+          "x": 650.92,
+          "y": 46.79
+        },
+        {
+          "x": 656.43,
+          "y": 50.97
+        },
+        {
+          "x": 661.66,
+          "y": 55.6
+        },
+        {
+          "x": 666.61,
+          "y": 60.66
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A82",
+        "A81"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T70",
+      "name": "JMRI T70 · A83 → A82",
+      "line": "Main",
+      "points": [
+        {
+          "x": 577.37,
+          "y": 31.89
+        },
+        {
+          "x": 584.4,
+          "y": 30.68
+        },
+        {
+          "x": 591.41,
+          "y": 29.99
+        },
+        {
+          "x": 598.39,
+          "y": 29.82
+        },
+        {
+          "x": 605.34,
+          "y": 30.18
+        },
+        {
+          "x": 612.27,
+          "y": 31.06
+        },
+        {
+          "x": 619.17,
+          "y": 32.46
+        },
+        {
+          "x": 626.04,
+          "y": 34.39
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A83",
+        "A82"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T71",
+      "name": "JMRI T71 · TO1 → A85",
+      "line": "Main",
+      "points": [
+        {
+          "x": 189.82,
+          "y": 209.54
+        },
+        {
+          "x": 190.75,
+          "y": 202.47
+        },
+        {
+          "x": 192.18,
+          "y": 195.59
+        },
+        {
+          "x": 194.1,
+          "y": 188.88
+        },
+        {
+          "x": 196.5,
+          "y": 182.36
+        },
+        {
+          "x": 199.4,
+          "y": 176.02
+        },
+        {
+          "x": 202.79,
+          "y": 169.86
+        },
+        {
+          "x": 206.67,
+          "y": 163.88
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO1",
+        "A85"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T72",
+      "name": "JMRI T72 · A85 → A86",
+      "line": "Main",
+      "points": [
+        {
+          "x": 206.67,
+          "y": 163.88
+        },
+        {
+          "x": 210.92,
+          "y": 158.22
+        },
+        {
+          "x": 215.51,
+          "y": 152.96
+        },
+        {
+          "x": 220.43,
+          "y": 148.1
+        },
+        {
+          "x": 225.69,
+          "y": 143.63
+        },
+        {
+          "x": 231.29,
+          "y": 139.56
+        },
+        {
+          "x": 237.22,
+          "y": 135.88
+        },
+        {
+          "x": 243.49,
+          "y": 132.6
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A85",
+        "A86"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T73",
+      "name": "JMRI T73 · A86 → TO8",
+      "line": "Main",
+      "points": [
+        {
+          "x": 243.49,
+          "y": 132.6
+        },
+        {
+          "x": 294.66,
+          "y": 108.83
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A86",
+        "TO8"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T74",
+      "name": "JMRI T74 · TO8 → A89",
+      "line": "Main",
+      "points": [
+        {
+          "x": 345.21,
+          "y": 85.06
+        },
+        {
+          "x": 396.39,
+          "y": 61.29
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO8",
+        "A89"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T75",
+      "name": "JMRI T75 · A89 → A90",
+      "line": "Main",
+      "points": [
+        {
+          "x": 396.39,
+          "y": 61.29
+        },
+        {
+          "x": 401.98,
+          "y": 58.84
+        },
+        {
+          "x": 407.69,
+          "y": 56.78
+        },
+        {
+          "x": 413.52,
+          "y": 55.09
+        },
+        {
+          "x": 419.48,
+          "y": 53.78
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A89",
+        "A90"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T76",
+      "name": "JMRI T76 · A90 → A91",
+      "line": "Main",
+      "points": [
+        {
+          "x": 419.48,
+          "y": 53.78
+        },
+        {
+          "x": 475.02,
+          "y": 44.4
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A90",
+        "A91"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T77",
+      "name": "JMRI T77 · A91 → A92",
+      "line": "Main",
+      "points": [
+        {
+          "x": 475.02,
+          "y": 44.4
+        },
+        {
+          "x": 529.94,
+          "y": 34.39
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A91",
+        "A92"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T78",
+      "name": "JMRI T78 · A92 → A83",
+      "line": "Main",
+      "points": [
+        {
+          "x": 529.94,
+          "y": 34.39
+        },
+        {
+          "x": 536.37,
+          "y": 33.63
+        },
+        {
+          "x": 543.22,
+          "y": 33.35
+        },
+        {
+          "x": 550.31,
+          "y": 33.34
+        },
+        {
+          "x": 557.46,
+          "y": 33.4
+        },
+        {
+          "x": 564.47,
+          "y": 33.32
+        },
+        {
+          "x": 571.17,
+          "y": 32.88
+        },
+        {
+          "x": 577.37,
+          "y": 31.89
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A92",
+        "A83"
+      ],
+      "segmentKind": "bezier",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T79",
+      "name": "JMRI T79 · A16 → TO4",
+      "line": "Main",
+      "points": [
+        {
+          "x": 373.3,
+          "y": 61.92
+        },
+        {
+          "x": 376.6,
+          "y": 68.22
+        },
+        {
+          "x": 379.39,
+          "y": 74.65
+        },
+        {
+          "x": 381.67,
+          "y": 81.22
+        },
+        {
+          "x": 383.46,
+          "y": 87.92
+        },
+        {
+          "x": 384.74,
+          "y": 94.76
+        },
+        {
+          "x": 385.51,
+          "y": 101.73
+        },
+        {
+          "x": 385.78,
+          "y": 108.83
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A16",
+        "TO4"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T85",
+      "name": "JMRI T85 · TO8 → TO0",
+      "line": "Main",
+      "points": [
+        {
+          "x": 342.09,
+          "y": 93.19
+        },
+        {
+          "x": 348.22,
+          "y": 93.32
+        },
+        {
+          "x": 354.32,
+          "y": 93.05
+        },
+        {
+          "x": 360.39,
+          "y": 92.39
+        },
+        {
+          "x": 366.43,
+          "y": 91.32
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO8",
+        "TO0"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T86",
+      "name": "JMRI T86 · TO0 → TO9",
+      "line": "Main",
+      "points": [
+        {
+          "x": 442.57,
+          "y": 100.07
+        },
+        {
+          "x": 460.67,
+          "y": 103.2
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO0",
+        "TO9"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T87",
+      "name": "JMRI T87 · TO9 → A104",
+      "line": "Main",
+      "points": [
+        {
+          "x": 534.93,
+          "y": 121.34
+        },
+        {
+          "x": 588.6,
+          "y": 136.98
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO9",
+        "A104"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T88",
+      "name": "JMRI T88 · TO9 → A106",
+      "line": "Main",
+      "points": [
+        {
+          "x": 544.29,
+          "y": 116.34
+        },
+        {
+          "x": 599.83,
+          "y": 125.1
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO9",
+        "A106"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T89",
+      "name": "JMRI T89 · TO0 → A108",
+      "line": "Main",
+      "points": [
+        {
+          "x": 450.68,
+          "y": 93.82
+        },
+        {
+          "x": 506.85,
+          "y": 96.32
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "TO0",
+        "A108"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T90",
+      "name": "JMRI T90 · A108 → A109",
+      "line": "Main",
+      "points": [
+        {
+          "x": 506.85,
+          "y": 96.32
+        },
+        {
+          "x": 563.01,
+          "y": 98.2
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A108",
+        "A109"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T91",
+      "name": "JMRI T91 · A109 → A9",
+      "line": "Main",
+      "points": [
+        {
+          "x": 563.01,
+          "y": 98.2
+        },
+        {
+          "x": 619.18,
+          "y": 100.07
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A109",
+        "A9"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T92",
+      "name": "JMRI T92 · A3 → A106",
+      "line": "Main",
+      "points": [
+        {
+          "x": 619.18,
+          "y": 126.97
+        },
+        {
+          "x": 614.31,
+          "y": 126.82
+        },
+        {
+          "x": 609.46,
+          "y": 126.46
+        },
+        {
+          "x": 604.64,
+          "y": 125.88
+        },
+        {
+          "x": 599.83,
+          "y": 125.1
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A3",
+        "A106"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T93",
+      "name": "JMRI T93 · A110 → A6",
+      "line": "Main",
+      "points": [
+        {
+          "x": 617.93,
+          "y": 141.36
+        },
+        {
+          "x": 674.1,
+          "y": 142.61
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A110",
+        "A6"
+      ],
+      "segmentKind": "straight",
+      "status": "visually_aligned",
+      "verified": true
+    },
+    {
+      "id": "T94",
+      "name": "JMRI T94 · A110 → A104",
+      "line": "Main",
+      "points": [
+        {
+          "x": 617.93,
+          "y": 141.36
+        },
+        {
+          "x": 611.97,
+          "y": 141.1
+        },
+        {
+          "x": 606.06,
+          "y": 140.53
+        },
+        {
+          "x": 600.19,
+          "y": 139.65
+        },
+        {
+          "x": 594.37,
+          "y": 138.47
+        },
+        {
+          "x": 588.6,
+          "y": 136.98
+        }
+      ],
+      "source": "JMRI RailModeller export",
+      "sourceEndpoints": [
+        "A110",
+        "A104"
+      ],
+      "segmentKind": "arc",
+      "status": "visually_aligned",
+      "verified": true
+    }
+  ]
+}

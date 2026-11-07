@@ -1,0 +1,12 @@
+# Simulated operating rules for the turntable at UND-4.
+# Actual motor stop control, travel-time calibration and interlocks remain to be implemented.
+mode: simulation
+approach_section: UND-4
+access_turnout: H
+turnout_default: straight
+rotation_degrees: 180
+motion: [rotate_180_forward, rotate_180_reverse_to_home]
+additional_approach_hall_sensors: 0
+position_feedback: not_configured
+require_verified_stop_before_dispatch: true
+hardware_outputs_enabled: false

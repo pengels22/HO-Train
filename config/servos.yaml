@@ -13,3 +13,4 @@ servos:
   turnout_E: {channel: 10}
   turnout_F: {channel: 11}
   turnout_G: {channel: 12}
+  turnout_H: {channel: 13} # proposed free PCA9685 channel; confirm physical wiring
