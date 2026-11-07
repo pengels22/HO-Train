@@ -68,6 +68,11 @@ class Dispatcher:
             self.estop_controller = controller
             self._rearm_required = require_rearm
 
+    def disarm(self) -> None:
+        """Put the runtime behind the explicit rearm gate."""
+        with self.lock:
+            self._rearm_required = True
+
     @property
     def estop_active(self) -> bool:
         return bool(self.estop_controller and self.estop_controller.active)

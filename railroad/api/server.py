@@ -27,6 +27,7 @@ def configure_runtime(mode: str = "simulation") -> None:
         raise ValueError("mode must be simulation, hardware, or bench")
     if mode == "simulation":
         DISPATCHER.simulation = True
+        DISPATCHER.disarm()
         return
     # ``hardware``/``bench`` are explicit opt-ins.  The sender itself remains
     # disarmed until an operator performs the rearm sequence.
