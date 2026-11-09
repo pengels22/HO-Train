@@ -29,6 +29,12 @@ class SlowPort(FakePort):
         return super().write(data)
 
 
+class ReplyPort(FakePort):
+    def __init__(self, reply):
+        super().__init__(); self.reply = reply
+    def readline(self): return self.reply
+
+
 class FakeUDP:
     def __init__(self): self.commands = []; self.lock = Lock()
     def send(self, command):
@@ -136,3 +142,13 @@ def test_slow_usb_controller_does_not_delay_healthy_controller():
         EStopFanout(udp, registry).send(Command(ALL_TRAINS, 1, 0, flags=ESTOP_FLAG))
     assert good.writes == [b"ESTOP\n"]
     assert time.monotonic() - started < 0.15
+
+
+def test_usb_rearm_requires_controller_acknowledgement():
+    good = ReplyPort(b'{"state":"EMPTY_READY","estop":false,"motor":false,"track_power":false}\n')
+    registry = ControllerRegistry([RegisteredController("turntable", "/dev/tt", lambda _: good)])
+    registry.rearm_all()
+    assert good.writes == [b"REARM AUTH\n"]
+    bad = ReplyPort(b"ERR REARM interlock\n")
+    rejected = ControllerRegistry([RegisteredController("bad", "/dev/bad", lambda _: bad)])
+    with pytest.raises(OSError): rejected.rearm_all()

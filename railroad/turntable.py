@@ -1,6 +1,7 @@
 """Turntable safety primitives shared by simulation and a future controller adapter."""
 from __future__ import annotations
 from dataclasses import dataclass
+from enum import Enum
 
 
 @dataclass
@@ -69,3 +70,121 @@ class TurntablePulseCounter:
     def complete(self, end: str) -> bool:
         if end not in {"A", "B"}: raise ValueError("turntable end must be A or B")
         return (self.count_a if end == "A" else self.count_b) == 4
+
+    def ready(self, end: str, now: float) -> bool:
+        if not self.complete(end):
+            return False
+        cooldown = self.cooldown_until_a if end == "A" else self.cooldown_until_b
+        return now >= cooldown
+
+
+class TurntableState(str, Enum):
+    EMPTY_READY = "EMPTY_READY"
+    TRAIN_ENTERING = "TRAIN_ENTERING"
+    TRAIN_LOADED = "TRAIN_LOADED"
+    ROTATING = "ROTATING"
+    ALIGNED_LOADED = "ALIGNED_LOADED"
+    TRAIN_EXITING = "TRAIN_EXITING"
+    FAULT = "FAULT"
+
+
+class TurntableController:
+    """Simulation/controller state machine with explicit bridge interlocks."""
+    def __init__(self, alignment: str = "HOME"):
+        if alignment not in {"HOME", "ROTATED"}:
+            raise ValueError("turntable must start at HOME or ROTATED")
+        self.alignment = alignment
+        self.state = TurntableState.EMPTY_READY
+        self.target_alignment: str | None = None
+        self.motor_on = False
+        self.track_power = False
+        self.polarity: str | None = None
+        self.power_authorized = False
+        self.train_stopped = False
+        self.clearance_verified = False
+        self.communication_ok = True
+        self.estop = False
+        self.fault: str | None = None
+        self.counter = TurntablePulseCounter()
+
+    def _fail(self, reason: str):
+        self.motor_on = False; self.track_power = False
+        self.state = TurntableState.FAULT; self.fault = reason
+        raise RuntimeError(reason)
+
+    def authorize_entry(self, *, track_power: bool, train_stopped: bool):
+        if self.state != TurntableState.EMPTY_READY or not track_power or not train_stopped:
+            self._fail("entry authorization interlock")
+        self.power_authorized = True; self.train_stopped = True
+        self.track_power = True; self.state = TurntableState.TRAIN_ENTERING
+
+    def entry_pulse(self, now: float, active: bool = True) -> int:
+        if self.state != TurntableState.TRAIN_ENTERING:
+            self._fail("entry pulse outside train entry")
+        return self.counter.signal("A" if self.alignment == "HOME" else "B", active, now)
+
+    def confirm_loaded(self, *, train_stopped: bool, clearance_verified: bool, now: float = float("inf")):
+        end = "A" if self.alignment == "HOME" else "B"
+        if not train_stopped or not clearance_verified or not self.counter.ready(end, now):
+            self._fail("loaded train clearance not verified")
+        self.train_stopped = True; self.clearance_verified = True
+        self.track_power = False; self.state = TurntableState.TRAIN_LOADED
+
+    def begin_rotation(self):
+        if self.state != TurntableState.TRAIN_LOADED or self.estop or not self.communication_ok:
+            self._fail("rotation interlock")
+        if not self.train_stopped or not self.clearance_verified:
+            self._fail("train clearance not verified")
+        self.target_alignment = "ROTATED" if self.alignment == "HOME" else "HOME"
+        self.track_power = False; self.motor_on = True; self.state = TurntableState.ROTATING
+
+    def reach_alignment(self, alignment: str):
+        if self.state != TurntableState.ROTATING or alignment != self.target_alignment:
+            self._fail("unexpected turntable alignment")
+        self.alignment = alignment; self.motor_on = False
+        self.state = TurntableState.ALIGNED_LOADED
+
+    def set_polarity(self, polarity: str):
+        if polarity not in {"normal", "reversed"}:
+            raise ValueError("invalid bridge polarity")
+        if self.track_power or self.motor_on:
+            self._fail("cannot change polarity while energized")
+        self.polarity = polarity
+
+    def authorize_exit(self, *, track_power: bool, train_stopped: bool):
+        if self.state != TurntableState.ALIGNED_LOADED or not track_power or not train_stopped:
+            self._fail("exit authorization interlock")
+        if self.estop or not self.communication_ok or self.polarity is None:
+            self._fail("bridge power interlock")
+        self.power_authorized = True; self.train_stopped = True
+        self.counter.reset()
+        self.track_power = True; self.state = TurntableState.TRAIN_EXITING
+
+    def exit_pulse(self, now: float, active: bool = True) -> int:
+        if self.state != TurntableState.TRAIN_EXITING:
+            self._fail("exit pulse outside train exit")
+        end = "B" if self.alignment == "HOME" else "A"
+        return self.counter.signal(end, active, now)
+
+    def confirm_empty(self, *, train_stopped: bool, now: float = float("inf")):
+        end = "B" if self.alignment == "HOME" else "A"
+        if not train_stopped or not self.counter.ready(end, now):
+            self._fail("exit clearance not verified")
+        self.track_power = False; self.state = TurntableState.EMPTY_READY
+        self.counter.reset(); self.power_authorized = False; self.clearance_verified = False
+
+    def emergency_stop(self, reason: str = "E-Stop"):
+        self.estop = True; self.motor_on = False; self.track_power = False
+        self.state = TurntableState.FAULT; self.fault = reason
+
+    def communication_lost(self):
+        self.communication_ok = False; self._fail("turntable communication fault")
+
+    def rearm(self, *, authorized: bool, alignment: str, faults_clear: bool):
+        if not authorized or not faults_clear or alignment not in {"HOME", "ROTATED"}:
+            raise RuntimeError("turntable rearm interlock")
+        if self.motor_on or self.track_power:
+            raise RuntimeError("turntable outputs must be off before rearm")
+        self.alignment = alignment; self.estop = False; self.communication_ok = True
+        self.fault = None; self.counter.reset(); self.target_alignment = None
+        self.state = TurntableState.EMPTY_READY

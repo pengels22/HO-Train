@@ -40,6 +40,8 @@ def configure_runtime(mode: str = "simulation") -> None:
             if shutdown:
                 shutdown()
             DISPATCHER.estop_controller = None
+        USB_CONTROLLERS.close()
+        USB_CONTROLLERS = ControllerRegistry()
         DISPATCHER.physical_estop = None
         DISPATCHER.accessory_errors.clear()
         DISPATCHER.simulation = True
@@ -66,6 +68,7 @@ def configure_runtime(mode: str = "simulation") -> None:
         USB_CONTROLLERS.controllers.append(RegisteredController(controller_id, port_name, connector))
     DISPATCHER.simulation = False
     DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS), require_rearm=True)
+    USB_CONTROLLERS.start_heartbeat()
     pin = estop_config.get("gpio")
     if pin is not None:
         # The backend is intentionally imported only for an explicit hardware

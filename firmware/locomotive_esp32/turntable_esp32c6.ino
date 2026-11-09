@@ -1,7 +1,8 @@
 /* XIAO ESP32-C6 turntable controller.
  * USB is the primary newline-delimited command path. UDP is optional and
  * uses the same safety latch; it is never required for normal operation.
- * Commands: ESTOP, STATUS, TURN, REARM, STOP.
+ * Commands: ESTOP, STATUS, ENTRY AUTH, CLEARANCE, TURN, POLARITY NORMAL,
+ * POLARITY REVERSED, POWER ON, EXIT COMPLETE, REARM AUTH, STOP.
  */
 #include <Arduino.h>
 #include <WiFiUdp.h>
@@ -14,7 +15,7 @@ constexpr int HOME_SWITCH = D0, ROTATED_SWITCH = D1, MOTOR_IN1 = D2, MOTOR_IN2 =
 constexpr int POLARITY_RELAY = D4, TRACK_POWER_RELAY = D5, REED_END_A = D6, REED_END_B = D7;
 
 WiFiUDP udp;
-enum TurntableState { HOME, TURNING, ROTATED, FAULT };
+enum TurntableState { EMPTY_READY, TRAIN_ENTERING, TRAIN_LOADED, TURNING, ALIGNED_LOADED, TRAIN_EXITING, FAULT };
 TurntableState state = FAULT;
 bool estopLatched = false, communicationFault = true, trackPowerEnabled = false;
 bool reedAActive = false, reedBActive = false;
@@ -23,6 +24,8 @@ unsigned long lastPulseA = 0, lastPulseB = 0, cooldownA = 0, cooldownB = 0;
 unsigned long lastValidPacketMs = 0, lastControlMs = 0, rotationDeadline = 0;
 int rotationDirection = 1;
 bool nextForward = true;
+const char *targetAlignment = "";
+bool polaritySelected = false;
 const char *faultText = "startup_disarmed";
 
 uint16_t crc16(const uint8_t *data, size_t length) {
@@ -51,7 +54,7 @@ void latchEstop(const char *source) {
 
 void reportStatus() {
   Serial.print("{\"controller\":\"turntable\",\"state\":\"");
-  Serial.print(state == HOME ? "HOME" : state == TURNING ? "TURNING" : state == ROTATED ? "ROTATED" : "FAULT");
+  Serial.print(state == EMPTY_READY ? "EMPTY_READY" : state == TRAIN_ENTERING ? "TRAIN_ENTERING" : state == TRAIN_LOADED ? "TRAIN_LOADED" : state == TURNING ? "TURNING" : state == ALIGNED_LOADED ? "ALIGNED_LOADED" : state == TRAIN_EXITING ? "TRAIN_EXITING" : "FAULT");
   Serial.print("\",\"alignment\":\""); Serial.print(alignmentName());
   Serial.print("\",\"estop\":"); Serial.print(estopLatched ? "true" : "false");
   Serial.print(",\"motor\":"); Serial.print(state == TURNING ? "true" : "false");
@@ -79,8 +82,8 @@ void countReed(bool endA, bool active, unsigned long now) {
 bool safeAlignment() { return strcmp(alignmentName(), "INVALID") != 0; }
 
 void beginTurn() {
-  if (estopLatched || communicationFault || state == TURNING || !safeAlignment()) { Serial.println("ERR TURN interlock"); return; }
-  if (countA != 0 || countB != 0) { Serial.println("ERR TURN counters_not_reset"); return; }
+  if (estopLatched || communicationFault || state != TRAIN_LOADED || !safeAlignment()) { Serial.println("ERR TURN interlock"); return; }
+  targetAlignment = strcmp(alignmentName(), "HOME") == 0 ? "ROTATED" : "HOME";
   state = TURNING; rotationDirection = nextForward ? 1 : -1; nextForward = !nextForward;
   rotationDeadline = millis() + ROTATION_TIMEOUT_MS; digitalWrite(TRACK_POWER_RELAY, LOW); trackPowerEnabled = false;
   digitalWrite(MOTOR_IN1, rotationDirection > 0 ? HIGH : LOW); digitalWrite(MOTOR_IN2, rotationDirection < 0 ? HIGH : LOW);
@@ -89,15 +92,38 @@ void beginTurn() {
 
 void handleSerialLine(String line) {
   line.trim();
-  if (line == "ESTOP" || line == "STATUS" || line == "STOP" || line == "REARM" || line == "TURN") {
+  if (line == "ESTOP" || line == "STATUS" || line == "STOP" || line == "REARM AUTH" || line == "ENTRY AUTH" || line == "CLEARANCE" || line == "TURN" || line == "POLARITY NORMAL" || line == "POLARITY REVERSED" || line == "POWER ON" || line == "EXIT COMPLETE") {
     lastControlMs = millis(); communicationFault = false;
   }
   if (line == "ESTOP") { latchEstop("USB"); return; }
   if (line == "STATUS") { reportStatus(); return; }
-  if (line == "STOP") { stopTurntableMotor(false); state = safeAlignment() ? (strcmp(alignmentName(), "HOME") == 0 ? HOME : ROTATED) : FAULT; Serial.println("OK STOP"); return; }
-  if (line == "REARM") {
-    if (estopLatched || communicationFault || !safeAlignment()) { Serial.println("ERR REARM interlock"); return; }
-    faultText = ""; state = strcmp(alignmentName(), "HOME") == 0 ? HOME : ROTATED; Serial.println("OK REARM"); return;
+  if (line == "STOP") { stopTurntableMotor(false); Serial.println("OK STOP"); return; }
+  if (line == "REARM AUTH") {
+    if (communicationFault || !safeAlignment() || trackPowerEnabled || state == TURNING) { Serial.println("ERR REARM interlock"); return; }
+    estopLatched = false; faultText = ""; resetCounts(); state = EMPTY_READY; reportStatus(); return;
+  }
+  if (line == "REARM") { Serial.println("ERR REARM_AUTH_REQUIRED"); return; }
+  if (line == "ENTRY AUTH") {
+    if (estopLatched || communicationFault || state != EMPTY_READY || !safeAlignment()) { Serial.println("ERR ENTRY interlock"); return; }
+    resetCounts(); trackPowerEnabled = true; digitalWrite(TRACK_POWER_RELAY, HIGH); state = TRAIN_ENTERING; Serial.println("OK ENTRY"); return;
+  }
+  if (line == "CLEARANCE") {
+    const uint8_t count = strcmp(alignmentName(), "HOME") == 0 ? countA : countB;
+    if (state != TRAIN_ENTERING || count != 4) { Serial.println("ERR CLEARANCE interlock"); return; }
+    stopTurntableMotor(false); state = TRAIN_LOADED; Serial.println("OK LOADED"); return;
+  }
+  if (line == "POLARITY NORMAL" || line == "POLARITY REVERSED") {
+    if (trackPowerEnabled || state != ALIGNED_LOADED) { Serial.println("ERR POLARITY interlock"); return; }
+    digitalWrite(POLARITY_RELAY, line == "POLARITY REVERSED" ? HIGH : LOW); polaritySelected = true; Serial.println("OK POLARITY"); return;
+  }
+  if (line == "POWER ON") {
+    if (state != ALIGNED_LOADED || !safeAlignment() || !polaritySelected || estopLatched || communicationFault) { Serial.println("ERR POWER interlock"); return; }
+    resetCounts(); trackPowerEnabled = true; digitalWrite(TRACK_POWER_RELAY, HIGH); state = TRAIN_EXITING; Serial.println("OK POWER"); return;
+  }
+  if (line == "EXIT COMPLETE") {
+    const uint8_t count = strcmp(alignmentName(), "HOME") == 0 ? countB : countA;
+    if (state != TRAIN_EXITING || count != 4) { Serial.println("ERR EXIT interlock"); return; }
+    stopTurntableMotor(false); resetCounts(); polaritySelected = false; state = EMPTY_READY; Serial.println("OK EMPTY"); return;
   }
   if (line == "TURN") { beginTurn(); return; }
   Serial.println("ERR UNKNOWN_COMMAND");
@@ -126,8 +152,7 @@ void loop() {
   int packetSize = udp.parsePacket(); if (packetSize > 0 && packetSize <= 64) { uint8_t p[64]; handleUdpPacket(p, size_t(udp.read(p,sizeof(p)))); }
   countReed(true, digitalRead(REED_END_A) == LOW, now); countReed(false, digitalRead(REED_END_B) == LOW, now);
   if (state == TURNING) {
-    const char *target = rotationDirection > 0 ? "ROTATED" : "HOME";
-    if (strcmp(alignmentName(), target) == 0) { stopTurntableMotor(false); state = strcmp(target, "HOME") == 0 ? HOME : ROTATED; Serial.println("OK ALIGNMENT"); }
+    if (strcmp(alignmentName(), targetAlignment) == 0) { stopTurntableMotor(false); state = ALIGNED_LOADED; Serial.println("OK ALIGNMENT"); }
     else if (now >= rotationDeadline) { faultText = "rotation_timeout"; stopTurntableMotor(true); Serial.println("ERR ROTATION_TIMEOUT"); }
   }
   const unsigned long lastControl = max(lastControlMs, lastValidPacketMs);

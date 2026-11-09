@@ -1,5 +1,7 @@
 from enum import Enum
 from typing import Protocol
+import json
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 class TipperState(str, Enum):
     IDLE="IDLE"; LOADING="LOADING"; ROTATING="ROTATING"; RETURNING="RETURNING"; UNLOADING="UNLOADING"; FAULT="FAULT"
@@ -12,21 +14,42 @@ class TipperHardware(Protocol):
 
 class TipperSerialController:
     """Allow-listed newline protocol for a future validated tipper board."""
-    def __init__(self, port):
+    def __init__(self, port, response_timeout_s: float = 0.1):
         self.port = port
+        self.response_timeout_s = response_timeout_s
+        self.last_status: dict | None = None
 
     def command(self, name: str) -> str:
         if name not in {"ESTOP", "STOP", "STATUS", "REARM"}:
             raise ValueError("unsupported tipper command")
+        pool = ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(self._exchange, name)
+        try:
+            reply = future.result(timeout=self.response_timeout_s)
+        except TimeoutError as exc:
+            future.cancel(); raise TimeoutError(f"tipper {name} acknowledgement timed out") from exc
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
+        if reply.startswith("{"):
+            try: self.last_status = json.loads(reply)
+            except json.JSONDecodeError as exc: raise RuntimeError("malformed tipper status") from exc
+        return reply
+
+    def _exchange(self, name: str) -> str:
         self.port.write((name + "\n").encode("ascii"))
         return self.port.readline().decode("ascii", errors="replace").strip()
 
     def stop_motor(self) -> None:
-        self.command("ESTOP")
+        reply = self.command("ESTOP")
+        confirmed = self.last_status is not None and self.last_status.get("motor") is False and self.last_status.get("decoupler") is False
+        if not confirmed and reply != "OK ESTOP motor=off decoupler=off":
+            raise RuntimeError("tipper controller did not confirm motor-off")
 
     def set_decoupler(self, enabled: bool) -> None:
         if enabled:
             raise RuntimeError("tipper decoupler protocol is not configured")
+        if self.last_status is not None and self.last_status.get("decoupler", False):
+            raise RuntimeError("tipper controller did not confirm decoupler-off")
 
     def rearm(self) -> None:
         response = self.command("REARM")

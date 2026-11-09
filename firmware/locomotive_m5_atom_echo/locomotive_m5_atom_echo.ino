@@ -1,7 +1,7 @@
 /* M5 Atom Echo locomotive receiver.
  * Motor driver: GPIO19 forward PWM, GPIO22 reverse PWM.
- * IR input: GPIO23.  Configure Wi-Fi and a validated local rearm input before
- * bench use; simulation never runs this firmware or sends UDP.
+ * IR transmitter: GPIO23.  The dispatcher supplies the explicit UDP rearm
+ * handshake; simulation never runs this firmware or sends UDP.
  */
 #include <Arduino.h>
 #include <WiFi.h>
@@ -19,9 +19,8 @@ constexpr int REARM_BUTTON_PIN = -1; // assign only after validating the build
 constexpr unsigned long WATCHDOG_MS = 500;
 constexpr uint16_t UDP_PORT = 4210;
 WiFiUDP udp;
-bool estopLatched = false;
-bool rearmAuthorized = false;
-bool communicationFault = true;
+enum LocomotiveState { DISARMED, ARMED, ESTOP_LATCHED, COMMUNICATION_FAULT };
+LocomotiveState state = DISARMED;
 unsigned long lastApplicableCommandMs = 0;
 unsigned long lastWifiAttemptMs = 0;
 bool udpStarted = false;
@@ -90,6 +89,7 @@ void beginIrFrame() {
   irFrame[6] = uint8_t(constrain(abs(int(commandedSpeed)), 0, 255));
   irFrame[7] = crc8(irFrame + 2, 5);
   irByte = irBit = 0; irSending = true; irSymbolStartedUs = micros();
+  irDuty((irFrame[0] & 1) ? 128 : 0);
 }
 
 void serviceIrTransmission() {
@@ -115,10 +115,6 @@ void setMotorSpeed(int16_t speed) {
   commandedSpeed = speed;
 }
 
-bool explicitRearm(int16_t speed) {
-  return speed == 0 && REARM_BUTTON_PIN >= 0 && digitalRead(REARM_BUTTON_PIN) == LOW;
-}
-
 void connectWifi() {
   if (WiFi.status() == WL_CONNECTED) return;
   if (millis() - lastWifiAttemptMs < 5000) return;
@@ -134,22 +130,19 @@ void handleCommand(const uint8_t *p, size_t length) {
   const int16_t speed = int16_t(uint16_t(p[6]) | uint16_t(p[7]) << 8);
   commandedTarget = p[8];
   if (trainId == ALL_TRAINS && (p[9] & ESTOP_FLAG)) {
-    estopLatched = true; rearmAuthorized = false; communicationFault = false; setMotorSpeed(0); return;
+    state = ESTOP_LATCHED; setMotorSpeed(0); return;
   }
   if (trainId == ALL_TRAINS && (p[9] & REARM_FLAG) && speed == 0) {
     // This packet is the explicit dispatcher handshake. A normal zero speed
     // packet never changes either latch.
-    estopLatched = false; communicationFault = false; rearmAuthorized = true; setMotorSpeed(0); lastApplicableCommandMs = millis(); return;
+    state = ARMED; setMotorSpeed(0); lastApplicableCommandMs = millis(); return;
   }
   if (trainId != LOCOMOTIVE_ID) return;
-  const bool wasCommunicationFault = communicationFault;
   lastApplicableCommandMs = millis();
-  if (estopLatched || wasCommunicationFault || !rearmAuthorized) {
+  if (state != ARMED) {
     setMotorSpeed(0);
-    if (explicitRearm(speed)) { estopLatched = false; communicationFault = false; }
     return;
   }
-  rearmAuthorized = false;
   setMotorSpeed(speed);
 }
 
@@ -170,11 +163,11 @@ void loop() {
   } else if (udpStarted) {
     udp.stop();
     udpStarted = false;
-    communicationFault = true;
+    state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   if (lastApplicableCommandMs == 0 || millis() - lastApplicableCommandMs > WATCHDOG_MS) {
-    communicationFault = true;
+    state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   serviceIrTransmission();

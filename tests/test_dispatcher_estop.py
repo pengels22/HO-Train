@@ -82,3 +82,24 @@ def test_one_broadcast_targets_multiple_locomotives_and_startup_sender_is_disarm
         assert sender.frames[-1].flags == ESTOP_FLAG
     finally:
         estop.shutdown()
+
+
+def test_continuous_speed_updates_remain_armed_until_estop_then_recover():
+    sender = FakeSender()
+    estop = EmergencyStop(sender, period_s=0.02)
+    dispatcher = Dispatcher(); dispatcher.attach_estop(estop, require_rearm=True)
+    try:
+        dispatcher.rearm()
+        for speed in range(1, 21):
+            dispatcher.command_motion(1, speed)
+        assert dispatcher.trains[1].velocity == 20
+        dispatcher.stop_all("operator E-Stop")
+        with pytest.raises(SafetyError): dispatcher.command_motion(1, 1)
+        dispatcher.clear_stop()
+        with pytest.raises(SafetyError): dispatcher.command_motion(1, 1)
+        dispatcher.rearm()
+        for speed in range(21, 41):
+            dispatcher.command_motion(1, speed)
+        assert dispatcher.trains[1].velocity == 40
+    finally:
+        estop.shutdown()

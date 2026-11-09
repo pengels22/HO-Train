@@ -26,6 +26,11 @@ class EStopFanout:
     def __init__(self, udp_sender: Sender, controllers: ControllerRegistry | None = None):
         self.udp_sender = udp_sender
         self.controllers = controllers or ControllerRegistry()
+        self._sequence = 0
+
+    def _next_sequence(self) -> int:
+        self._sequence = (self._sequence + 1) & 0xFFFF
+        return self._sequence
 
     def send(self, command: Command) -> None:
         errors = []
@@ -34,12 +39,18 @@ class EStopFanout:
         except Exception as exc:
             errors.append(exc)
         if command.flags & ESTOP_FLAG:
+            self.controllers.set_estop_active(True)
             try:
                 self.controllers.send_estop()
             except Exception as exc:
                 errors.append(exc)
         if errors:
             raise OSError("E-Stop transport delivery incomplete") from errors[0]
+
+    def rearm(self) -> None:
+        self.udp_sender.send(Command(ALL_TRAINS, self._next_sequence(), 0, flags=REARM_FLAG))
+        self.controllers.rearm_all()
+        self.controllers.set_estop_active(False)
 
     def close(self) -> None:
         close = getattr(self.udp_sender, "close", None)
@@ -122,6 +133,9 @@ class EmergencyStop:
         with self._lock:
             self._estop = False
             self._armed = False
+            setter = getattr(self._sender, "controllers", None)
+            if setter is not None:
+                setter.set_estop_active(False)
             self._wake.set()
 
     def rearm(self) -> None:
@@ -134,7 +148,11 @@ class EmergencyStop:
             # Explicit zero-speed handshake. Normal zero heartbeats never
             # clear a controller's local watchdog/E-Stop latch.
             try:
-                self._sender.send(self._next(estop=False, flags=REARM_FLAG))
+                rearm = getattr(self._sender, "rearm", None)
+                if rearm:
+                    rearm()
+                else:
+                    self._sender.send(self._next(estop=False, flags=REARM_FLAG))
             except Exception as exc:
                 self._last_error = exc
                 raise RuntimeError("rearm handshake delivery failed") from exc

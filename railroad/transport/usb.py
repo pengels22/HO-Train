@@ -10,10 +10,12 @@ from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from threading import Lock
 from typing import Callable, Protocol
+import json
 
 
 class SerialPort(Protocol):
     def write(self, data: bytes) -> int | None: ...
+    def readline(self) -> bytes: ...
     def close(self) -> None: ...
 
 
@@ -29,12 +31,15 @@ class RegisteredController:
     _executor: ThreadPoolExecutor | None = None
     _future: object | None = None
     _lock: Lock = None
+    _write_lock: Lock = None
 
     def __post_init__(self):
         self._lock = Lock()
+        self._write_lock = Lock()
 
     def _write_estop(self) -> None:
-        self.reconnect().write(b"ESTOP\n")
+        with self._write_lock:
+            self.reconnect().write(b"ESTOP\n")
 
     def reconnect(self) -> SerialPort:
         if self.port is None:
@@ -77,10 +82,30 @@ class RegisteredController:
             self._executor.shutdown(wait=False, cancel_futures=True)
             self._executor = None
 
+    def command(self, command: str, *, expect: str | None = None) -> str:
+        """Send one registered-controller command and verify its reply."""
+        if command not in {"STATUS", "REARM AUTH"}:
+            raise ValueError("unsupported controller command")
+        with self._write_lock:
+            port = self.reconnect()
+            port.write((command + "\n").encode("ascii"))
+            reply = port.readline().decode("ascii", errors="replace").strip()
+        if not reply or (expect and not reply.startswith(expect)):
+            raise OSError(f"{self.controller_id} invalid controller reply: {reply!r}")
+        self.last_error = None
+        self.connected = True
+        return reply
+
 
 class ControllerRegistry:
     def __init__(self, controllers: list[RegisteredController] | None = None):
         self.controllers = controllers or []
+        self.estop_active = False
+        self._heartbeat_thread = None
+        self._heartbeat_stop = None
+
+    def set_estop_active(self, active: bool) -> None:
+        self.estop_active = bool(active)
 
     def send_estop(self) -> None:
         errors = []
@@ -97,8 +122,49 @@ class ControllerRegistry:
             raise ControllerDeliveryError(errors)
 
     def close(self) -> None:
+        self.stop_heartbeat()
         for controller in self.controllers:
             controller.close()
+
+    def rearm_all(self) -> None:
+        errors = []
+        for controller in self.controllers:
+            try:
+                reply = controller.command("REARM AUTH", expect="{")
+                status = json.loads(reply)
+                if status.get("estop") or status.get("motor") or status.get("track_power"):
+                    raise OSError(f"{controller.controller_id} did not report a safe rearm state")
+            except Exception as exc:
+                controller.last_error = exc
+                controller.connected = False
+                errors.append((controller.controller_id, exc))
+        if errors:
+            raise ControllerDeliveryError(errors)
+
+    def start_heartbeat(self, period_s: float = 0.1) -> None:
+        from threading import Event, Thread
+        if self._heartbeat_thread is not None:
+            return
+        self._heartbeat_stop = Event()
+        def loop():
+            while not self._heartbeat_stop.wait(period_s):
+                if self.estop_active:
+                    continue
+                for controller in self.controllers:
+                    try:
+                        controller.command("STATUS", expect="{")
+                    except Exception as exc:
+                        controller.last_error = exc
+                        controller.connected = False
+        self._heartbeat_thread = Thread(target=loop, name="ho-controller-heartbeat", daemon=True)
+        self._heartbeat_thread.start()
+
+    def stop_heartbeat(self) -> None:
+        if self._heartbeat_stop is not None:
+            self._heartbeat_stop.set()
+        if self._heartbeat_thread is not None:
+            self._heartbeat_thread.join(timeout=1)
+        self._heartbeat_thread = self._heartbeat_stop = None
 
     def status(self) -> list[dict]:
         return [{"id": c.controller_id, "port": c.port_name,
