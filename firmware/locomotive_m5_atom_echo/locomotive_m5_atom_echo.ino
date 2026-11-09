@@ -19,6 +19,7 @@ constexpr int REARM_BUTTON_PIN = -1; // assign only after validating the build
 constexpr unsigned long WATCHDOG_MS = 500;
 constexpr uint16_t UDP_PORT = 4210;
 WiFiUDP udp;
+WiFiUDP telemetryUdp;
 enum LocomotiveState { DISARMED, ARMED, ESTOP_LATCHED, COMMUNICATION_FAULT };
 LocomotiveState state = DISARMED;
 unsigned long lastApplicableCommandMs = 0;
@@ -48,6 +49,11 @@ uint16_t crc16(const uint8_t *data, size_t length) {
   }
   return crc;
 }
+
+constexpr uint16_t TELEMETRY_PORT = 4211;
+const IPAddress TELEMETRY_BROADCAST(10, 77, 0, 255);
+uint16_t lastAcceptedSequence = 0;
+unsigned long lastTelemetryMs = 0;
 
 void irDuty(uint32_t duty);
 
@@ -127,6 +133,7 @@ void handleCommand(const uint8_t *p, size_t length) {
   if (length != 12 || p[0] != 'H' || p[1] != 'C' || p[2] != VERSION ||
       crc16(p, 10) != (uint16_t(p[11]) << 8 | p[10])) return;
   const uint8_t trainId = p[3];
+  const uint16_t sequence = uint16_t(p[4]) | uint16_t(p[5]) << 8;
   const int16_t speed = int16_t(uint16_t(p[6]) | uint16_t(p[7]) << 8);
   commandedTarget = p[8];
   if (trainId == ALL_TRAINS && (p[9] & ESTOP_FLAG)) {
@@ -138,12 +145,28 @@ void handleCommand(const uint8_t *p, size_t length) {
     state = ARMED; setMotorSpeed(0); lastApplicableCommandMs = millis(); return;
   }
   if (trainId != LOCOMOTIVE_ID) return;
+  lastAcceptedSequence = sequence;
   lastApplicableCommandMs = millis();
   if (state != ARMED) {
     setMotorSpeed(0);
     return;
   }
   setMotorSpeed(speed);
+}
+
+void sendTelemetry() {
+  if (WiFi.status() != WL_CONNECTED || millis() - lastTelemetryMs < 100) return;
+  lastTelemetryMs = millis();
+  const char *stateName = state == ARMED ? "ARMED" : state == ESTOP_LATCHED ? "ESTOP_LATCHED" : state == COMMUNICATION_FAULT ? "COMMUNICATION_FAULT" : "DISARMED";
+  String body = String("HT{\"version\":1,\"id\":") + LOCOMOTIVE_ID +
+    ",\"state\":\"" + stateName + "\",\"estop\":" + (state == ESTOP_LATCHED ? "true" : "false") +
+    ",\"communication_fault\":" + (state == COMMUNICATION_FAULT ? "true" : "false") +
+    ",\"armed\":" + (state == ARMED ? "true" : "false") + ",\"speed\":" + commandedSpeed +
+    ",\"sequence\":" + lastAcceptedSequence + ",\"session\":\"" + WiFi.macAddress() +
+    "\",\"uptime_ms\":" + millis() + "}";
+  telemetryUdp.beginPacket(TELEMETRY_BROADCAST, TELEMETRY_PORT);
+  telemetryUdp.write((const uint8_t *)body.c_str(), body.length());
+  telemetryUdp.endPacket();
 }
 
 void setup() {
@@ -171,4 +194,5 @@ void loop() {
     setMotorSpeed(0);
   }
   serviceIrTransmission();
+  sendTelemetry();
 }

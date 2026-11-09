@@ -61,6 +61,7 @@ class Dispatcher:
     accessory_stops: dict[str, Callable[[], None]] = field(default_factory=dict, repr=False)
     motion_stops: list[Callable[[], None]] = field(default_factory=list, repr=False)
     accessory_errors: dict[str, str] = field(default_factory=dict, repr=False)
+    controller_health: object | None = field(default=None, repr=False)
     _rearm_required: bool = field(default=False, repr=False)
     lock: RLock = field(default_factory=RLock, repr=False)
 
@@ -87,6 +88,12 @@ class Dispatcher:
         """Register allow-listed tipper/turntable/accessory stop callbacks."""
         with self.lock:
             self.accessory_stops.update({k: v for k, v in stops.items() if v is not None})
+
+    def attach_controller_health(self, registry) -> None:
+        with self.lock:
+            self.controller_health = registry
+            registry.on_failure = lambda controller, reason: self.stop_all(
+                f"controller {controller} communication failure: {reason}", cause="controller_fault")
 
     def attach_motion_stop(self, callback: Callable[[], None]) -> None:
         """Register a local motion engine stop hook.
@@ -188,6 +195,8 @@ class Dispatcher:
                 raise SafetyError("safety faults remain unresolved")
             if self.estop_controller:
                 self.estop_controller.rearm()
+            if self.controller_health and not self.controller_health.all_required_ready():
+                raise SafetyError("required controller acknowledgements are not ready")
             self._rearm_required = False
 
     def command_motion(self, train_id: int, speed: int) -> None:
@@ -211,6 +220,8 @@ class Dispatcher:
             raise SafetyError("physical E-Stop remains engaged")
         if self.tipper_fault or self.accessory_errors:
             raise SafetyError("safety faults remain unresolved")
+        if self.controller_health and not self.controller_health.all_required_ready():
+            raise SafetyError("required controller health is not ready")
 
     def set_tipper(self, state: str, reason: str | None = None):
         with self.lock:
@@ -400,6 +411,7 @@ class Dispatcher:
                 "mode":"simulation" if self.simulation else "hardware",
                 "global_stop":self.global_stop,"stop_reason":self.stop_reason,
                 "stop_causes":self.stop_causes.copy(),
+                "controllers": self.controller_health.status() if self.controller_health else [],
                 "estop_active":self.estop_active,
                 "motion_armed":not self._rearm_required and not self.global_stop,
                 "accessory_stop_faults":self.accessory_errors.copy(),

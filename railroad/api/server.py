@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
+from threading import Event
+import socket
 import time
 from railroad.dispatcher import Dispatcher, SafetyError
 from railroad.simulator.engine import SimulationEngine, SpeedProfile, Consist, Car
@@ -9,6 +11,7 @@ from railroad.geography import load_geography
 from railroad.track_geometry import load_centerlines
 from railroad.transport.estop import create_bench_sender
 from railroad.transport.usb import ControllerRegistry, RegisteredController, pyserial_connector
+from railroad.transport.telemetry import ControllerHealthRegistry
 from railroad.hardware.gpio import GPIO
 from railroad.safety.emergency_stop import EmergencyStop as PhysicalEmergencyStop
 
@@ -24,14 +27,50 @@ def _load_paths():
 SIMULATION = SimulationEngine(DISPATCHER, _load_paths())
 PHYSICAL_ESTOP = None
 USB_CONTROLLERS = ControllerRegistry()
+HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
+TELEMETRY_STOP = None
+TELEMETRY_SOCKET = None
+
+
+def _stop_telemetry_listener():
+    global TELEMETRY_STOP, TELEMETRY_SOCKET
+    if TELEMETRY_STOP: TELEMETRY_STOP.set()
+    if TELEMETRY_SOCKET:
+        try: TELEMETRY_SOCKET.close()
+        except OSError: pass
+    TELEMETRY_STOP = TELEMETRY_SOCKET = None
+
+
+def _start_telemetry_listener():
+    global TELEMETRY_STOP, TELEMETRY_SOCKET
+    _stop_telemetry_listener()
+    TELEMETRY_STOP = Event()
+    TELEMETRY_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    TELEMETRY_SOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    TELEMETRY_SOCKET.bind(("0.0.0.0", 4211))
+    TELEMETRY_SOCKET.settimeout(0.2)
+    def loop():
+        while TELEMETRY_STOP and not TELEMETRY_STOP.is_set():
+            try:
+                packet, _ = TELEMETRY_SOCKET.recvfrom(2048)
+                HEALTH.update(packet)
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            except Exception as exc:
+                if HEALTH.on_failure:
+                    HEALTH.on_failure("locomotive-telemetry", str(exc))
+    Thread(target=loop, name="locomotive-telemetry", daemon=True).start()
 
 
 def configure_runtime(mode: str = "simulation") -> None:
     """Configure the command gate; network transmission is never implicit."""
-    global PHYSICAL_ESTOP, USB_CONTROLLERS
+    global PHYSICAL_ESTOP, USB_CONTROLLERS, HEALTH
     if mode not in {"simulation", "hardware", "bench"}:
         raise ValueError("mode must be simulation, hardware, or bench")
     if mode == "simulation":
+        _stop_telemetry_listener()
         if PHYSICAL_ESTOP:
             PHYSICAL_ESTOP.stop()
             PHYSICAL_ESTOP = None
@@ -42,6 +81,8 @@ def configure_runtime(mode: str = "simulation") -> None:
             DISPATCHER.estop_controller = None
         USB_CONTROLLERS.close()
         USB_CONTROLLERS = ControllerRegistry()
+        HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
+        DISPATCHER.attach_controller_health(HEALTH)
         DISPATCHER.physical_estop = None
         DISPATCHER.accessory_errors.clear()
         DISPATCHER.simulation = True
@@ -66,9 +107,13 @@ def configure_runtime(mode: str = "simulation") -> None:
         baudrate = int(entry.get("baudrate", estop_config.get("serial_baudrate", 115200)))
         connector = lambda port, baudrate=baudrate: pyserial_connector(port, baudrate=baudrate)
         USB_CONTROLLERS.controllers.append(RegisteredController(controller_id, port_name, connector))
+    locomotive_ids = [int(i) for i in hardware.get("locomotive_controllers", [])]
+    HEALTH = ControllerHealthRegistry(USB_CONTROLLERS, locomotive_ids=locomotive_ids)
+    DISPATCHER.attach_controller_health(HEALTH)
     DISPATCHER.simulation = False
     DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS), require_rearm=True)
     USB_CONTROLLERS.start_heartbeat()
+    _start_telemetry_listener()
     pin = estop_config.get("gpio")
     if pin is not None:
         # The backend is intentionally imported only for an explicit hardware
@@ -128,6 +173,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/status":
             DISPATCHER.check_deadlines()
+            HEALTH.check_freshness()
             status = DISPATCHER.snapshot()
             status["simulation"] = SIMULATION.snapshot()
             status["estop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}

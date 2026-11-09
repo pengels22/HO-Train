@@ -145,10 +145,10 @@ def test_slow_usb_controller_does_not_delay_healthy_controller():
 
 
 def test_usb_rearm_requires_controller_acknowledgement():
-    good = ReplyPort(b'{"state":"EMPTY_READY","estop":false,"motor":false,"track_power":false}\n')
+    good = ReplyPort(b'{"controller":"turntable","transaction":"turntable-1","state":"EMPTY_READY","estop":false,"motor":false,"track_power":false}\n')
     registry = ControllerRegistry([RegisteredController("turntable", "/dev/tt", lambda _: good)])
     registry.rearm_all()
-    assert good.writes == [b"REARM AUTH\n"]
+    assert b'"command":"REARM AUTH"' in good.writes[0]
     bad = ReplyPort(b"ERR REARM interlock\n")
     rejected = ControllerRegistry([RegisteredController("bad", "/dev/bad", lambda _: bad)])
     with pytest.raises(OSError): rejected.rearm_all()

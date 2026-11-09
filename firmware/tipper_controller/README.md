@@ -7,8 +7,9 @@ serial pin is invented here. A validated controller adapter must register its
 immediate-stop function with `Dispatcher.attach_accessory_stops(tipper=...)`
 before bench operation. Until then simulation remains hardware-silent.
 
-The reserved newline protocol is `ESTOP`, `STOP`, `STATUS`, and `REARM`, each
-terminated by `\n`; controllers should reply with `OK ...`, `ERR ...`, or a
-JSON `STATUS` line. The Python `TipperSerialController` accepts only these
+The reserved newline protocol is JSON (`ESTOP`, `STOP`, `STATUS`, and
+`REARM` commands with a transaction ID). Controllers should reply with a
+matching transaction and explicit `motor:false` / `decoupler:false` fields for
+stop acknowledgement. The Python `TipperSerialController` accepts only these
 commands and uses an allow-listed, already-registered serial port. The actual
 board, port, motor pins, and decoupler command remain deployment configuration.

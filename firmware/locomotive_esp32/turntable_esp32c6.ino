@@ -27,6 +27,7 @@ bool nextForward = true;
 const char *targetAlignment = "";
 bool polaritySelected = false;
 const char *faultText = "startup_disarmed";
+String responseTransaction;
 
 uint16_t crc16(const uint8_t *data, size_t length) {
   uint16_t crc = 0xFFFF;
@@ -55,6 +56,7 @@ void latchEstop(const char *source) {
 void reportStatus() {
   Serial.print("{\"controller\":\"turntable\",\"state\":\"");
   Serial.print(state == EMPTY_READY ? "EMPTY_READY" : state == TRAIN_ENTERING ? "TRAIN_ENTERING" : state == TRAIN_LOADED ? "TRAIN_LOADED" : state == TURNING ? "TURNING" : state == ALIGNED_LOADED ? "ALIGNED_LOADED" : state == TRAIN_EXITING ? "TRAIN_EXITING" : "FAULT");
+  Serial.print("\",\"transaction\":\""); Serial.print(responseTransaction);
   Serial.print("\",\"alignment\":\""); Serial.print(alignmentName());
   Serial.print("\",\"estop\":"); Serial.print(estopLatched ? "true" : "false");
   Serial.print(",\"motor\":"); Serial.print(state == TURNING ? "true" : "false");
@@ -62,6 +64,16 @@ void reportStatus() {
   Serial.print(",\"fault\":\""); Serial.print(faultText);
   Serial.print("\",\"count_a\":"); Serial.print(countA); Serial.print(",\"count_b\":"); Serial.print(countB);
   Serial.println("}");
+  responseTransaction = "";
+}
+
+String jsonField(const String &line, const char *name) {
+  String marker = String("\"") + name + "\":\"";
+  int start = line.indexOf(marker);
+  if (start < 0) return "";
+  start += marker.length();
+  int end = line.indexOf('"', start);
+  return end < 0 ? "" : line.substring(start, end);
 }
 
 void resetCounts() { countA = countB = 0; lastPulseA = lastPulseB = cooldownA = cooldownB = 0; reedAActive = reedBActive = false; }
@@ -92,6 +104,10 @@ void beginTurn() {
 
 void handleSerialLine(String line) {
   line.trim();
+  if (line.startsWith("{")) {
+    responseTransaction = jsonField(line, "transaction");
+    line = jsonField(line, "command");
+  }
   if (line == "ESTOP" || line == "STATUS" || line == "STOP" || line == "REARM AUTH" || line == "ENTRY AUTH" || line == "CLEARANCE" || line == "TURN" || line == "POLARITY NORMAL" || line == "POLARITY REVERSED" || line == "POWER ON" || line == "EXIT COMPLETE") {
     lastControlMs = millis(); communicationFault = false;
   }

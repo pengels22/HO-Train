@@ -11,6 +11,8 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from threading import Lock
 from typing import Callable, Protocol
 import json
+import time
+from itertools import count
 
 
 class SerialPort(Protocol):
@@ -32,10 +34,22 @@ class RegisteredController:
     _future: object | None = None
     _lock: Lock = None
     _write_lock: Lock = None
+    controller_type: str = "usb_controller"
+    required: bool = True
+    last_success: float | None = None
+    reported_state: str | None = None
+    faults: list[str] = None
+    last_ack: str | None = None
+    session_id: str | None = None
+    armed: bool | None = None
+    estop: bool | None = None
+    _transactions: object = None
 
     def __post_init__(self):
         self._lock = Lock()
         self._write_lock = Lock()
+        self.faults = []
+        self._transactions = count(1)
 
     def _write_estop(self) -> None:
         with self._write_lock:
@@ -88,12 +102,32 @@ class RegisteredController:
             raise ValueError("unsupported controller command")
         with self._write_lock:
             port = self.reconnect()
-            port.write((command + "\n").encode("ascii"))
+            transaction = f"{self.controller_id}-{next(self._transactions)}"
+            port.write((json.dumps({"command": command, "transaction": transaction}, separators=(",", ":")) + "\n").encode("ascii"))
             reply = port.readline().decode("ascii", errors="replace").strip()
         if not reply or (expect and not reply.startswith(expect)):
             raise OSError(f"{self.controller_id} invalid controller reply: {reply!r}")
+        if reply.startswith("{"):
+            try:
+                payload = json.loads(reply)
+            except json.JSONDecodeError as exc:
+                self.faults.append("malformed_json")
+                raise OSError(f"{self.controller_id} malformed JSON response") from exc
+            identity = payload.get("controller")
+            if identity is not None and identity not in {self.controller_id, self.controller_type}:
+                raise OSError(f"{self.controller_id} controller identity mismatch: {identity}")
+            if payload.get("transaction") != transaction:
+                raise OSError(f"{self.controller_id} stale or mismatched transaction response")
+            self.reported_state = payload.get("state", self.reported_state)
+            self.last_ack = payload.get("command", command)
+            self.session_id = payload.get("session", self.session_id)
+            self.armed = payload.get("armed", self.armed)
+            self.estop = payload.get("estop", self.estop)
+            faults = payload.get("faults", payload.get("fault"))
+            self.faults = list(faults) if isinstance(faults, list) else ([] if not faults else [str(faults)])
         self.last_error = None
         self.connected = True
+        self.last_success = time.monotonic()
         return reply
 
 
@@ -103,6 +137,7 @@ class ControllerRegistry:
         self.estop_active = False
         self._heartbeat_thread = None
         self._heartbeat_stop = None
+        self.on_failure: Callable[[str, str], None] | None = None
 
     def set_estop_active(self, active: bool) -> None:
         self.estop_active = bool(active)
@@ -132,11 +167,15 @@ class ControllerRegistry:
             try:
                 reply = controller.command("REARM AUTH", expect="{")
                 status = json.loads(reply)
-                if status.get("estop") or status.get("motor") or status.get("track_power"):
+                if status.get("controller") not in {controller.controller_id, controller.controller_type}:
+                    raise OSError(f"{controller.controller_id} identity acknowledgement mismatch")
+                if status.get("estop") or status.get("motor") or status.get("track_power") or status.get("fault") or status.get("faults"):
                     raise OSError(f"{controller.controller_id} did not report a safe rearm state")
+                controller.armed = False
             except Exception as exc:
                 controller.last_error = exc
                 controller.connected = False
+                controller.faults = [str(exc)]
                 errors.append((controller.controller_id, exc))
         if errors:
             raise ControllerDeliveryError(errors)
@@ -156,6 +195,9 @@ class ControllerRegistry:
                     except Exception as exc:
                         controller.last_error = exc
                         controller.connected = False
+                        controller.faults = [str(exc)]
+                        if controller.required and self.on_failure:
+                            self.on_failure(controller.controller_id, str(exc))
         self._heartbeat_thread = Thread(target=loop, name="ho-controller-heartbeat", daemon=True)
         self._heartbeat_thread.start()
 
@@ -168,8 +210,16 @@ class ControllerRegistry:
 
     def status(self) -> list[dict]:
         return [{"id": c.controller_id, "port": c.port_name,
-                 "connected": c.connected, "error": str(c.last_error) if c.last_error else None}
+                 "type": c.controller_type, "required": c.required,
+                 "connected": c.connected, "last_success": c.last_success,
+                 "state": c.reported_state, "faults": list(c.faults or []),
+                 "last_ack": c.last_ack, "session": c.session_id,
+                 "armed": c.armed, "estop": c.estop,
+                 "error": str(c.last_error) if c.last_error else None}
                 for c in self.controllers]
+
+    def all_required_ready(self) -> bool:
+        return all(c.connected and not c.last_error and not c.faults for c in self.controllers if c.required)
 
 
 class ControllerDeliveryError(OSError):

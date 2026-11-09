@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Protocol
 import json
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from itertools import count
 
 class TipperState(str, Enum):
     IDLE="IDLE"; LOADING="LOADING"; ROTATING="ROTATING"; RETURNING="RETURNING"; UNLOADING="UNLOADING"; FAULT="FAULT"
@@ -18,26 +19,42 @@ class TipperSerialController:
         self.port = port
         self.response_timeout_s = response_timeout_s
         self.last_status: dict | None = None
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ho-tipper")
+        self._transactions = count(1)
+        self.communication_fault = False
+
+    def reconnect(self, port=None) -> None:
+        if port is not None: self.port = port
+        self.communication_fault = False
 
     def command(self, name: str) -> str:
         if name not in {"ESTOP", "STOP", "STATUS", "REARM"}:
             raise ValueError("unsupported tipper command")
-        pool = ThreadPoolExecutor(max_workers=1)
-        future = pool.submit(self._exchange, name)
+        if self.communication_fault and name != "ESTOP":
+            raise RuntimeError("tipper communication fault requires reconnection")
+        transaction = f"tipper-{next(self._transactions)}"
+        future = self._executor.submit(self._exchange, name, transaction)
         try:
             reply = future.result(timeout=self.response_timeout_s)
         except TimeoutError as exc:
-            future.cancel(); raise TimeoutError(f"tipper {name} acknowledgement timed out") from exc
-        finally:
-            pool.shutdown(wait=False, cancel_futures=True)
+            self.communication_fault = True
+            future.cancel(); self._executor.shutdown(wait=False, cancel_futures=True)
+            self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ho-tipper")
+            raise TimeoutError(f"tipper {name} acknowledgement timed out") from exc
         if reply.startswith("{"):
             try: self.last_status = json.loads(reply)
             except json.JSONDecodeError as exc: raise RuntimeError("malformed tipper status") from exc
+            if self.last_status.get("transaction") != transaction:
+                self.communication_fault = True
+                raise RuntimeError("stale tipper transaction response")
         return reply
 
-    def _exchange(self, name: str) -> str:
-        self.port.write((name + "\n").encode("ascii"))
+    def _exchange(self, name: str, transaction: str) -> str:
+        self.port.write((json.dumps({"controller": "tipper", "command": name, "transaction": transaction}, separators=(",", ":")) + "\n").encode("ascii"))
         return self.port.readline().decode("ascii", errors="replace").strip()
+
+    def close(self) -> None:
+        self._executor.shutdown(wait=False, cancel_futures=True)
 
     def stop_motor(self) -> None:
         reply = self.command("ESTOP")

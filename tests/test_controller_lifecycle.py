@@ -46,10 +46,10 @@ def test_tipper_serial_requires_positive_motor_and_decoupler_ack():
         def __init__(self, reply): self.reply = reply; self.writes = []
         def write(self, value): self.writes.append(value)
         def readline(self): return self.reply
-    ok = Port(b'{"ok":true,"motor":false,"decoupler":false}\n')
+    ok = Port(b'{"transaction":"tipper-1","ok":true,"motor":false,"decoupler":false}\n')
     controller = TipperSerialController(ok)
     controller.stop_motor()
-    assert ok.writes == [b"ESTOP\n"]
+    assert b'"command":"ESTOP"' in ok.writes[0]
     class SlowPort(Port):
         def readline(self):
             time.sleep(0.02)
