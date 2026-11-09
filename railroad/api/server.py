@@ -50,6 +50,12 @@ def configure_runtime(mode: str = "simulation") -> None:
     import yaml
     hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
     estop_config = hardware.get("estop", {}) or {}
+    if mode == "hardware":
+        missing = []
+        if estop_config.get("gpio") is None: missing.append("estop.gpio")
+        if not estop_config.get("serial_controllers"): missing.append("estop.serial_controllers")
+        if missing:
+            raise RuntimeError("hardware safety configuration incomplete: " + ", ".join(missing))
     USB_CONTROLLERS = ControllerRegistry()
     for entry in estop_config.get("serial_controllers", []) or []:
         controller_id, port_name = entry.get("id"), entry.get("port")
@@ -260,6 +266,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _simulation_command(self):
         try:
+            if not DISPATCHER.simulation:
+                raise SafetyError("simulation API is disabled in hardware mode")
             payload = self._json_body()
             action = payload.get("action")
             if action == "start": SIMULATION.start()
@@ -291,6 +299,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _save_calibration(self):
         import yaml
         try:
+            if not DISPATCHER.simulation:
+                raise SafetyError("simulation calibration is disabled in hardware mode")
             payload = self._json_body()
             paths = payload.get("paths", {})
             if not isinstance(paths, dict): raise ValueError("paths must be an object")

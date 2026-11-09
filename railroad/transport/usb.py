@@ -7,6 +7,8 @@ others so a disconnected controller cannot block UDP or its peers.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from threading import Lock
 from typing import Callable, Protocol
 
 
@@ -23,7 +25,16 @@ class RegisteredController:
     port: SerialPort | None = None
     last_error: Exception | None = None
     connected: bool = False
-    write_timeout_s: float = 0.25
+    write_timeout_s: float = 0.05
+    _executor: ThreadPoolExecutor | None = None
+    _future: object | None = None
+    _lock: Lock = None
+
+    def __post_init__(self):
+        self._lock = Lock()
+
+    def _write_estop(self) -> None:
+        self.reconnect().write(b"ESTOP\n")
 
     def reconnect(self) -> SerialPort:
         if self.port is None:
@@ -32,10 +43,23 @@ class RegisteredController:
         return self.port
 
     def send_estop(self) -> None:
+        # One bounded worker per registered controller prevents a slow port
+        # from delaying peers and prevents repeated E-Stop calls from queuing
+        # stale packets without limit.
+        with self._lock:
+            if self._future is not None and not self._future.done():
+                return
+            if self._executor is None:
+                self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"ho-usb-{self.controller_id}")
+            self._future = self._executor.submit(self._write_estop)
+            future = self._future
         try:
-            self.reconnect().write(b"ESTOP\n")
+            future.result(timeout=self.write_timeout_s)
             self.last_error = None
             self.connected = True
+        except TimeoutError:
+            self.last_error = TimeoutError(f"{self.controller_id} E-Stop write exceeded deadline")
+            raise self.last_error
         except Exception as exc:  # one controller must not stop the fan-out
             self.last_error = exc
             self.port = None
@@ -49,6 +73,9 @@ class RegisteredController:
             finally:
                 self.port = None
                 self.connected = False
+        if self._executor is not None:
+            self._executor.shutdown(wait=False, cancel_futures=True)
+            self._executor = None
 
 
 class ControllerRegistry:
@@ -57,11 +84,15 @@ class ControllerRegistry:
 
     def send_estop(self) -> None:
         errors = []
-        for controller in self.controllers:
-            try:
-                controller.send_estop()
-            except Exception as exc:
-                errors.append((controller.controller_id, exc))
+        if not self.controllers:
+            return
+        with ThreadPoolExecutor(max_workers=len(self.controllers), thread_name_prefix="ho-estop-fanout") as pool:
+            futures = [(c, pool.submit(c.send_estop)) for c in self.controllers]
+            for controller, future in futures:
+                try:
+                    future.result()
+                except Exception as exc:
+                    errors.append((controller.controller_id, exc))
         if errors:
             raise ControllerDeliveryError(errors)
 
@@ -84,4 +115,4 @@ class ControllerDeliveryError(OSError):
 def pyserial_connector(port_name: str, *, baudrate: int = 115200) -> SerialPort:
     """Open a configured port only when an explicit hardware runtime asks."""
     import serial  # optional dependency; never imported by simulation
-    return serial.Serial(port_name, baudrate=baudrate, timeout=0, write_timeout=0.25)
+    return serial.Serial(port_name, baudrate=baudrate, timeout=0, write_timeout=0.05)

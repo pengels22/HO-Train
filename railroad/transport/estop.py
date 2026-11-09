@@ -12,6 +12,7 @@ from railroad.transport.udp import Broadcaster, Command
 from railroad.transport.usb import ControllerRegistry
 
 ESTOP_FLAG = 0x80
+REARM_FLAG = 0x40
 ALL_TRAINS = 0xFF
 DEFAULT_PERIOD_S = 0.100
 
@@ -130,6 +131,13 @@ class EmergencyStop:
                 raise RuntimeError("cannot rearm with E-Stop active or sender closed")
             if self._last_error:
                 raise RuntimeError("unresolved broadcast error")
+            # Explicit zero-speed handshake. Normal zero heartbeats never
+            # clear a controller's local watchdog/E-Stop latch.
+            try:
+                self._sender.send(self._next(estop=False, flags=REARM_FLAG))
+            except Exception as exc:
+                self._last_error = exc
+                raise RuntimeError("rearm handshake delivery failed") from exc
             self._armed = True
 
     def send_motion(self, train_id: int, speed: int, target: int = 0, flags: int = 0) -> None:

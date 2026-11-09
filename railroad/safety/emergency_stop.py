@@ -17,7 +17,7 @@ class EmergencyStop:
         pressed = bool(self.gpio.estop_pressed)
         if pressed and not self._seen_pressed:
             # No 250 ms debounce: a low input is safety-critical.
-            self.dispatcher.stop_all("physical E-Stop pressed")
+            self.dispatcher.stop_all("physical E-Stop pressed", cause="physical_estop")
         elif not pressed and self._seen_pressed:
             # Release only stops repetition. Global stop and rearm latch remain.
             self.dispatcher.release_estop()

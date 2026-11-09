@@ -54,6 +54,7 @@ class Dispatcher:
     tipper_fault: str | None = None
     global_stop: bool = False
     stop_reason: str | None = None
+    stop_causes: dict[str, str] = field(default_factory=dict)
     simulation: bool = True
     estop_controller: object | None = field(default=None, repr=False)
     physical_estop: Callable[[], bool] | None = field(default=None, repr=False)
@@ -105,10 +106,21 @@ class Dispatcher:
     def tipper_locked(self) -> bool:
         return self.tipper != "IDLE" or self.tipper_fault is not None
 
-    def stop_all(self, reason: str):
+    def _cause_for_reason(self, reason: str) -> str:
+        text = reason.lower()
+        if "physical" in text: return "physical_estop"
+        if "tipper" in text: return "tipper_fault"
+        if "turntable" in text: return "turntable_fault"
+        if "checkpoint" in text or "missed" in text or "unexpected" in text: return "checkpoint_fault"
+        if "controller" in text or "communication" in text: return "controller_fault"
+        if "operator" in text: return "operator_estop"
+        return "safety_fault"
+
+    def stop_all(self, reason: str, *, cause: str | None = None):
         with self.lock:
             self.global_stop = True
-            self.stop_reason = reason
+            self.stop_reason = self.stop_reason or reason
+            self.stop_causes[cause or self._cause_for_reason(reason)] = reason
             self._rearm_required = True
             for t in self.trains.values():
                 t.velocity = 0
@@ -132,9 +144,10 @@ class Dispatcher:
                     self.accessory_errors[name] = str(exc)
 
     def release_estop(self) -> None:
-        """Physical release stops repetition but keeps GLOBAL STOP latched."""
+        """Release only the physical cause; all other causes remain latched."""
         with self.lock:
-            if self.estop_controller:
+            self.stop_causes.pop("physical_estop", None)
+            if self.estop_controller and not self.stop_causes:
                 self.estop_controller.clear()
 
     def clear_stop(self):
@@ -148,6 +161,15 @@ class Dispatcher:
             if any(t.expected_checkpoint and t.checkpoint_deadline and
                    time.monotonic() > t.checkpoint_deadline for t in self.trains.values()):
                 raise SafetyError("unresolved checkpoint position fault")
+            if "checkpoint_fault" in self.stop_causes:
+                unresolved = any(t.expected_checkpoint for t in self.trains.values())
+                if unresolved:
+                    raise SafetyError("unresolved checkpoint position fault")
+                self.stop_causes.pop("checkpoint_fault", None)
+            for cause in ("operator_estop", "safety_fault"):
+                self.stop_causes.pop(cause, None)
+            if self.stop_causes:
+                raise SafetyError("active stop causes remain: " + ", ".join(sorted(self.stop_causes)))
             self.global_stop = False
             self.stop_reason = None
             # Clearing the broadcast is not permission to move.  The explicit
@@ -216,6 +238,7 @@ class Dispatcher:
                 raise SafetyError("home, restraints, and track-clear confirmations required")
             self.tipper_fault = None
             self.tipper = "IDLE"
+            self.stop_causes.pop("tipper_fault", None)
             # Does not independently reset global stop or restore prior routes.
 
     def route_available(self, train_id: int, zones: list[str], *, mine_transit=False) -> bool:
@@ -376,6 +399,7 @@ class Dispatcher:
             return {
                 "mode":"simulation" if self.simulation else "hardware",
                 "global_stop":self.global_stop,"stop_reason":self.stop_reason,
+                "stop_causes":self.stop_causes.copy(),
                 "estop_active":self.estop_active,
                 "motion_armed":not self._rearm_required and not self.global_stop,
                 "accessory_stop_faults":self.accessory_errors.copy(),

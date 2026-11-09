@@ -23,6 +23,19 @@ def test_turntable_counts_four_pulses_per_end_with_lockout_and_cooldown():
     assert counter.count_b == 1
 
 
+def test_turntable_release_starts_finite_cooldown_and_extra_pulse_faults():
+    counter = TurntablePulseCounter()
+    for index in range(4):
+        t = index * 0.3
+        counter.signal("A", True, t)
+        counter.signal("A", False, t + 0.01)
+    assert counter.complete("A")
+    # Repeated inactive levels must not extend the cooldown forever.
+    counter.signal("A", False, 2.0)
+    with pytest.raises(RuntimeError, match="extra vehicle"):
+        counter.signal("A", True, 2.0)
+
+
 def test_tipper_adapter_stops_motor_and_decoupler_independently():
     class Hardware:
         def __init__(self): self.calls = []

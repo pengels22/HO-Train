@@ -10,6 +10,29 @@ class TipperHardware(Protocol):
     def set_decoupler(self, enabled: bool) -> None: ...
     def rearm(self) -> None: ...
 
+class TipperSerialController:
+    """Allow-listed newline protocol for a future validated tipper board."""
+    def __init__(self, port):
+        self.port = port
+
+    def command(self, name: str) -> str:
+        if name not in {"ESTOP", "STOP", "STATUS", "REARM"}:
+            raise ValueError("unsupported tipper command")
+        self.port.write((name + "\n").encode("ascii"))
+        return self.port.readline().decode("ascii", errors="replace").strip()
+
+    def stop_motor(self) -> None:
+        self.command("ESTOP")
+
+    def set_decoupler(self, enabled: bool) -> None:
+        if enabled:
+            raise RuntimeError("tipper decoupler protocol is not configured")
+
+    def rearm(self) -> None:
+        response = self.command("REARM")
+        if not response.startswith("OK"):
+            raise RuntimeError("tipper controller rejected REARM: " + response)
+
 class SafeTipperAdapter:
     """Hardware boundary; no GPIO, serial, or board assumptions are made."""
     def __init__(self, hardware: TipperHardware | None = None):

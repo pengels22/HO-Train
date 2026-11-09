@@ -10,6 +10,7 @@
 constexpr uint8_t LOCOMOTIVE_ID = 1;
 constexpr uint8_t ALL_TRAINS = 0xFF;
 constexpr uint8_t ESTOP_FLAG = 0x80;
+constexpr uint8_t REARM_FLAG = 0x40;
 constexpr uint8_t VERSION = 1;
 constexpr int MOTOR_FORWARD_PIN = 19;
 constexpr int MOTOR_REVERSE_PIN = 22;
@@ -19,10 +20,21 @@ constexpr unsigned long WATCHDOG_MS = 500;
 constexpr uint16_t UDP_PORT = 4210;
 WiFiUDP udp;
 bool estopLatched = false;
+bool rearmAuthorized = false;
 bool communicationFault = true;
 unsigned long lastApplicableCommandMs = 0;
 unsigned long lastWifiAttemptMs = 0;
 bool udpStarted = false;
+int16_t commandedSpeed = 0;
+uint8_t commandedTarget = 0;
+uint8_t irFrame[8];
+uint8_t irByte = 0, irBit = 0;
+bool irSending = false;
+unsigned long irNextFrameMs = 0, irSymbolStartedUs = 0;
+// The repository specifies the frame fields and 38 kHz carrier, but does not
+// specify receiver symbol width. Keep it configurable until receiver timing
+// is validated on the bench rather than silently choosing a new protocol.
+constexpr unsigned long IR_SYMBOL_US = 1000;
 
 // Credentials are intentionally supplied at build/deployment time, never
 // committed to the repository.
@@ -38,13 +50,60 @@ uint16_t crc16(const uint8_t *data, size_t length) {
   return crc;
 }
 
+void irDuty(uint32_t duty);
+
 void configureIrTransmitter() {
   pinMode(IR_TRANSMITTER_PIN, OUTPUT);
   // The existing IR identification protocol uses a 38 kHz carrier.  The
   // transistor and resistor values remain part of the approved hardware BOM.
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+  ledcAttach(IR_TRANSMITTER_PIN, 38000, 8);
+#else
   ledcSetup(0, 38000, 8);
   ledcAttachPin(IR_TRANSMITTER_PIN, 0);
-  ledcWrite(0, 0);
+#endif
+  irDuty(0);
+}
+
+void irDuty(uint32_t duty) {
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+  ledcWrite(IR_TRANSMITTER_PIN, duty);
+#else
+  ledcWrite(0, duty);
+#endif
+}
+
+uint8_t crc8(const uint8_t *data, size_t length) {
+  uint8_t crc = 0;
+  for (size_t i = 0; i < length; ++i) {
+    crc ^= data[i];
+    for (uint8_t bit = 0; bit < 8; ++bit) crc = (crc & 0x80) ? uint8_t((crc << 1) ^ 0x07) : uint8_t(crc << 1);
+  }
+  return crc;
+}
+
+void beginIrFrame() {
+  // HR, version, locomotive ID, direction/status, destination, magnitude, CRC.
+  irFrame[0] = 'H'; irFrame[1] = 'R'; irFrame[2] = VERSION; irFrame[3] = LOCOMOTIVE_ID;
+  irFrame[4] = commandedSpeed < 0 ? 0x01 : 0x00;
+  irFrame[5] = commandedTarget;
+  irFrame[6] = uint8_t(constrain(abs(int(commandedSpeed)), 0, 255));
+  irFrame[7] = crc8(irFrame + 2, 5);
+  irByte = irBit = 0; irSending = true; irSymbolStartedUs = micros();
+}
+
+void serviceIrTransmission() {
+  const unsigned long nowMs = millis();
+  if (!irSending && nowMs >= irNextFrameMs) beginIrFrame();
+  if (!irSending || micros() - irSymbolStartedUs < IR_SYMBOL_US) return;
+  irSymbolStartedUs += IR_SYMBOL_US;
+  irBit++;
+  if (irBit >= 8) { irBit = 0; irByte++; }
+  if (irByte >= sizeof(irFrame)) {
+    irDuty(0); irSending = false; irNextFrameMs = nowMs + 100; return;
+  }
+  const bool one = (irFrame[irByte] & (uint8_t(1) << irBit)) != 0;
+  irDuty(one ? 128 : 0);
 }
 
 void setMotorSpeed(int16_t speed) {
@@ -53,6 +112,7 @@ void setMotorSpeed(int16_t speed) {
   if (speed > 0) { analogWrite(MOTOR_FORWARD_PIN, duty); analogWrite(MOTOR_REVERSE_PIN, 0); }
   else if (speed < 0) { analogWrite(MOTOR_FORWARD_PIN, 0); analogWrite(MOTOR_REVERSE_PIN, duty); }
   else { analogWrite(MOTOR_FORWARD_PIN, 0); analogWrite(MOTOR_REVERSE_PIN, 0); }
+  commandedSpeed = speed;
 }
 
 bool explicitRearm(int16_t speed) {
@@ -72,17 +132,24 @@ void handleCommand(const uint8_t *p, size_t length) {
       crc16(p, 10) != (uint16_t(p[11]) << 8 | p[10])) return;
   const uint8_t trainId = p[3];
   const int16_t speed = int16_t(uint16_t(p[6]) | uint16_t(p[7]) << 8);
+  commandedTarget = p[8];
   if (trainId == ALL_TRAINS && (p[9] & ESTOP_FLAG)) {
-    estopLatched = true; communicationFault = false; setMotorSpeed(0); return;
+    estopLatched = true; rearmAuthorized = false; communicationFault = false; setMotorSpeed(0); return;
+  }
+  if (trainId == ALL_TRAINS && (p[9] & REARM_FLAG) && speed == 0) {
+    // This packet is the explicit dispatcher handshake. A normal zero speed
+    // packet never changes either latch.
+    estopLatched = false; communicationFault = false; rearmAuthorized = true; setMotorSpeed(0); lastApplicableCommandMs = millis(); return;
   }
   if (trainId != LOCOMOTIVE_ID) return;
   const bool wasCommunicationFault = communicationFault;
   lastApplicableCommandMs = millis();
-  if (estopLatched || wasCommunicationFault) {
+  if (estopLatched || wasCommunicationFault || !rearmAuthorized) {
     setMotorSpeed(0);
     if (explicitRearm(speed)) { estopLatched = false; communicationFault = false; }
     return;
   }
+  rearmAuthorized = false;
   setMotorSpeed(speed);
 }
 
@@ -110,4 +177,5 @@ void loop() {
     communicationFault = true;
     setMotorSpeed(0);
   }
+  serviceIrTransmission();
 }

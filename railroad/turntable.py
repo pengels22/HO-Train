@@ -54,7 +54,7 @@ class TurntablePulseCounter:
         else: self.active_b = active
         if not active:
             count = self.count_a if end == "A" else self.count_b
-            if count == 4:
+            if was_active and count == 4:
                 if end == "A": self.cooldown_until_a = max(self.cooldown_until_a, now + self.cooldown_s)
                 else: self.cooldown_until_b = max(self.cooldown_until_b, now + self.cooldown_s)
             return count

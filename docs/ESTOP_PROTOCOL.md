@@ -41,3 +41,15 @@ The eventual hardware control service must funnel *every* motion packet through
 
 A UDP broadcast is best-effort. Local watchdogs and physical power-cut
 provisions remain important; a network-only E-Stop is not a safety-rated stop.
+# Controller recovery
+
+`0x80` remains the broadcast E-Stop flag. `0x40` is reserved for the
+explicit zero-speed dispatcher rearm handshake; a normal zero-speed heartbeat
+must never clear a local controller latch. Controllers must remain stopped
+until that handshake is received after the dispatcher has cleared all stop
+causes.
+
+The turntable uses its registered USB serial connection as the primary
+control path. Commands are newline-delimited: `ESTOP`, `STATUS`, `TURN`,
+`REARM`, and `STOP`. `ESTOP` and `STOP` never restore track power; status and
+fault responses are JSON lines where practical.

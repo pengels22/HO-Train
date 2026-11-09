@@ -23,6 +23,12 @@ class FakePort:
     def close(self): self.closed = True
 
 
+class SlowPort(FakePort):
+    def write(self, data):
+        time.sleep(0.2)
+        return super().write(data)
+
+
 class FakeUDP:
     def __init__(self): self.commands = []; self.lock = Lock()
     def send(self, command):
@@ -107,3 +113,26 @@ def test_accessory_stop_fault_does_not_block_udp_delivery():
         with pytest.raises(SafetyError): dispatcher.clear_stop()
     finally:
         estop.shutdown()
+
+
+def test_physical_release_clears_only_physical_cause():
+    dispatcher = Dispatcher()
+    dispatcher.stop_all("physical E-Stop pressed", cause="physical_estop")
+    dispatcher.stop_all("tipper fault", cause="tipper_fault")
+    dispatcher.release_estop()
+    assert "physical_estop" not in dispatcher.stop_causes
+    assert "tipper_fault" in dispatcher.stop_causes
+    with pytest.raises(SafetyError): dispatcher.clear_stop()
+
+
+def test_slow_usb_controller_does_not_delay_healthy_controller():
+    udp = FakeUDP(); slow, good = SlowPort(), FakePort()
+    registry = ControllerRegistry([
+        RegisteredController("slow", "/dev/slow", lambda _: slow),
+        RegisteredController("good", "/dev/good", lambda _: good),
+    ])
+    started = time.monotonic()
+    with pytest.raises(OSError):
+        EStopFanout(udp, registry).send(Command(ALL_TRAINS, 1, 0, flags=ESTOP_FLAG))
+    assert good.writes == [b"ESTOP\n"]
+    assert time.monotonic() - started < 0.15
