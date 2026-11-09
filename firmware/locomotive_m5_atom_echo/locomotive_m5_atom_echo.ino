@@ -1,0 +1,76 @@
+/* M5 Atom Echo locomotive receiver.
+ * Motor driver: GPIO19 forward PWM, GPIO22 reverse PWM.
+ * IR input: GPIO23.  Configure Wi-Fi and a validated local rearm input before
+ * bench use; simulation never runs this firmware or sends UDP.
+ */
+#include <Arduino.h>
+#include <WiFi.h>
+#include <WiFiUdp.h>
+
+constexpr uint8_t LOCOMOTIVE_ID = 1;
+constexpr uint8_t ALL_TRAINS = 0xFF;
+constexpr uint8_t ESTOP_FLAG = 0x80;
+constexpr uint8_t VERSION = 1;
+constexpr int MOTOR_FORWARD_PIN = 19;
+constexpr int MOTOR_REVERSE_PIN = 22;
+constexpr int IR_INPUT_PIN = 23;
+constexpr int REARM_BUTTON_PIN = -1; // assign only after validating the build
+constexpr unsigned long WATCHDOG_MS = 500;
+constexpr uint16_t UDP_PORT = 4210;
+WiFiUDP udp;
+bool estopLatched = false;
+unsigned long lastCommandMs = 0;
+volatile bool irSeen = false;
+
+uint16_t crc16(const uint8_t *data, size_t length) {
+  uint16_t crc = 0xFFFF;
+  for (size_t i = 0; i < length; ++i) {
+    crc ^= data[i];
+    for (uint8_t bit = 0; bit < 8; ++bit) crc = (crc >> 1) ^ ((crc & 1) ? 0xA001 : 0);
+  }
+  return crc;
+}
+
+void IRAM_ATTR onIr() { irSeen = true; }
+
+void setMotorSpeed(int16_t speed) {
+  // Two-input H-bridge: zero both pins for an immediate stop.
+  int duty = constrain(abs(int(speed)), 0, 255);
+  if (speed > 0) { analogWrite(MOTOR_FORWARD_PIN, duty); analogWrite(MOTOR_REVERSE_PIN, 0); }
+  else if (speed < 0) { analogWrite(MOTOR_FORWARD_PIN, 0); analogWrite(MOTOR_REVERSE_PIN, duty); }
+  else { analogWrite(MOTOR_FORWARD_PIN, 0); analogWrite(MOTOR_REVERSE_PIN, 0); }
+}
+
+bool explicitRearm(int16_t speed) {
+  return speed == 0 && REARM_BUTTON_PIN >= 0 && digitalRead(REARM_BUTTON_PIN) == LOW;
+}
+
+void handleCommand(const uint8_t *p, size_t length) {
+  if (length != 12 || p[0] != 'H' || p[1] != 'C' || p[2] != VERSION ||
+      crc16(p, 10) != (uint16_t(p[11]) << 8 | p[10])) return;
+  const uint8_t trainId = p[3];
+  const int16_t speed = int16_t(uint16_t(p[6]) | uint16_t(p[7]) << 8);
+  lastCommandMs = millis();
+  if (trainId == ALL_TRAINS && (p[9] & ESTOP_FLAG)) {
+    estopLatched = true; setMotorSpeed(0); return;
+  }
+  if (trainId != LOCOMOTIVE_ID) return;
+  if (estopLatched) { setMotorSpeed(0); if (explicitRearm(speed)) estopLatched = false; return; }
+  setMotorSpeed(speed);
+}
+
+void setup() {
+  pinMode(MOTOR_FORWARD_PIN, OUTPUT); pinMode(MOTOR_REVERSE_PIN, OUTPUT);
+  pinMode(IR_INPUT_PIN, INPUT_PULLUP); attachInterrupt(digitalPinToInterrupt(IR_INPUT_PIN), onIr, CHANGE);
+  if (REARM_BUTTON_PIN >= 0) pinMode(REARM_BUTTON_PIN, INPUT_PULLUP);
+  setMotorSpeed(0); lastCommandMs = millis();
+  // Wi-Fi credentials belong in the validated bench build.
+  udp.begin(UDP_PORT);
+}
+
+void loop() {
+  const int packetSize = udp.parsePacket();
+  if (packetSize > 0 && packetSize <= 64) { uint8_t p[64]; handleCommand(p, size_t(udp.read(p, sizeof(p)))); }
+  if (millis() - lastCommandMs > WATCHDOG_MS) setMotorSpeed(0);
+  if (irSeen) irSeen = false; // IR event forwarding is configured separately.
+}

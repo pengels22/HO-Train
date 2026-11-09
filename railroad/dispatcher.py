@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from threading import RLock
 import time
+from typing import Callable
 
 ZONES = tuple(f"{line}-{n}" for line in ("SKI", "FARM", "UND", "MINE", "MAIN") for n in (1, 2, 3))
 STALLS = ("1A", "1B", "2", "3")
@@ -55,6 +56,9 @@ class Dispatcher:
     stop_reason: str | None = None
     simulation: bool = True
     estop_controller: object | None = field(default=None, repr=False)
+    physical_estop: Callable[[], bool] | None = field(default=None, repr=False)
+    accessory_stops: dict[str, Callable[[], None]] = field(default_factory=dict, repr=False)
+    accessory_errors: dict[str, str] = field(default_factory=dict, repr=False)
     _rearm_required: bool = field(default=False, repr=False)
     lock: RLock = field(default_factory=RLock, repr=False)
 
@@ -73,6 +77,15 @@ class Dispatcher:
         with self.lock:
             self._rearm_required = True
 
+    def attach_physical_estop(self, is_pressed: Callable[[], bool]) -> None:
+        with self.lock:
+            self.physical_estop = is_pressed
+
+    def attach_accessory_stops(self, **stops: Callable[[], None]) -> None:
+        """Register allow-listed tipper/turntable/accessory stop callbacks."""
+        with self.lock:
+            self.accessory_stops.update({k: v for k, v in stops.items() if v is not None})
+
     @property
     def estop_active(self) -> bool:
         return bool(self.estop_controller and self.estop_controller.active)
@@ -89,12 +102,33 @@ class Dispatcher:
             for t in self.trains.values():
                 t.velocity = 0
             if self.estop_controller:
-                self.estop_controller.activate()
+                try:
+                    self.estop_controller.activate()
+                except Exception as exc:
+                    self.accessory_errors["estop_transport"] = str(exc)
+            for name, stop in self.accessory_stops.items():
+                try:
+                    stop()
+                    self.accessory_errors.pop(name, None)
+                except Exception as exc:
+                    # Continue to UDP/other controllers even if one accessory
+                    # controller is disconnected.
+                    self.accessory_errors[name] = str(exc)
+
+    def release_estop(self) -> None:
+        """Physical release stops repetition but keeps GLOBAL STOP latched."""
+        with self.lock:
+            if self.estop_controller:
+                self.estop_controller.clear()
 
     def clear_stop(self):
         with self.lock:
             if self.tipper_fault:
                 raise SafetyError("tipper fault must be resolved first")
+            if self.physical_estop and self.physical_estop():
+                raise SafetyError("physical E-Stop remains engaged")
+            if self.accessory_errors:
+                raise SafetyError("E-Stop accessory faults remain unresolved")
             if any(t.expected_checkpoint and t.checkpoint_deadline and
                    time.monotonic() > t.checkpoint_deadline for t in self.trains.values()):
                 raise SafetyError("unresolved checkpoint position fault")
@@ -110,6 +144,10 @@ class Dispatcher:
         with self.lock:
             if self.global_stop:
                 raise SafetyError("clear GLOBAL STOP before rearming")
+            if self.physical_estop and self.physical_estop():
+                raise SafetyError("physical E-Stop remains engaged")
+            if self.tipper_fault or self.accessory_errors:
+                raise SafetyError("safety faults remain unresolved")
             if self.estop_controller:
                 self.estop_controller.rearm()
             self._rearm_required = False
@@ -121,18 +159,27 @@ class Dispatcher:
         cannot issue a nonzero command while stopped, latched, or disarmed.
         """
         with self.lock:
-            if self.global_stop or self._rearm_required:
-                raise SafetyError("motion command blocked by E-Stop/disarmed state")
+            self.assert_motion_allowed()
             if train_id not in self.trains:
                 raise KeyError(train_id)
             if self.estop_controller:
                 self.estop_controller.send_motion(train_id, speed)
             self.trains[train_id].velocity = int(speed)
 
+    def assert_motion_allowed(self) -> None:
+        if self.global_stop or self._rearm_required:
+            raise SafetyError("motion command blocked by E-Stop/disarmed state")
+        if self.physical_estop and self.physical_estop():
+            raise SafetyError("physical E-Stop remains engaged")
+        if self.tipper_fault or self.accessory_errors:
+            raise SafetyError("safety faults remain unresolved")
+
     def set_tipper(self, state: str, reason: str | None = None):
         with self.lock:
             if state not in {"IDLE","PREPARING","ROTATING","RETURNING","FAULT"}:
                 raise ValueError("invalid tipper state")
+            if state in {"PREPARING", "ROTATING", "RETURNING"}:
+                self.assert_motion_allowed()
             if self.tipper_fault and state != "FAULT":
                 raise SafetyError("clear the fault explicitly before returning to idle")
             self.tipper = state
@@ -157,6 +204,10 @@ class Dispatcher:
 
     def route_available(self, train_id: int, zones: list[str], *, mine_transit=False) -> bool:
         if self.global_stop or self._rearm_required or train_id not in self.trains:
+            return False
+        if self.physical_estop and self.physical_estop():
+            return False
+        if self.tipper_fault or self.accessory_errors:
             return False
         if len(zones) != len(set(zones)) or any(z not in self.zones for z in zones):
             return False
@@ -183,7 +234,7 @@ class Dispatcher:
 
     def enter(self, train_id: int, zone: str):
         with self.lock:
-            if self.global_stop or zone not in self.zones or (self.tipper_locked and zone in TIPPER_LOCKED):
+            if self.global_stop or self._rearm_required or zone not in self.zones or (self.tipper_locked and zone in TIPPER_LOCKED):
                 raise SafetyError("unsafe zone entry")
             if self.zones[zone] not in (None,train_id) or self.reservations[zone] != train_id:
                 raise SafetyError("zone not exclusively reserved")
@@ -199,7 +250,7 @@ class Dispatcher:
 
     def assign_destination(self, train_id: int, destination: str):
         with self.lock:
-            if self.global_stop: raise SafetyError("global stop active")
+            if self.global_stop or self._rearm_required: raise SafetyError("global stop/disarmed")
             if destination not in DESTINATIONS: raise ValueError("unknown destination")
             train = self.trains[train_id]
             if train.kind=="passenger" and destination in ("Mine","Farm","Tipper"):
@@ -218,6 +269,7 @@ class Dispatcher:
 
     def complete_loading(self, train_id: int, location: str):
         with self.lock:
+            self.assert_motion_allowed()
             train=self.trains[train_id]
             if train.kind!="freight" or train.cargo != Cargo.EMPTY or train.destination != location:
                 raise SafetyError("unexpected loading operation")
@@ -294,6 +346,7 @@ class Dispatcher:
 
     def park(self, train_id:int, stall:str):
         with self.lock:
+            self.assert_motion_allowed()
             if stall not in STALLS: raise ValueError("invalid stall")
             track="1" if stall in ("1A","1B") else stall
             train=self.trains[train_id]
@@ -309,6 +362,7 @@ class Dispatcher:
                 "global_stop":self.global_stop,"stop_reason":self.stop_reason,
                 "estop_active":self.estop_active,
                 "motion_armed":not self._rearm_required and not self.global_stop,
+                "accessory_stop_faults":self.accessory_errors.copy(),
                 "tipper":{"state":self.tipper,"fault":self.tipper_fault,"protected_zones":sorted(TIPPER_LOCKED)},
                 "trains":[{"id":t.train_id,"name":t.name,"type":t.kind,"zone":t.zone,
                            "destination":t.destination,"cargo":t.cargo.value,"speed":t.velocity,

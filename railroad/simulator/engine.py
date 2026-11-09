@@ -168,6 +168,8 @@ class SimulationEngine:
         with self.lock:
             if track not in ("1", "2", "3"):
                 raise ValueError("yard track must be 1, 2, or 3")
+            if enabled:
+                self.dispatcher.assert_motion_allowed()
             self.dispatcher.yard_power[track] = bool(enabled)
             self._log("yard_power", track=track, enabled=bool(enabled), shared_stalls=("1A", "1B") if track == "1" else ())
 

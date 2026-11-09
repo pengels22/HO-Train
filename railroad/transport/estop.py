@@ -9,6 +9,7 @@ from threading import Event, RLock, Thread
 from typing import Protocol
 
 from railroad.transport.udp import Broadcaster, Command
+from railroad.transport.usb import ControllerRegistry
 
 ESTOP_FLAG = 0x80
 ALL_TRAINS = 0xFF
@@ -17,6 +18,33 @@ DEFAULT_PERIOD_S = 0.100
 
 class Sender(Protocol):
     def send(self, command: Command) -> None: ...
+
+
+class EStopFanout:
+    """Send normal commands over UDP and E-Stop text to registered USB ports."""
+    def __init__(self, udp_sender: Sender, controllers: ControllerRegistry | None = None):
+        self.udp_sender = udp_sender
+        self.controllers = controllers or ControllerRegistry()
+
+    def send(self, command: Command) -> None:
+        errors = []
+        try:
+            self.udp_sender.send(command)
+        except Exception as exc:
+            errors.append(exc)
+        if command.flags & ESTOP_FLAG:
+            try:
+                self.controllers.send_estop()
+            except Exception as exc:
+                errors.append(exc)
+        if errors:
+            raise OSError("E-Stop transport delivery incomplete") from errors[0]
+
+    def close(self) -> None:
+        close = getattr(self.udp_sender, "close", None)
+        if close:
+            close()
+        self.controllers.close()
 
 
 class EmergencyStop:
@@ -74,8 +102,8 @@ class EmergencyStop:
             try:
                 self._sender.send(self._next(estop=True))
                 self._last_error = None
-            except OSError as exc:
-                # UDP can fail; stay latched and retry on every cycle.
+            except Exception as exc:
+                # Any transport can fail; stay latched and retry independently.
                 self._last_error = exc
 
     def activate(self) -> None:
@@ -133,10 +161,13 @@ class EmergencyStop:
             self._armed = False
             self._wake.set()
         self._thread.join(timeout=1.0)
+        close = getattr(self._sender, "close", None)
+        if close:
+            close()
 
 
-def create_bench_sender(*, enable_network: bool = False) -> EmergencyStop:
+def create_bench_sender(*, enable_network: bool = False, controllers: ControllerRegistry | None = None) -> EmergencyStop:
     """Explicit opt-in only. Never call from simulation runtime."""
     if not enable_network:
         raise RuntimeError("hardware network broadcasts are disabled by default")
-    return EmergencyStop(Broadcaster())
+    return EmergencyStop(EStopFanout(Broadcaster(), controllers))

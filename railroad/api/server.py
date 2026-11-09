@@ -8,6 +8,9 @@ from railroad.simulator.engine import SimulationEngine, SpeedProfile, Consist, C
 from railroad.geography import load_geography
 from railroad.track_geometry import load_centerlines
 from railroad.transport.estop import create_bench_sender
+from railroad.transport.usb import ControllerRegistry, RegisteredController, pyserial_connector
+from railroad.hardware.gpio import GPIO
+from railroad.safety.emergency_stop import EmergencyStop as PhysicalEmergencyStop
 
 DISPATCHER = Dispatcher()
 
@@ -19,20 +22,58 @@ def _load_paths():
     return yaml.safe_load(path.read_text()) or {"verified": False, "paths": {}}
 
 SIMULATION = SimulationEngine(DISPATCHER, _load_paths())
+PHYSICAL_ESTOP = None
+USB_CONTROLLERS = ControllerRegistry()
 
 
 def configure_runtime(mode: str = "simulation") -> None:
     """Configure the command gate; network transmission is never implicit."""
+    global PHYSICAL_ESTOP, USB_CONTROLLERS
     if mode not in {"simulation", "hardware", "bench"}:
         raise ValueError("mode must be simulation, hardware, or bench")
     if mode == "simulation":
+        if PHYSICAL_ESTOP:
+            PHYSICAL_ESTOP.stop()
+            PHYSICAL_ESTOP = None
+        if DISPATCHER.estop_controller:
+            shutdown = getattr(DISPATCHER.estop_controller, "shutdown", None)
+            if shutdown:
+                shutdown()
+            DISPATCHER.estop_controller = None
+        DISPATCHER.physical_estop = None
+        DISPATCHER.accessory_errors.clear()
         DISPATCHER.simulation = True
         DISPATCHER.disarm()
         return
     # ``hardware``/``bench`` are explicit opt-ins.  The sender itself remains
     # disarmed until an operator performs the rearm sequence.
+    import yaml
+    hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
+    estop_config = hardware.get("estop", {}) or {}
+    USB_CONTROLLERS = ControllerRegistry()
+    for entry in estop_config.get("serial_controllers", []) or []:
+        controller_id, port_name = entry.get("id"), entry.get("port")
+        if not controller_id or not port_name:
+            continue
+        baudrate = int(entry.get("baudrate", estop_config.get("serial_baudrate", 115200)))
+        connector = lambda port, baudrate=baudrate: pyserial_connector(port, baudrate=baudrate)
+        USB_CONTROLLERS.controllers.append(RegisteredController(controller_id, port_name, connector))
     DISPATCHER.simulation = False
-    DISPATCHER.attach_estop(create_bench_sender(enable_network=True), require_rearm=True)
+    DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS), require_rearm=True)
+    pin = estop_config.get("gpio")
+    if pin is not None:
+        # The backend is intentionally imported only for an explicit hardware
+        # run with a configured pin; simulation never touches GPIO.
+        import RPi.GPIO as rpi_gpio
+        class _RPiBackend:
+            def setup_input(self, pin, *, pull_down):
+                rpi_gpio.setmode(rpi_gpio.BCM)
+                rpi_gpio.setup(pin, rpi_gpio.IN, pull_up_down=rpi_gpio.PUD_DOWN)
+            def read(self, pin): return rpi_gpio.input(pin)
+        gpio = GPIO(enabled=True, backend=_RPiBackend(), estop_pin=int(pin))
+        DISPATCHER.attach_physical_estop(lambda: gpio.estop_pressed)
+        PHYSICAL_ESTOP = PhysicalEmergencyStop(gpio, DISPATCHER)
+        PHYSICAL_ESTOP.start()
 
 class DashboardHandler(BaseHTTPRequestHandler):
 
@@ -243,7 +284,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 SIMULATION.dispatch(int(payload["train_id"]), payload["path_id"], target_speed_mm_s=payload.get("target_speed_mm_s"), profile=profile, consist=consist)
             else: raise ValueError("unknown simulation action")
             self._json_response({"ok": True, "simulation": SIMULATION.snapshot()})
-        except (KeyError, TypeError, ValueError, SafetyError) as exc:
+        except (KeyError, TypeError, ValueError, RuntimeError, SafetyError) as exc:
             self._json_response({"ok": False, "error": str(exc)}, 400)
 
     def _save_calibration(self):
