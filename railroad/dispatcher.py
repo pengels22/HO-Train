@@ -193,8 +193,17 @@ class Dispatcher:
                 raise SafetyError("physical E-Stop remains engaged")
             if self.tipper_fault or self.accessory_errors:
                 raise SafetyError("safety faults remain unresolved")
+            transaction = f"rearm-{time.monotonic_ns()}"
+            if self.controller_health:
+                self.controller_health.begin_rearm(transaction)
             if self.estop_controller:
-                self.estop_controller.rearm()
+                try:
+                    self.estop_controller.rearm(transaction)
+                except TypeError:
+                    self.estop_controller.rearm()
+            if self.controller_health and self.controller_health.required_locomotives:
+                if not self.controller_health.wait_for_rearm(transaction):
+                    raise SafetyError("required locomotive rearm acknowledgements are not ready")
             if self.controller_health and not self.controller_health.all_required_ready():
                 raise SafetyError("required controller acknowledgements are not ready")
             self._rearm_required = False

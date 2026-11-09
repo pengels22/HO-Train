@@ -1,11 +1,14 @@
-"""Versioned locomotive telemetry packets; separate from the 12-byte command frame."""
+"""Strict, versioned locomotive telemetry and controller health monitoring."""
 from __future__ import annotations
 from dataclasses import dataclass
 import json
+from threading import Event, RLock, Thread
 import time
 
 MAGIC = b"HT"
 VERSION = 1
+STATES = frozenset({"DISARMED", "ARMED", "ESTOP_LATCHED", "COMMUNICATION_FAULT"})
+MAX_U32 = 0xFFFFFFFF
 
 @dataclass(frozen=True)
 class LocomotiveTelemetry:
@@ -18,79 +21,160 @@ class LocomotiveTelemetry:
     sequence: int
     session: str
     uptime_ms: int
+    last_command_sequence: int = 0
+    rearm_transaction: str | None = None
 
     def encode(self) -> bytes:
         body = {"version": VERSION, "id": self.locomotive_id, "state": self.state,
                 "estop": self.estop, "communication_fault": self.communication_fault,
                 "armed": self.armed, "speed": self.speed, "sequence": self.sequence,
+                "last_command_sequence": self.last_command_sequence,
                 "session": self.session, "uptime_ms": self.uptime_ms}
+        if self.rearm_transaction is not None:
+            body["rearm_transaction"] = self.rearm_transaction
         return MAGIC + json.dumps(body, separators=(",", ":"), sort_keys=True).encode()
 
     @classmethod
     def decode(cls, packet: bytes) -> "LocomotiveTelemetry":
-        if not packet.startswith(MAGIC):
+        if not isinstance(packet, (bytes, bytearray)) or not packet.startswith(MAGIC):
             raise ValueError("invalid telemetry magic")
-        try: body = json.loads(packet[2:].decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc: raise ValueError("invalid telemetry JSON") from exc
-        required = {"version", "id", "state", "estop", "communication_fault", "armed", "speed", "sequence", "session", "uptime_ms"}
-        if body.keys() < required or body["version"] != VERSION:
+        try:
+            body = json.loads(bytes(packet[2:]).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("invalid telemetry JSON") from exc
+        if not isinstance(body, dict) or body.get("version") != VERSION:
             raise ValueError("invalid telemetry fields or version")
-        if not isinstance(body["id"], int) or not 1 <= body["id"] <= 4:
+        required = {"id", "state", "estop", "communication_fault", "armed", "speed", "sequence", "session", "uptime_ms"}
+        if not required <= body.keys():
+            raise ValueError("missing telemetry field")
+        if type(body["id"]) is not int or not 1 <= body["id"] <= 4:
             raise ValueError("invalid locomotive telemetry ID")
-        return cls(body["id"], str(body["state"]), bool(body["estop"]), bool(body["communication_fault"]), bool(body["armed"]), int(body["speed"]), int(body["sequence"]), str(body["session"]), int(body["uptime_ms"]))
-
+        if type(body["state"]) is not str or body["state"] not in STATES:
+            raise ValueError("invalid locomotive state")
+        for key in ("estop", "communication_fault", "armed"):
+            if type(body[key]) is not bool:
+                raise ValueError(f"invalid telemetry boolean: {key}")
+        for key in ("sequence", "uptime_ms"):
+            if type(body[key]) is not int or not 0 <= body[key] <= MAX_U32:
+                raise ValueError(f"invalid telemetry integer: {key}")
+        last_command = body.get("last_command_sequence", 0)
+        if type(last_command) is not int or not 0 <= last_command <= MAX_U32:
+            raise ValueError("invalid last command sequence")
+        if type(body["speed"]) is not int or not -255 <= body["speed"] <= 255:
+            raise ValueError("invalid locomotive speed")
+        if type(body["session"]) is not str or not 1 <= len(body["session"]) <= 64:
+            raise ValueError("invalid boot session")
+        transaction = body.get("rearm_transaction")
+        if transaction is not None and (type(transaction) is not str or not 1 <= len(transaction) <= 128):
+            raise ValueError("invalid rearm transaction")
+        return cls(body["id"], body["state"], body["estop"], body["communication_fault"], body["armed"], body["speed"], body["sequence"], body["session"], body["uptime_ms"], last_command, transaction)
 
 class ControllerHealthRegistry:
-    """Single logical health view over registered USB and locomotive telemetry."""
-    def __init__(self, usb_registry, locomotive_ids=(), freshness_s: float = 0.75):
+    """Thread-safe health view; sequences are monotonic within each boot session."""
+    def __init__(self, usb_registry, locomotive_ids=(), freshness_s: float = 0.75, clock=time.monotonic):
         self.usb_registry = usb_registry
         self.required_locomotives = set(locomotive_ids)
-        self.freshness_s = freshness_s
-        self.telemetry: dict[int, tuple[LocomotiveTelemetry, float]] = {}
+        self.freshness_s = float(freshness_s)
+        self.clock = clock
+        self.telemetry = {}
+        self._sessions, self._sequences, self._failures, self._rearm = {}, {}, set(), {}
+        self._rearm_event, self._lock = Event(), RLock()
+        self._monitor_thread = self._monitor_stop = None
         self.on_failure = None
         usb_registry.on_failure = self._usb_failure
 
-    def _usb_failure(self, controller, reason):
-        if self.on_failure: self.on_failure(controller, reason)
+    def _fail(self, controller, reason):
+        key = f"{controller}:{reason}"
+        if key not in self._failures:
+            self._failures.add(key)
+            if self.on_failure: self.on_failure(controller, reason)
 
-    def update(self, packet: bytes, now: float | None = None) -> LocomotiveTelemetry:
+    def _clear_failure(self, controller):
+        self._failures = {key for key in self._failures if not (key.startswith(f"{controller}:") and "restart" not in key)}
+
+    def _usb_failure(self, controller, reason): self._fail(str(controller), reason)
+
+    def update(self, packet: bytes, now: float | None = None):
         telemetry = LocomotiveTelemetry.decode(packet)
         if telemetry.locomotive_id not in self.required_locomotives:
             raise ValueError("telemetry is not from a configured locomotive")
-        self.telemetry[telemetry.locomotive_id] = (telemetry, time.monotonic() if now is None else now)
-        if telemetry.communication_fault or telemetry.estop:
-            if self.on_failure: self.on_failure(f"locomotive-{telemetry.locomotive_id}", "reported unsafe state")
+        received = self.clock() if now is None else now
+        with self._lock:
+            ident, old = telemetry.locomotive_id, self._sessions.get(telemetry.locomotive_id)
+            if old is not None and telemetry.session != old:
+                self._sessions[ident], self._sequences[ident] = telemetry.session, -1
+                self._rearm.pop(ident, None)
+                self._fail(f"locomotive-{ident}", "controller restart; rearm required")
+            elif old is not None and telemetry.sequence <= self._sequences[ident]:
+                raise ValueError("duplicate or out-of-order telemetry")
+            else:
+                self._sessions[ident] = telemetry.session
+            self._sequences[ident] = telemetry.sequence
+            self.telemetry[ident] = (telemetry, received)
+            pending = self._rearm.get(ident)
+            if pending and received >= pending["requested_at"]:
+                if pending["session"] is None:
+                    pending["session"] = telemetry.session
+                if (telemetry.session == pending["session"] and telemetry.rearm_transaction == pending["transaction"] and
+                        telemetry.armed and not telemetry.estop and not telemetry.communication_fault and telemetry.speed == 0):
+                    pending["ack"] = True; self._rearm_event.set()
+            if telemetry.communication_fault or telemetry.estop:
+                self._fail(f"locomotive-{ident}", "reported unsafe state")
+            elif telemetry.state == "ARMED":
+                self._clear_failure(f"locomotive-{ident}")
         return telemetry
 
-    def check_freshness(self, now: float | None = None) -> None:
-        now = time.monotonic() if now is None else now
-        for locomotive_id in self.required_locomotives:
-            item = self.telemetry.get(locomotive_id)
-            if item is None or now - item[1] > self.freshness_s:
-                if self.on_failure: self.on_failure(f"locomotive-{locomotive_id}", "telemetry stale or missing")
+    def begin_rearm(self, transaction):
+        with self._lock:
+            self._rearm_event.clear()
+            self._rearm = {i: {"transaction": transaction, "session": self._sessions.get(i), "requested_at": self.clock(), "ack": False} for i in self.required_locomotives}
 
-    def all_required_ready(self) -> bool:
-        now = time.monotonic()
-        fresh = True
-        for locomotive_id in self.required_locomotives:
-            item = self.telemetry.get(locomotive_id)
-            if item is None or now - item[1] > self.freshness_s:
-                fresh = False
-        self.check_freshness(now)
-        usb_ready = self.usb_registry.all_required_ready()
-        loco_ready = all(t.armed and not t.estop and not t.communication_fault
-                         for t, _ in self.telemetry.values()
-                         if t.locomotive_id in self.required_locomotives)
-        return usb_ready and fresh and len(self.telemetry) == len(self.required_locomotives) and loco_ready
+    def wait_for_rearm(self, transaction, timeout=0.75):
+        deadline = self.clock() + timeout
+        while self.clock() < deadline:
+            with self._lock:
+                if all(x["ack"] for x in self._rearm.values()): return True
+            self._rearm_event.wait(max(0.0, min(0.05, deadline - self.clock())))
+        return False
 
-    def status(self) -> list[dict]:
-        result = list(self.usb_registry.status())
-        now = time.monotonic()
-        for locomotive_id in sorted(self.required_locomotives):
-            item = self.telemetry.get(locomotive_id)
-            if item is None:
-                result.append({"id": f"locomotive-{locomotive_id}", "type": "m5_atom_echo", "required": True, "connected": False, "state": None, "faults": ["telemetry_missing"], "unverified": True})
-                continue
-            telemetry, received = item
-            result.append({"id": f"locomotive-{locomotive_id}", "type": "m5_atom_echo", "required": True, "connected": now - received <= self.freshness_s, "state": telemetry.state, "faults": ["communication_fault"] if telemetry.communication_fault else [], "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "session": telemetry.session, "last_success": received})
+    def check_freshness(self, now=None):
+        now = self.clock() if now is None else now
+        for ident in self.required_locomotives:
+            item = self.telemetry.get(ident)
+            if item is None or now - item[1] > self.freshness_s:
+                self._fail(f"locomotive-{ident}", "telemetry stale or missing")
+
+    def start_monitor(self, period_s=0.1):
+        if self._monitor_thread is not None: return
+        self._monitor_stop = Event()
+        def loop():
+            while not self._monitor_stop.wait(period_s):
+                try:
+                    self.check_freshness(); self.usb_registry.all_required_ready()
+                except Exception as exc: self._fail("controller-health", str(exc))
+        self._monitor_thread = Thread(target=loop, name="ho-controller-health", daemon=True)
+        self._monitor_thread.start()
+
+    def stop_monitor(self):
+        if self._monitor_stop is not None: self._monitor_stop.set()
+        if self._monitor_thread is not None: self._monitor_thread.join(timeout=1.0)
+        self._monitor_thread = self._monitor_stop = None
+
+    def all_required_ready(self):
+        now = self.clock(); self.check_freshness(now)
+        with self._lock:
+            fresh = all(i in self.telemetry and now - self.telemetry[i][1] <= self.freshness_s for i in self.required_locomotives)
+            ready = all(t.armed and not t.estop and not t.communication_fault and t.speed == 0 for t, _ in self.telemetry.values() if t.locomotive_id in self.required_locomotives)
+            no_loco_faults = all(not any(key.startswith(f"locomotive-{i}:") for key in self._failures) for i in self.required_locomotives)
+            return self.usb_registry.all_required_ready() and (not self.required_locomotives or (fresh and len(self.telemetry) == len(self.required_locomotives) and ready and no_loco_faults))
+
+    def status(self):
+        result = list(self.usb_registry.status()); now = self.clock()
+        with self._lock:
+            for ident in sorted(self.required_locomotives):
+                item = self.telemetry.get(ident)
+                if item is None:
+                    result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": True, "connected": False, "state": None, "faults": ["telemetry_missing"], "unverified": True}); continue
+                telemetry, received = item
+                result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": True, "connected": now - received <= self.freshness_s, "state": telemetry.state, "faults": ["communication_fault"] if telemetry.communication_fault else [], "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "last_command_sequence": telemetry.last_command_sequence, "session": telemetry.session, "last_success": received})
         return result

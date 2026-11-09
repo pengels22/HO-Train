@@ -80,6 +80,7 @@ def configure_runtime(mode: str = "simulation") -> None:
                 shutdown()
             DISPATCHER.estop_controller = None
         USB_CONTROLLERS.close()
+        HEALTH.stop_monitor()
         USB_CONTROLLERS = ControllerRegistry()
         HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
         DISPATCHER.attach_controller_health(HEALTH)
@@ -97,8 +98,25 @@ def configure_runtime(mode: str = "simulation") -> None:
         missing = []
         if estop_config.get("gpio") is None: missing.append("estop.gpio")
         if not estop_config.get("serial_controllers"): missing.append("estop.serial_controllers")
+        locomotive_config = hardware.get("locomotive_controllers")
+        if not isinstance(locomotive_config, list) or not locomotive_config:
+            missing.append("locomotive_controllers")
         if missing:
             raise RuntimeError("hardware safety configuration incomplete: " + ", ".join(missing))
+        configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
+        known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
+        ids = []
+        for entry in locomotive_config:
+            if not isinstance(entry, dict) or type(entry.get("id")) is not int:
+                raise RuntimeError("locomotive_controllers entries require integer id and type")
+            if entry.get("type") != "m5_atom_echo":
+                raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}")
+            ids.append(entry["id"])
+        if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
+            raise RuntimeError("invalid or inconsistent locomotive_controllers IDs")
+        serial_ids = [entry.get("id") for entry in estop_config.get("serial_controllers", []) if isinstance(entry, dict)]
+        if len(serial_ids) != len(set(serial_ids)):
+            raise RuntimeError("duplicate serial controller identities")
     USB_CONTROLLERS = ControllerRegistry()
     for entry in estop_config.get("serial_controllers", []) or []:
         controller_id, port_name = entry.get("id"), entry.get("port")
@@ -107,12 +125,13 @@ def configure_runtime(mode: str = "simulation") -> None:
         baudrate = int(entry.get("baudrate", estop_config.get("serial_baudrate", 115200)))
         connector = lambda port, baudrate=baudrate: pyserial_connector(port, baudrate=baudrate)
         USB_CONTROLLERS.controllers.append(RegisteredController(controller_id, port_name, connector))
-    locomotive_ids = [int(i) for i in hardware.get("locomotive_controllers", [])]
+    locomotive_ids = [int(i["id"]) for i in hardware.get("locomotive_controllers", [])]
     HEALTH = ControllerHealthRegistry(USB_CONTROLLERS, locomotive_ids=locomotive_ids)
     DISPATCHER.attach_controller_health(HEALTH)
     DISPATCHER.simulation = False
     DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS), require_rearm=True)
     USB_CONTROLLERS.start_heartbeat()
+    HEALTH.start_monitor()
     _start_telemetry_listener()
     pin = estop_config.get("gpio")
     if pin is not None:

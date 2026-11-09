@@ -102,6 +102,10 @@ class TurntableController:
         self.power_authorized = False
         self.train_stopped = False
         self.clearance_verified = False
+        # Physical adapters must update these from independent acknowledgements.
+        self.reeds_clear = True
+        self.stationary_confirmed = True
+        self.gap_clearance_verified = True
         self.communication_ok = True
         self.estop = False
         self.fault: str | None = None
@@ -121,11 +125,14 @@ class TurntableController:
     def entry_pulse(self, now: float, active: bool = True) -> int:
         if self.state != TurntableState.TRAIN_ENTERING:
             self._fail("entry pulse outside train entry")
+        self.reeds_clear = not active
         return self.counter.signal("A" if self.alignment == "HOME" else "B", active, now)
 
     def confirm_loaded(self, *, train_stopped: bool, clearance_verified: bool, now: float = float("inf")):
         end = "A" if self.alignment == "HOME" else "B"
-        if not train_stopped or not clearance_verified or not self.counter.ready(end, now):
+        if (not train_stopped or not clearance_verified or not self.reeds_clear or
+                not self.stationary_confirmed or not self.gap_clearance_verified or
+                not self.counter.ready(end, now)):
             self._fail("loaded train clearance not verified")
         self.train_stopped = True; self.clearance_verified = True
         self.track_power = False; self.state = TurntableState.TRAIN_LOADED
@@ -164,11 +171,13 @@ class TurntableController:
         if self.state != TurntableState.TRAIN_EXITING:
             self._fail("exit pulse outside train exit")
         end = "B" if self.alignment == "HOME" else "A"
+        self.reeds_clear = not active
         return self.counter.signal(end, active, now)
 
     def confirm_empty(self, *, train_stopped: bool, now: float = float("inf")):
         end = "B" if self.alignment == "HOME" else "A"
-        if not train_stopped or not self.counter.ready(end, now):
+        if (not train_stopped or not self.reeds_clear or not self.stationary_confirmed or
+                not self.gap_clearance_verified or not self.counter.ready(end, now)):
             self._fail("exit clearance not verified")
         self.track_power = False; self.state = TurntableState.EMPTY_READY
         self.counter.reset(); self.power_authorized = False; self.clearance_verified = False

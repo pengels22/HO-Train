@@ -34,6 +34,48 @@ def test_bad_or_unsafe_locomotive_telemetry_cannot_rearm():
     assert not health.all_required_ready()
 
 
+def test_duplicate_and_out_of_order_telemetry_are_rejected():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1])
+    health.update(telemetry(sequence=4).encode(), now=1.0)
+    with pytest.raises(ValueError):
+        health.update(telemetry(sequence=4).encode(), now=1.1)
+    with pytest.raises(ValueError):
+        health.update(telemetry(sequence=3).encode(), now=1.2)
+
+
+def test_new_boot_session_invalidates_previous_health():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1])
+    failures = []
+    health.on_failure = lambda controller, reason: failures.append((controller, reason))
+    health.update(telemetry(sequence=9, session="old").encode(), now=1.0)
+    health.update(telemetry(sequence=0, session="new").encode(), now=1.1)
+    assert any("restart" in reason for _, reason in failures)
+    assert not health.all_required_ready()
+
+
+def test_telemetry_rejects_coercible_or_out_of_range_fields():
+    packet = json.loads(telemetry().encode()[2:])
+    packet["armed"] = 1
+    with pytest.raises(ValueError):
+        LocomotiveTelemetry.decode(b"HT" + json.dumps(packet).encode())
+
+
+def test_rearm_requires_exact_fresh_transaction_ack():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1])
+    base = time.monotonic()
+    health.update(telemetry(state="DISARMED", armed=False, sequence=1).encode(), now=base)
+    health.begin_rearm("rearm-new")
+    health.update(telemetry(sequence=2, rearm_transaction="wrong").encode(), now=base + 0.1)
+    assert not health.wait_for_rearm("rearm-new", timeout=0.001)
+    health.update(telemetry(sequence=3, rearm_transaction="rearm-new").encode(), now=base + 0.2)
+    assert health.wait_for_rearm("rearm-new", timeout=0.01)
+    assert health.all_required_ready()
+    packet = json.loads(telemetry().encode()[2:])
+    packet["speed"] = 999
+    with pytest.raises(ValueError):
+        LocomotiveTelemetry.decode(b"HT" + json.dumps(packet).encode())
+
+
 def test_dispatcher_rearm_requires_usb_safe_state_ack():
     class UDP:
         def send(self, command): pass

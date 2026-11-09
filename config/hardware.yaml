@@ -10,3 +10,6 @@ estop:
   gpio: null
   serial_controllers: []
   serial_baudrate: 115200
+# Explicit commissioning list.  Keep empty in the safe simulation template;
+# normal hardware mode refuses to initialize until the operator supplies IDs.
+locomotive_controllers: []

@@ -47,4 +47,8 @@ class Broadcaster:
         self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1)
     def send(self,command:Command):
         self.socket.sendto(command.encode(),(self.host,self.port))
+    def send_rearm(self, transaction: str):
+        import json
+        packet = b"HR" + json.dumps({"version": 1, "transaction": transaction}, separators=(",", ":")).encode()
+        self.socket.sendto(packet, (self.host, self.port))
     def close(self):self.socket.close()

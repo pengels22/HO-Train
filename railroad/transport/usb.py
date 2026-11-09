@@ -96,13 +96,13 @@ class RegisteredController:
             self._executor.shutdown(wait=False, cancel_futures=True)
             self._executor = None
 
-    def command(self, command: str, *, expect: str | None = None) -> str:
+    def command(self, command: str, *, expect: str | None = None, transaction_id: str | None = None) -> str:
         """Send one registered-controller command and verify its reply."""
         if command not in {"STATUS", "REARM AUTH"}:
             raise ValueError("unsupported controller command")
         with self._write_lock:
             port = self.reconnect()
-            transaction = f"{self.controller_id}-{next(self._transactions)}"
+            transaction = transaction_id or f"{self.controller_id}-{next(self._transactions)}"
             port.write((json.dumps({"command": command, "transaction": transaction}, separators=(",", ":")) + "\n").encode("ascii"))
             reply = port.readline().decode("ascii", errors="replace").strip()
         if not reply or (expect and not reply.startswith(expect)):
@@ -161,11 +161,11 @@ class ControllerRegistry:
         for controller in self.controllers:
             controller.close()
 
-    def rearm_all(self) -> None:
+    def rearm_all(self, transaction_id: str | None = None) -> None:
         errors = []
         for controller in self.controllers:
             try:
-                reply = controller.command("REARM AUTH", expect="{")
+                reply = controller.command("REARM AUTH", expect="{", transaction_id=transaction_id)
                 status = json.loads(reply)
                 if status.get("controller") not in {controller.controller_id, controller.controller_type}:
                     raise OSError(f"{controller.controller_id} identity acknowledgement mismatch")
@@ -231,4 +231,4 @@ class ControllerDeliveryError(OSError):
 def pyserial_connector(port_name: str, *, baudrate: int = 115200) -> SerialPort:
     """Open a configured port only when an explicit hardware runtime asks."""
     import serial  # optional dependency; never imported by simulation
-    return serial.Serial(port_name, baudrate=baudrate, timeout=0, write_timeout=0.05)
+    return serial.Serial(port_name, baudrate=baudrate, timeout=0.05, write_timeout=0.05)

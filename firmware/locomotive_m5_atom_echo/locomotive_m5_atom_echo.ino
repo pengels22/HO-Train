@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include <esp_system.h>
 
 constexpr uint8_t LOCOMOTIVE_ID = 1;
 constexpr uint8_t ALL_TRAINS = 0xFF;
@@ -53,6 +54,9 @@ uint16_t crc16(const uint8_t *data, size_t length) {
 constexpr uint16_t TELEMETRY_PORT = 4211;
 const IPAddress TELEMETRY_BROADCAST(10, 77, 0, 255);
 uint16_t lastAcceptedSequence = 0;
+uint32_t telemetrySequence = 0;
+String bootSession;
+String rearmTransaction;
 unsigned long lastTelemetryMs = 0;
 
 void irDuty(uint32_t duty);
@@ -154,6 +158,24 @@ void handleCommand(const uint8_t *p, size_t length) {
   setMotorSpeed(speed);
 }
 
+void handleRearmPacket(const uint8_t *p, size_t length) {
+  if (length < 3 || p[0] != 'H' || p[1] != 'R' || p[2] != '{') return;
+  String body;
+  for (size_t i = 2; i < length; ++i) body += char(p[i]);
+  int marker = body.indexOf("\"transaction\":\"");
+  if (marker < 0) return;
+  int start = marker + 15, end = body.indexOf('"', start);
+  if (end <= start) return;
+  String transaction = body.substring(start, end);
+  // A separate, versioned rearm message cannot be confused with a zero-speed
+  // heartbeat. It is accepted only in a safe local state.
+  if (state == ESTOP_LATCHED || state == COMMUNICATION_FAULT || commandedSpeed != 0) return;
+  state = ARMED;
+  rearmTransaction = transaction;
+  lastApplicableCommandMs = millis();
+  setMotorSpeed(0);
+}
+
 void sendTelemetry() {
   if (WiFi.status() != WL_CONNECTED || millis() - lastTelemetryMs < 100) return;
   lastTelemetryMs = millis();
@@ -162,8 +184,10 @@ void sendTelemetry() {
     ",\"state\":\"" + stateName + "\",\"estop\":" + (state == ESTOP_LATCHED ? "true" : "false") +
     ",\"communication_fault\":" + (state == COMMUNICATION_FAULT ? "true" : "false") +
     ",\"armed\":" + (state == ARMED ? "true" : "false") + ",\"speed\":" + commandedSpeed +
-    ",\"sequence\":" + lastAcceptedSequence + ",\"session\":\"" + WiFi.macAddress() +
-    "\",\"uptime_ms\":" + millis() + "}";
+    ",\"sequence\":" + String(telemetrySequence++) + ",\"last_command_sequence\":" + lastAcceptedSequence +
+    ",\"session\":\"" + bootSession + "\",\"uptime_ms\":" + millis();
+  if (rearmTransaction.length()) body += ",\"rearm_transaction\":\"" + rearmTransaction + "\"";
+  body += "}";
   telemetryUdp.beginPacket(TELEMETRY_BROADCAST, TELEMETRY_PORT);
   telemetryUdp.write((const uint8_t *)body.c_str(), body.length());
   telemetryUdp.endPacket();
@@ -174,6 +198,7 @@ void setup() {
   configureIrTransmitter();
   if (REARM_BUTTON_PIN >= 0) pinMode(REARM_BUTTON_PIN, INPUT_PULLUP);
   setMotorSpeed(0); lastApplicableCommandMs = 0;
+  bootSession = String((uint32_t)esp_random(), HEX) + String((uint32_t)esp_random(), HEX);
   WiFi.disconnect(true);
 }
 
@@ -182,7 +207,7 @@ void loop() {
   if (WiFi.status() == WL_CONNECTED) {
     if (!udpStarted) { udp.begin(UDP_PORT); udpStarted = true; }
     const int packetSize = udp.parsePacket();
-    if (packetSize > 0 && packetSize <= 64) { uint8_t p[64]; handleCommand(p, size_t(udp.read(p, sizeof(p)))); }
+    if (packetSize > 0 && packetSize <= 128) { uint8_t p[128]; size_t n = udp.read(p, sizeof(p)); if (n >= 2 && p[0] == 'H' && p[1] == 'R') handleRearmPacket(p, n); else handleCommand(p, n); }
   } else if (udpStarted) {
     udp.stop();
     udpStarted = false;

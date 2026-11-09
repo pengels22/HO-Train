@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from threading import Event, RLock, Thread
 from typing import Protocol
+import time
 
 from railroad.transport.udp import Broadcaster, Command
 from railroad.transport.usb import ControllerRegistry
@@ -47,9 +48,15 @@ class EStopFanout:
         if errors:
             raise OSError("E-Stop transport delivery incomplete") from errors[0]
 
-    def rearm(self) -> None:
-        self.udp_sender.send(Command(ALL_TRAINS, self._next_sequence(), 0, flags=REARM_FLAG))
-        self.controllers.rearm_all()
+    def rearm(self, transaction: str | None = None) -> None:
+        transaction = transaction or f"rearm-{time.monotonic_ns()}"
+        send_rearm = getattr(self.udp_sender, "send_rearm", None)
+        if send_rearm:
+            send_rearm(transaction)
+        else:
+            # Compatibility path for deterministic simulation/test senders.
+            self.udp_sender.send(Command(ALL_TRAINS, self._next_sequence(), 0, flags=REARM_FLAG))
+        self.controllers.rearm_all(transaction)
         self.controllers.set_estop_active(False)
 
     def close(self) -> None:
@@ -138,7 +145,7 @@ class EmergencyStop:
                 setter.set_estop_active(False)
             self._wake.set()
 
-    def rearm(self) -> None:
+    def rearm(self, transaction: str | None = None) -> None:
         """Explicit second step after clear; caller must verify safety first."""
         with self._lock:
             if self._closed or self._estop:
@@ -150,7 +157,7 @@ class EmergencyStop:
             try:
                 rearm = getattr(self._sender, "rearm", None)
                 if rearm:
-                    rearm()
+                    rearm(transaction)
                 else:
                     self._sender.send(self._next(estop=False, flags=REARM_FLAG))
             except Exception as exc:
