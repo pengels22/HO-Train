@@ -70,6 +70,14 @@ class SimulationEngine:
         self.faults: set[str] = set()
         self.events: list[dict] = []
         self.trains = {i: SimTrain(i) for i in dispatcher.trains}
+        self.dispatcher.attach_motion_stop(self._stop_for_global_stop)
+
+    def _stop_for_global_stop(self):
+        """Invalidate targets synchronously; a later tick must not restart motion."""
+        self.running = False
+        for train in self.trains.values():
+            train.speed_mm_s = 0.0
+            train.target_speed_mm_s = 0.0
 
     @property
     def geometry_available(self) -> bool:
@@ -84,6 +92,7 @@ class SimulationEngine:
 
     def start(self):
         with self.lock:
+            self.dispatcher.assert_motion_allowed()
             if not self.geometry_available:
                 raise SafetyError("verified surveyed track paths are required before simulation can move")
             self.running = True
@@ -124,6 +133,7 @@ class SimulationEngine:
     def dispatch(self, train_id: int, path_id: str, *, target_speed_mm_s: float | None = None,
                  profile: SpeedProfile | None = None, consist: Consist | None = None):
         with self.lock:
+            self.dispatcher.assert_motion_allowed()
             if not self.geometry_available or path_id not in self.paths["paths"]:
                 raise SafetyError("verified surveyed path is not available")
             train = self.trains[train_id]

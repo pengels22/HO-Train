@@ -58,6 +58,7 @@ class Dispatcher:
     estop_controller: object | None = field(default=None, repr=False)
     physical_estop: Callable[[], bool] | None = field(default=None, repr=False)
     accessory_stops: dict[str, Callable[[], None]] = field(default_factory=dict, repr=False)
+    motion_stops: list[Callable[[], None]] = field(default_factory=list, repr=False)
     accessory_errors: dict[str, str] = field(default_factory=dict, repr=False)
     _rearm_required: bool = field(default=False, repr=False)
     lock: RLock = field(default_factory=RLock, repr=False)
@@ -86,6 +87,16 @@ class Dispatcher:
         with self.lock:
             self.accessory_stops.update({k: v for k, v in stops.items() if v is not None})
 
+    def attach_motion_stop(self, callback: Callable[[], None]) -> None:
+        """Register a local motion engine stop hook.
+
+        This is deliberately separate from accessory callbacks: a global stop
+        must invalidate simulated targets before any later clock tick.
+        """
+        with self.lock:
+            if callback not in self.motion_stops:
+                self.motion_stops.append(callback)
+
     @property
     def estop_active(self) -> bool:
         return bool(self.estop_controller and self.estop_controller.active)
@@ -101,6 +112,11 @@ class Dispatcher:
             self._rearm_required = True
             for t in self.trains.values():
                 t.velocity = 0
+            for stop in tuple(self.motion_stops):
+                try:
+                    stop()
+                except Exception as exc:
+                    self.accessory_errors["motion_engine"] = str(exc)
             if self.estop_controller:
                 try:
                     self.estop_controller.activate()

@@ -70,6 +70,24 @@ def test_missed_ir_latches_global_stop():
     assert "missed" in dispatcher.stop_reason
 
 
+def test_global_stop_invalidates_simulator_target_and_does_not_restart_after_rearm():
+    dispatcher, engine = running_engine(path())
+    engine.advance(0.5)
+    before = engine.trains[1].distance_mm
+    assert before > 0
+    dispatcher.stop_all("operator E-Stop")
+    assert not engine.running
+    assert engine.trains[1].speed_mm_s == 0
+    assert engine.trains[1].target_speed_mm_s == 0
+    dispatcher.clear_stop()
+    with pytest.raises(SafetyError):
+        engine.resume()
+    dispatcher.rearm()
+    # Rearm is permission only; interrupted routes are never resumed.
+    engine.advance(1.0)
+    assert engine.trains[1].distance_mm == before
+
+
 @pytest.mark.parametrize("fault", ["failed_turnout", "stall", "tipper"])
 def test_faults_are_deterministic(fault):
     dispatcher, engine = running_engine(path())

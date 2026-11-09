@@ -10,3 +10,17 @@ additional_approach_hall_sensors: 0
 position_feedback: not_configured
 require_verified_stop_before_dispatch: true
 hardware_outputs_enabled: false
+pins:
+  home_switch: D0
+  rotated_switch: D1
+  motor_in1: D2
+  motor_in2: D3
+  polarity_relay: D4
+  track_power_relay: D5
+  reed_end_a: D6
+  reed_end_b: D7
+switch_polarity: active_low
+vehicle_magnets: 4
+pulse_lockout_ms: 250
+post_train_cooldown_ms: 500
+require_stationary_clearance: true

@@ -121,6 +121,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             DISPATCHER.check_deadlines()
             status = DISPATCHER.snapshot()
             status["simulation"] = SIMULATION.snapshot()
+            status["estop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}
             body = json.dumps(status).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/simulation":

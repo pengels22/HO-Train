@@ -22,19 +22,24 @@ class RegisteredController:
     connector: Callable[[str], SerialPort]
     port: SerialPort | None = None
     last_error: Exception | None = None
+    connected: bool = False
+    write_timeout_s: float = 0.25
 
     def reconnect(self) -> SerialPort:
         if self.port is None:
             self.port = self.connector(self.port_name)
+            self.connected = True
         return self.port
 
     def send_estop(self) -> None:
         try:
             self.reconnect().write(b"ESTOP\n")
             self.last_error = None
+            self.connected = True
         except Exception as exc:  # one controller must not stop the fan-out
             self.last_error = exc
             self.port = None
+            self.connected = False
             raise
 
     def close(self) -> None:
@@ -43,6 +48,7 @@ class RegisteredController:
                 self.port.close()
             finally:
                 self.port = None
+                self.connected = False
 
 
 class ControllerRegistry:
@@ -63,6 +69,11 @@ class ControllerRegistry:
         for controller in self.controllers:
             controller.close()
 
+    def status(self) -> list[dict]:
+        return [{"id": c.controller_id, "port": c.port_name,
+                 "connected": c.connected, "error": str(c.last_error) if c.last_error else None}
+                for c in self.controllers]
+
 
 class ControllerDeliveryError(OSError):
     def __init__(self, errors):
@@ -73,4 +84,4 @@ class ControllerDeliveryError(OSError):
 def pyserial_connector(port_name: str, *, baudrate: int = 115200) -> SerialPort:
     """Open a configured port only when an explicit hardware runtime asks."""
     import serial  # optional dependency; never imported by simulation
-    return serial.Serial(port_name, baudrate=baudrate, timeout=0)
+    return serial.Serial(port_name, baudrate=baudrate, timeout=0, write_timeout=0.25)

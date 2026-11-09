@@ -13,14 +13,21 @@ constexpr uint8_t ESTOP_FLAG = 0x80;
 constexpr uint8_t VERSION = 1;
 constexpr int MOTOR_FORWARD_PIN = 19;
 constexpr int MOTOR_REVERSE_PIN = 22;
-constexpr int IR_INPUT_PIN = 23;
+constexpr int IR_TRANSMITTER_PIN = 23;
 constexpr int REARM_BUTTON_PIN = -1; // assign only after validating the build
 constexpr unsigned long WATCHDOG_MS = 500;
 constexpr uint16_t UDP_PORT = 4210;
 WiFiUDP udp;
 bool estopLatched = false;
-unsigned long lastCommandMs = 0;
-volatile bool irSeen = false;
+bool communicationFault = true;
+unsigned long lastApplicableCommandMs = 0;
+unsigned long lastWifiAttemptMs = 0;
+bool udpStarted = false;
+
+// Credentials are intentionally supplied at build/deployment time, never
+// committed to the repository.
+const char *WIFI_SSID = "YOUR_SSID";
+const char *WIFI_PASSWORD = "YOUR_PASSWORD";
 
 uint16_t crc16(const uint8_t *data, size_t length) {
   uint16_t crc = 0xFFFF;
@@ -31,7 +38,14 @@ uint16_t crc16(const uint8_t *data, size_t length) {
   return crc;
 }
 
-void IRAM_ATTR onIr() { irSeen = true; }
+void configureIrTransmitter() {
+  pinMode(IR_TRANSMITTER_PIN, OUTPUT);
+  // The existing IR identification protocol uses a 38 kHz carrier.  The
+  // transistor and resistor values remain part of the approved hardware BOM.
+  ledcSetup(0, 38000, 8);
+  ledcAttachPin(IR_TRANSMITTER_PIN, 0);
+  ledcWrite(0, 0);
+}
 
 void setMotorSpeed(int16_t speed) {
   // Two-input H-bridge: zero both pins for an immediate stop.
@@ -45,32 +59,55 @@ bool explicitRearm(int16_t speed) {
   return speed == 0 && REARM_BUTTON_PIN >= 0 && digitalRead(REARM_BUTTON_PIN) == LOW;
 }
 
+void connectWifi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+  if (millis() - lastWifiAttemptMs < 5000) return;
+  lastWifiAttemptMs = millis();
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+}
+
 void handleCommand(const uint8_t *p, size_t length) {
   if (length != 12 || p[0] != 'H' || p[1] != 'C' || p[2] != VERSION ||
       crc16(p, 10) != (uint16_t(p[11]) << 8 | p[10])) return;
   const uint8_t trainId = p[3];
   const int16_t speed = int16_t(uint16_t(p[6]) | uint16_t(p[7]) << 8);
-  lastCommandMs = millis();
   if (trainId == ALL_TRAINS && (p[9] & ESTOP_FLAG)) {
-    estopLatched = true; setMotorSpeed(0); return;
+    estopLatched = true; communicationFault = false; setMotorSpeed(0); return;
   }
   if (trainId != LOCOMOTIVE_ID) return;
-  if (estopLatched) { setMotorSpeed(0); if (explicitRearm(speed)) estopLatched = false; return; }
+  const bool wasCommunicationFault = communicationFault;
+  lastApplicableCommandMs = millis();
+  if (estopLatched || wasCommunicationFault) {
+    setMotorSpeed(0);
+    if (explicitRearm(speed)) { estopLatched = false; communicationFault = false; }
+    return;
+  }
   setMotorSpeed(speed);
 }
 
 void setup() {
   pinMode(MOTOR_FORWARD_PIN, OUTPUT); pinMode(MOTOR_REVERSE_PIN, OUTPUT);
-  pinMode(IR_INPUT_PIN, INPUT_PULLUP); attachInterrupt(digitalPinToInterrupt(IR_INPUT_PIN), onIr, CHANGE);
+  configureIrTransmitter();
   if (REARM_BUTTON_PIN >= 0) pinMode(REARM_BUTTON_PIN, INPUT_PULLUP);
-  setMotorSpeed(0); lastCommandMs = millis();
-  // Wi-Fi credentials belong in the validated bench build.
-  udp.begin(UDP_PORT);
+  setMotorSpeed(0); lastApplicableCommandMs = 0;
+  WiFi.disconnect(true);
 }
 
 void loop() {
-  const int packetSize = udp.parsePacket();
-  if (packetSize > 0 && packetSize <= 64) { uint8_t p[64]; handleCommand(p, size_t(udp.read(p, sizeof(p)))); }
-  if (millis() - lastCommandMs > WATCHDOG_MS) setMotorSpeed(0);
-  if (irSeen) irSeen = false; // IR event forwarding is configured separately.
+  connectWifi();
+  if (WiFi.status() == WL_CONNECTED) {
+    if (!udpStarted) { udp.begin(UDP_PORT); udpStarted = true; }
+    const int packetSize = udp.parsePacket();
+    if (packetSize > 0 && packetSize <= 64) { uint8_t p[64]; handleCommand(p, size_t(udp.read(p, sizeof(p)))); }
+  } else if (udpStarted) {
+    udp.stop();
+    udpStarted = false;
+    communicationFault = true;
+    setMotorSpeed(0);
+  }
+  if (lastApplicableCommandMs == 0 || millis() - lastApplicableCommandMs > WATCHDOG_MS) {
+    communicationFault = true;
+    setMotorSpeed(0);
+  }
 }
