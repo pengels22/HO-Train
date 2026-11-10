@@ -43,6 +43,31 @@ def test_duplicate_and_out_of_order_telemetry_are_rejected():
         health.update(telemetry(sequence=3).encode(), now=1.2)
 
 
+def test_operating_health_allows_nonzero_speed_but_rearm_does_not():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1])
+    now = time.monotonic()
+    health.update(telemetry(speed=20, sequence=1).encode(), now=now)
+    assert health.operating_ready()
+    assert not health.rearm_ready()
+    for sequence in range(2, 102):
+        health.update(telemetry(speed=20 if sequence % 2 else -20, sequence=sequence).encode(), now=now + sequence / 1000)
+        assert health.operating_ready()
+
+
+def test_dispatcher_accepts_100_healthy_nonzero_commands():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1])
+    dispatcher = Dispatcher()
+    dispatcher.attach_controller_health(health)
+    now = time.monotonic()
+    health.update(telemetry(sequence=1, speed=1).encode(), now=now)
+    dispatcher._rearm_required = False
+    for sequence in range(2, 102):
+        speed = 30 if sequence % 2 else -30
+        health.update(telemetry(sequence=sequence, speed=speed).encode(), now=now + sequence / 1000)
+        dispatcher.command_motion(1, speed)
+    assert dispatcher.trains[1].velocity == 30
+
+
 def test_new_boot_session_invalidates_previous_health():
     health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1])
     failures = []
@@ -51,6 +76,24 @@ def test_new_boot_session_invalidates_previous_health():
     health.update(telemetry(sequence=0, session="new").encode(), now=1.1)
     assert any("restart" in reason for _, reason in failures)
     assert not health.all_required_ready()
+
+
+def test_retired_session_cannot_overwrite_current_session():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1])
+    health.update(telemetry(session="old", sequence=4).encode(), now=1.0)
+    health.update(telemetry(session="new", sequence=0).encode(), now=1.1)
+    with pytest.raises(ValueError, match="retired"):
+        health.update(telemetry(session="old", sequence=5).encode(), now=1.2)
+
+
+def test_controller_fault_requires_explicit_reconciliation():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1])
+    base = time.monotonic()
+    health.update(telemetry(estop=True, state="ESTOP_LATCHED", sequence=1).encode(), now=base)
+    health.update(telemetry(sequence=2).encode(), now=base + 0.1)
+    assert not health.operating_ready()
+    health.reconcile(1)
+    assert health.operating_ready()
 
 
 def test_telemetry_rejects_coercible_or_out_of_range_fields():

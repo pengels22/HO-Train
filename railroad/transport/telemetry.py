@@ -77,7 +77,7 @@ class ControllerHealthRegistry:
         self.freshness_s = float(freshness_s)
         self.clock = clock
         self.telemetry = {}
-        self._sessions, self._sequences, self._failures, self._rearm = {}, {}, set(), {}
+        self._sessions, self._sequences, self._retired_sessions, self._failures, self._rearm = {}, {}, {}, set(), {}
         self._rearm_event, self._lock = Event(), RLock()
         self._monitor_thread = self._monitor_stop = None
         self.on_failure = None
@@ -89,8 +89,8 @@ class ControllerHealthRegistry:
             self._failures.add(key)
             if self.on_failure: self.on_failure(controller, reason)
 
-    def _clear_failure(self, controller):
-        self._failures = {key for key in self._failures if not (key.startswith(f"{controller}:") and "restart" not in key)}
+    def _clear_failure(self, controller, *, preserve_restart=True):
+        self._failures = {key for key in self._failures if not (key.startswith(f"{controller}:") and (not preserve_restart or "restart" not in key))}
 
     def _usb_failure(self, controller, reason): self._fail(str(controller), reason)
 
@@ -101,7 +101,11 @@ class ControllerHealthRegistry:
         received = self.clock() if now is None else now
         with self._lock:
             ident, old = telemetry.locomotive_id, self._sessions.get(telemetry.locomotive_id)
+            retired = self._retired_sessions.setdefault(ident, set())
+            if telemetry.session in retired:
+                raise ValueError("telemetry from retired controller session")
             if old is not None and telemetry.session != old:
+                retired.add(old)
                 self._sessions[ident], self._sequences[ident] = telemetry.session, -1
                 self._rearm.pop(ident, None)
                 self._fail(f"locomotive-{ident}", "controller restart; rearm required")
@@ -120,8 +124,6 @@ class ControllerHealthRegistry:
                     pending["ack"] = True; self._rearm_event.set()
             if telemetry.communication_fault or telemetry.estop:
                 self._fail(f"locomotive-{ident}", "reported unsafe state")
-            elif telemetry.state == "ARMED":
-                self._clear_failure(f"locomotive-{ident}")
         return telemetry
 
     def begin_rearm(self, transaction):
@@ -133,6 +135,8 @@ class ControllerHealthRegistry:
         deadline = self.clock() + timeout
         while self.clock() < deadline:
             with self._lock:
+                if any(item["transaction"] != transaction for item in self._rearm.values()):
+                    return False
                 if all(x["ack"] for x in self._rearm.values()): return True
             self._rearm_event.wait(max(0.0, min(0.05, deadline - self.clock())))
         return False
@@ -160,13 +164,51 @@ class ControllerHealthRegistry:
         if self._monitor_thread is not None: self._monitor_thread.join(timeout=1.0)
         self._monitor_thread = self._monitor_stop = None
 
-    def all_required_ready(self):
+    def rearm_ready(self):
         now = self.clock(); self.check_freshness(now)
         with self._lock:
             fresh = all(i in self.telemetry and now - self.telemetry[i][1] <= self.freshness_s for i in self.required_locomotives)
             ready = all(t.armed and not t.estop and not t.communication_fault and t.speed == 0 for t, _ in self.telemetry.values() if t.locomotive_id in self.required_locomotives)
             no_loco_faults = all(not any(key.startswith(f"locomotive-{i}:") for key in self._failures) for i in self.required_locomotives)
-            return self.usb_registry.all_required_ready() and (not self.required_locomotives or (fresh and len(self.telemetry) == len(self.required_locomotives) and ready and no_loco_faults))
+            acknowledgements = not self._rearm or all(item["ack"] for item in self._rearm.values())
+            return self.usb_registry.all_required_ready() and acknowledgements and (not self.required_locomotives or (fresh and len(self.telemetry) == len(self.required_locomotives) and ready and no_loco_faults))
+
+    def operating_ready(self):
+        """Health gate for motion; unlike rearm, a moving train may be nonzero speed."""
+        now = self.clock(); self.check_freshness(now)
+        with self._lock:
+            fresh = all(i in self.telemetry and now - self.telemetry[i][1] <= self.freshness_s for i in self.required_locomotives)
+            safe = all(t.state == "ARMED" and t.armed and not t.estop and not t.communication_fault
+                       for t, _ in self.telemetry.values() if t.locomotive_id in self.required_locomotives)
+            no_faults = all(not any(k.startswith(f"locomotive-{i}:") for k in self._failures) for i in self.required_locomotives)
+            return self.usb_registry.all_required_ready() and (not self.required_locomotives or (fresh and len(self.telemetry) == len(self.required_locomotives) and safe and no_faults))
+
+    # Compatibility name for callers that used the old, rearm-only method.
+    def all_required_ready(self):
+        return self.rearm_ready()
+
+    def reconcile(self, controller_id) -> None:
+        """Explicitly clear a controller fault after current safe status is verified."""
+        with self._lock:
+            if isinstance(controller_id, int):
+                if controller_id not in self.required_locomotives:
+                    raise ValueError("controller is not required/configured")
+                item = self.telemetry.get(controller_id)
+                if item is None:
+                    raise ValueError("controller telemetry is missing")
+                telemetry, received = item
+                if self.clock() - received > self.freshness_s or telemetry.state != "ARMED" or telemetry.estop or telemetry.communication_fault:
+                    raise ValueError("controller is not in a fresh safe state")
+                self._clear_failure(f"locomotive-{controller_id}", preserve_restart=False)
+                return
+            controller = next((item for item in self.usb_registry.controllers if item.controller_id == controller_id), None)
+            if controller is None or not controller.connected or controller.last_error or controller.faults:
+                raise ValueError("USB controller is not in a fresh safe state")
+            self._clear_failure(str(controller_id), preserve_restart=False)
+
+    def failures(self):
+        with self._lock:
+            return tuple(sorted(self._failures))
 
     def status(self):
         result = list(self.usb_registry.status()); now = self.clock()
@@ -176,5 +218,8 @@ class ControllerHealthRegistry:
                 if item is None:
                     result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": True, "connected": False, "state": None, "faults": ["telemetry_missing"], "unverified": True}); continue
                 telemetry, received = item
-                result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": True, "connected": now - received <= self.freshness_s, "state": telemetry.state, "faults": ["communication_fault"] if telemetry.communication_fault else [], "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "last_command_sequence": telemetry.last_command_sequence, "session": telemetry.session, "last_success": received})
+                faults = [key.split(":", 1)[1] for key in self._failures if key.startswith(f"locomotive-{ident}:")]
+                if telemetry.communication_fault and "reported unsafe state" not in faults:
+                    faults.append("reported unsafe state")
+                result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": True, "connected": now - received <= self.freshness_s, "state": telemetry.state, "faults": faults, "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "last_command_sequence": telemetry.last_command_sequence, "session": telemetry.session, "last_success": received})
         return result

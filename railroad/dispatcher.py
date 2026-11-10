@@ -204,7 +204,7 @@ class Dispatcher:
             if self.controller_health and self.controller_health.required_locomotives:
                 if not self.controller_health.wait_for_rearm(transaction):
                     raise SafetyError("required locomotive rearm acknowledgements are not ready")
-            if self.controller_health and not self.controller_health.all_required_ready():
+            if self.controller_health and not self.controller_health.rearm_ready():
                 raise SafetyError("required controller acknowledgements are not ready")
             self._rearm_required = False
 
@@ -229,8 +229,18 @@ class Dispatcher:
             raise SafetyError("physical E-Stop remains engaged")
         if self.tipper_fault or self.accessory_errors:
             raise SafetyError("safety faults remain unresolved")
-        if self.controller_health and not self.controller_health.all_required_ready():
+        if self.controller_health and not self.controller_health.operating_ready():
             raise SafetyError("required controller health is not ready")
+
+    def reconcile_controller(self, locomotive_id) -> None:
+        """Operator-authorized reconciliation; never called by telemetry arrival."""
+        with self.lock:
+            if not self.controller_health:
+                raise SafetyError("controller health is not configured")
+            controller_id = int(locomotive_id) if isinstance(locomotive_id, int) or str(locomotive_id).isdigit() else str(locomotive_id)
+            self.controller_health.reconcile(controller_id)
+            if not self.controller_health.failures():
+                self.stop_causes.pop("controller_fault", None)
 
     def set_tipper(self, state: str, reason: str | None = None):
         with self.lock:

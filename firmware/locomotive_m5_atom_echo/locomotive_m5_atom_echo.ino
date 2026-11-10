@@ -57,6 +57,7 @@ uint16_t lastAcceptedSequence = 0;
 uint32_t telemetrySequence = 0;
 String bootSession;
 String rearmTransaction;
+String lastRearmTransaction;
 unsigned long lastTelemetryMs = 0;
 
 void irDuty(uint32_t duty);
@@ -162,6 +163,7 @@ void handleRearmPacket(const uint8_t *p, size_t length) {
   if (length < 3 || p[0] != 'H' || p[1] != 'R' || p[2] != '{') return;
   String body;
   for (size_t i = 2; i < length; ++i) body += char(p[i]);
+  if (body.indexOf("\"version\":1") < 0 || body.indexOf("\"id\":255") < 0) return;
   int marker = body.indexOf("\"transaction\":\"");
   if (marker < 0) return;
   int start = marker + 15, end = body.indexOf('"', start);
@@ -169,9 +171,14 @@ void handleRearmPacket(const uint8_t *p, size_t length) {
   String transaction = body.substring(start, end);
   // A separate, versioned rearm message cannot be confused with a zero-speed
   // heartbeat. It is accepted only in a safe local state.
-  if (state == ESTOP_LATCHED || state == COMMUNICATION_FAULT || commandedSpeed != 0) return;
+  if (transaction == lastRearmTransaction || transaction.length() == 0 || transaction.length() > 128 || commandedSpeed != 0) return;
+  // HR is the dispatcher authorization after its physical switch, stop-cause,
+  // and controller-health checks. The controller validates only local safety.
+  if (state != ESTOP_LATCHED && state != COMMUNICATION_FAULT && state != DISARMED && state != ARMED) return;
   state = ARMED;
   rearmTransaction = transaction;
+  lastRearmTransaction = transaction;
+  communicationFault = false;
   lastApplicableCommandMs = millis();
   setMotorSpeed(0);
 }

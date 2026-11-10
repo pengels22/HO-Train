@@ -29,6 +29,11 @@ const char *targetAlignment = "";
 bool polaritySelected = false;
 const char *faultText = "startup_disarmed";
 String responseTransaction;
+String lastStateTransaction;
+constexpr size_t MAX_SERIAL_LINE = 192;
+char serialBuffer[MAX_SERIAL_LINE];
+size_t serialLength = 0;
+bool serialOverflow = false;
 
 uint16_t crc16(const uint8_t *data, size_t length) {
   uint16_t crc = 0xFFFF;
@@ -83,6 +88,39 @@ bool jsonBool(const String &line, const char *name) {
   return start >= 0 && line.substring(start + marker.length()).startsWith("true");
 }
 
+bool validTransaction(const String &transaction) {
+  if (transaction.length() == 0 || transaction.length() > 64) return false;
+  for (size_t i = 0; i < transaction.length(); ++i) {
+    char c = transaction[i];
+    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+          (c >= '0' && c <= '9') || c == '-' || c == '_')) return false;
+  }
+  return true;
+}
+
+bool stateChanging(const String &command) {
+  return command == "REARM AUTH" || command == "ENTRY AUTH" || command == "CLEARANCE" ||
+         command == "TURN" || command == "POLARITY NORMAL" || command == "POLARITY REVERSED" ||
+         command == "POWER ON" || command == "EXIT COMPLETE";
+}
+
+bool jsonLooksComplete(const String &line) {
+  if (line.length() < 2 || line[0] != '{' || line[line.length() - 1] != '}') return false;
+  int depth = 0; bool quoted = false, escaped = false;
+  for (size_t i = 0; i < line.length(); ++i) {
+    char c = line[i];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (c == '\\') escaped = true;
+      else if (c == '"') quoted = false;
+      else if (c < 0x20) return false;
+    } else if (c == '"') quoted = true;
+    else if (c == '{') ++depth;
+    else if (c == '}' && --depth < 0) return false;
+  }
+  return depth == 0 && !quoted && !escaped;
+}
+
 void resetCounts() { countA = countB = 0; lastPulseA = lastPulseB = cooldownA = cooldownB = 0; reedAActive = reedBActive = false; stationaryConfirmed = gapClearanceConfirmed = false; }
 
 void countReed(bool endA, bool active, unsigned long now) {
@@ -112,11 +150,22 @@ void beginTurn() {
 void handleSerialLine(String line) {
   line.trim();
   const bool isJson = line.startsWith("{");
+  if (isJson && !jsonLooksComplete(line)) {
+    Serial.println("{\"ok\":false,\"error\":\"malformed_json\"}"); return;
+  }
   if (isJson) {
     stationaryConfirmed = jsonBool(line, "train_stopped");
     gapClearanceConfirmed = jsonBool(line, "gap_clear");
     responseTransaction = jsonField(line, "transaction");
     line = jsonField(line, "command");
+    if (line.length() == 0 || (stateChanging(line) && !validTransaction(responseTransaction))) {
+      Serial.println("{\"ok\":false,\"error\":\"missing_or_invalid_authorization\"}"); return;
+    }
+    if (stateChanging(line) && responseTransaction == lastStateTransaction) {
+      Serial.println("{\"ok\":false,\"error\":\"duplicate_transaction\"}"); return;
+    }
+  } else if (stateChanging(line)) {
+    Serial.println("{\"ok\":false,\"error\":\"json_authorization_required\"}"); return;
   }
   if (line == "ESTOP" || line == "STATUS" || line == "STOP" || line == "REARM AUTH" || line == "ENTRY AUTH" || line == "CLEARANCE" || line == "TURN" || line == "POLARITY NORMAL" || line == "POLARITY REVERSED" || line == "POWER ON" || line == "EXIT COMPLETE") {
     lastControlMs = millis(); communicationFault = false;
@@ -127,7 +176,7 @@ void handleSerialLine(String line) {
   if (line == "REARM AUTH") {
     if (communicationFault || !safeAlignment() || trackPowerEnabled || state == TURNING ||
         (strcmp(faultText, "") != 0 && strcmp(faultText, "estop") != 0 && strcmp(faultText, "startup_disarmed") != 0)) { Serial.println("ERR REARM interlock"); return; }
-    estopLatched = false; faultText = ""; resetCounts(); state = EMPTY_READY; reportStatus(); return;
+    lastStateTransaction = responseTransaction; estopLatched = false; faultText = ""; resetCounts(); state = EMPTY_READY; reportStatus(); return;
   }
   if (line == "REARM") { Serial.println("ERR REARM_AUTH_REQUIRED"); return; }
   if (line == "ENTRY AUTH") {
@@ -159,8 +208,17 @@ void handleSerialLine(String line) {
 }
 
 void handleSerial() {
-  static String line;
-  while (Serial.available()) { char c = char(Serial.read()); if (c == '\n') { handleSerialLine(line); line = ""; } else if (line.length() < 32) line += c; }
+  while (Serial.available()) {
+    char c = char(Serial.read());
+    if (c == '\n') {
+      if (serialOverflow) Serial.println("{\"ok\":false,\"error\":\"line_too_long\"}");
+      else { serialBuffer[serialLength] = '\0'; handleSerialLine(String(serialBuffer)); }
+      serialLength = 0; serialOverflow = false;
+    } else if (!serialOverflow) {
+      if (serialLength + 1 >= MAX_SERIAL_LINE) serialOverflow = true;
+      else serialBuffer[serialLength++] = c;
+    }
+  }
 }
 
 void handleUdpPacket(const uint8_t *p, size_t length) {

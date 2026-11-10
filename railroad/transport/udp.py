@@ -49,6 +49,6 @@ class Broadcaster:
         self.socket.sendto(command.encode(),(self.host,self.port))
     def send_rearm(self, transaction: str):
         import json
-        packet = b"HR" + json.dumps({"version": 1, "transaction": transaction}, separators=(",", ":")).encode()
+        packet = b"HR" + json.dumps({"version": 1, "id": 255, "transaction": transaction}, separators=(",", ":")).encode()
         self.socket.sendto(packet, (self.host, self.port))
     def close(self):self.socket.close()
