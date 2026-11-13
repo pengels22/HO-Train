@@ -42,8 +42,8 @@ constexpr unsigned long IR_SYMBOL_US = 1000;
 
 // Credentials are intentionally supplied at build/deployment time, never
 // committed to the repository.
-const char *WIFI_SSID = "YOUR_SSID";
-const char *WIFI_PASSWORD = "YOUR_PASSWORD";
+const char *WIFI_SSID = "Lab 42";
+const char *WIFI_PASSWORD = "NerdsRock!";
 
 uint16_t crc16(const uint8_t *data, size_t length) {
   uint16_t crc = 0xFFFF;
