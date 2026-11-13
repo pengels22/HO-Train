@@ -8,7 +8,7 @@ usb_serial:
   serial_number: "90:64:9B:AA:64:5C"
   chip: ESP32-C6FH4
   mac_address: "90:64:9B:AA:64:5C"
-  raspberry_pi_path: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:5C-if00-port0
+  raspberry_pi_path: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:5C-if00
   raspberry_pi_path_status: verified_on_lab1
 serial_baudrate: 115200
 approach_section: UND-4
