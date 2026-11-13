@@ -4,6 +4,14 @@
 controller: xiao_esp32_c6_tipper
 board: esp32:esp32:XIAO_ESP32C6
 transport: usb_serial
+# Bench-verified on 2026-11-13. The macOS port is transient; use the
+# Raspberry Pi udev path below after matching this USB identity on the Pi.
+usb_serial:
+  serial_number: "90:64:9B:AA:64:AC"
+  chip: ESP32-C6FH4
+  mac_address: "90:64:9B:AA:64:AC"
+  raspberry_pi_path: /dev/serial/by-id/ho-tipper
+  raspberry_pi_path_status: pending_udev_verification
 port: /dev/serial/by-id/ho-tipper
 speed_limit_mm_s: 25.4
 pins:
