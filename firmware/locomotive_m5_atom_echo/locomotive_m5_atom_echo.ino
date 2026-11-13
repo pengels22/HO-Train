@@ -56,7 +56,6 @@ uint16_t crc16(const uint8_t *data, size_t length) {
 }
 
 constexpr uint16_t TELEMETRY_PORT = 4211;
-const IPAddress TELEMETRY_BROADCAST(10, 77, 0, 255);
 uint16_t lastAcceptedSequence = 0;
 uint32_t telemetrySequence = 0;
 String bootSession;
@@ -144,6 +143,8 @@ void reportWifiState() {
   if (connected && !wifiConnectedAnnounced) {
     Serial.print("WIFI_CONNECTED IP=");
     Serial.println(WiFi.localIP());
+    Serial.print("WIFI_BROADCAST=");
+    Serial.println(WiFi.broadcastIP());
     wifiConnectedAnnounced = true;
   } else if (!connected && wifiConnectedAnnounced) {
     Serial.println("WIFI_DISCONNECTED");
@@ -213,7 +214,9 @@ void sendTelemetry() {
     ",\"session\":\"" + bootSession + "\",\"uptime_ms\":" + millis();
   if (rearmTransaction.length()) body += ",\"rearm_transaction\":\"" + rearmTransaction + "\"";
   body += "}";
-  telemetryUdp.beginPacket(TELEMETRY_BROADCAST, TELEMETRY_PORT);
+  // Use the active interface broadcast so telemetry reaches the dispatcher
+  // on the deployed subnet instead of assuming the old 10.77.0.0 network.
+  telemetryUdp.beginPacket(WiFi.broadcastIP(), TELEMETRY_PORT);
   telemetryUdp.write((const uint8_t *)body.c_str(), body.length());
   telemetryUdp.endPacket();
 }
