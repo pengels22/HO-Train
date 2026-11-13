@@ -15,7 +15,7 @@ Implement the HO railroad as an actual Raspberry Pi 4B-controlled model railway,
 - `config/motors.yaml` maps 8 pairs to PCA9685 0x40; `config/servos.yaml` maps A-G and the tipper lock to PCA9685 0x42, plus provisional H on channel 13. Board 0x41 is reserved/spare.
 - `railroad/turntable.py`, `firmware/locomotive_esp32/turntable_esp32c6.ino` and `config/turntable.yaml` hard-code exactly 4 magnet detections and a 250 ms pulse lockout. `tests/test_turntable_safety.py` and `tests/test_controller_lifecycle.py` assume 0.3-second pulses; this is not the new physical detection scheme.
 - `railroad/automation/tipper.py` has a safety-state skeleton and an unconnected serial adapter; `firmware/tipper_controller/README.md` explicitly says the tipper control firmware does not exist.
-- `firmware/locomotive_esp32/locomotive_esp32.ino` is a mock receiver with zero-only motor function and unconfigured Wi-Fi/driver pins. `firmware/locomotive_m5_atom_echo/` is a separate controller path. `railroad/api/server.py` presently only accepts `m5_atom_echo` hardware controller types; reconcile with finalized Seeed XIAO ESP32-C6 + DRV8871 locomotives.
+- `firmware/locomotive_esp32/locomotive_esp32.ino` is an uncommissioned prototype and is not a locomotive assignment. The finalized architecture assigns `firmware/locomotive_m5_atom_echo/` to all four locomotives; dedicated XIAO ESP32-C6 boards are assigned to turntable and rotary tipper control.
 - `config/locomotives.yaml` speed calibration is null; `Dispatcher.command_motion` accepts a raw signed speed number and lacks destination-specific measured in/s caps.
 - `docs/PROJECT_STATUS.md`, `docs/CONTROLLER_DECISIONS.md`, `docs/CONFIGURATION_SOURCES.md` and README say simulation-first; rewrite truthfully after actual changes.
 - Network E-Stop, explicit rearm and telemetry mechanisms are real, valuable work; preserve them. Tests exist but have NOT been executed by this audit.
@@ -47,7 +47,7 @@ Implement the HO railroad as an actual Raspberry Pi 4B-controlled model railway,
 6. Allow physical E-stop pin to be configured without colliding with the chosen tipper or yard pins. Keep the original E-stop behavior (NC switch, LOW active) and global latch. Avoid motor or relay writes when connections fail.
 
 ### Phase 2: real locomotives and speed
-7. Consolidate locomotive controller selection around the finalized XIAO ESP32-C6 + DRV8871. Keep old M5 implementation only as legacy when actually needed. Set up real Wi-Fi UDP packet handling, IR 940 nm beacon, telemetry, watchdog, safe starts, explicit rearm, motor drive. Verify memory and compile for target board; do not guess ESP32 pin mappings.
+7. Preserve and validate the existing M5 Atom locomotive controller for all four locomotives: Wi-Fi UDP packet handling, IR 940 nm beacon, telemetry, watchdog, safe starts, explicit rearm, and motor drive. Use dedicated XIAO ESP32-C6 controllers for the turntable and rotary tipper; verify each board's memory, compile, and pin mapping without guessing.
 8. Add real speed calibration data in in/s or mm/s by throttle command and direction. Implement enforceable target cap <=25.4 mm/s for both TIPPER and TURNTABLE across ALL motion pathways, including joystick, API, route cycles, recovery and target changes. Test cap from above; never bypass via direct `command_motion`.
 9. Build Raspberry Pi joystick input adapter for Attack 3; manual control must still honor stop, zone, yard and speed limits.
 

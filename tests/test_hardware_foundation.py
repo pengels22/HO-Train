@@ -20,6 +20,16 @@ def test_confirmed_registry_has_25_inputs_and_seven_spares_without_duplicates():
     assert not any("turnout_H" in e.function for e in inputs)
 
 
+def test_final_controller_assignments_keep_m5_fleet_and_xiao_accessories_distinct():
+    config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
+    assert [item["type"] for item in config["locomotive_controllers"]] == ["m5_atom_echo"] * 4
+    accessories = {item["id"]: item["type"] for item in config["estop"]["serial_controllers"]}
+    assert accessories == {
+        "turntable": "xiao_esp32_c6_turntable",
+        "tipper": "xiao_esp32_c6_tipper",
+    }
+
+
 def test_mock_i2c_drivers_configure_inputs_and_stop_pwm():
     mock = MockI2CBus()
     bus = I2CBus(enabled=True, backend=mock)

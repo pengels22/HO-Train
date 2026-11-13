@@ -111,8 +111,8 @@ def configure_runtime(mode: str = "simulation") -> None:
         for entry in locomotive_config:
             if not isinstance(entry, dict) or type(entry.get("id")) is not int:
                 raise RuntimeError("locomotive_controllers entries require integer id and type")
-            if entry.get("type") not in {"xiao_esp32_c6", "m5_atom_echo"}:
-                raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}; use xiao_esp32_c6 (m5_atom_echo is legacy)")
+            if entry.get("type") != "m5_atom_echo":
+                raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}; locomotives use M5 Atom Echo")
             ids.append(entry["id"])
         if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
             raise RuntimeError("invalid or inconsistent locomotive_controllers IDs")
@@ -126,7 +126,9 @@ def configure_runtime(mode: str = "simulation") -> None:
             continue
         baudrate = int(entry.get("baudrate", estop_config.get("serial_baudrate", 115200)))
         connector = lambda port, baudrate=baudrate: pyserial_connector(port, baudrate=baudrate)
-        USB_CONTROLLERS.controllers.append(RegisteredController(controller_id, port_name, connector))
+        USB_CONTROLLERS.controllers.append(RegisteredController(
+            controller_id, port_name, connector,
+            controller_type=entry.get("type", "usb_controller")))
     locomotive_ids = [int(i["id"]) for i in hardware.get("locomotive_controllers", [])]
     HEALTH = ControllerHealthRegistry(USB_CONTROLLERS, locomotive_ids=locomotive_ids)
     DISPATCHER.attach_controller_health(HEALTH)

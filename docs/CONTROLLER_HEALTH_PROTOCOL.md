@@ -45,8 +45,8 @@ fresh rearm. Because unauthenticated UDP cannot prove that a changed session
 is genuine, production commissioning should pair this with controlled device
 registration; a session change is never treated as automatically healthy.
 
-Turntable state-changing USB commands use bounded newline-delimited JSON with
-transaction IDs. The XIAO parser accepts complete messages up to 191 bytes,
+Turntable and tipper state-changing USB commands use bounded newline-delimited
+JSON with transaction IDs. The dedicated XIAO accessory parser accepts complete messages up to 191 bytes,
 rejects malformed, oversized, missing-authorization, duplicate, and stale
 transactions, while plain `ESTOP\n` remains available immediately.
 

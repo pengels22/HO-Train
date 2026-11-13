@@ -1,7 +1,8 @@
 """Fail-closed UDP emergency-stop sender for an explicitly enabled bench/hardware session.
 
 This module is NOT started by the simulation dashboard. A hardware runtime must
-opt in, and the XIAO firmware must implement the ESTOP flag and local watchdog.
+opt in, and each registered locomotive/accessory controller must implement the
+ESTOP flag and local watchdog.
 """
 from __future__ import annotations
 

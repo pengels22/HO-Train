@@ -8,11 +8,20 @@ gpio_safe_start: true
 # Leave null in simulation and until the actual Raspberry Pi GPIO is validated.
 estop:
   gpio: null
-  serial_controllers: []
+  serial_controllers:
+    - {id: turntable, type: xiao_esp32_c6_turntable, port: /dev/serial/by-id/ho-turntable}
+    - {id: tipper, type: xiao_esp32_c6_tipper, port: /dev/serial/by-id/ho-tipper}
   serial_baudrate: 115200
-# Explicit commissioning list.  Keep empty in the safe simulation template;
-# normal hardware mode refuses to initialize until the operator supplies IDs.
-locomotive_controllers: []
+# Final controller assignments. Ports/addresses remain commissioning
+# placeholders; hardware mode refuses to arm until the E-Stop and links are
+# physically validated.
+locomotive_controllers:
+  - {id: 1, type: m5_atom_echo, transport: udp, address: 10.77.0.101}
+  - {id: 2, type: m5_atom_echo, transport: udp, address: 10.77.0.102}
+  - {id: 3, type: m5_atom_echo, transport: udp, address: 10.77.0.103}
+  - {id: 4, type: m5_atom_echo, transport: udp, address: 10.77.0.104}
+# The dedicated XIAO ESP32-C6 USB controllers above are accessory controllers,
+# not locomotive controllers; exact device paths are deployment placeholders.
 # Declarative inventory used for validation and SETTINGS display. This list is
 # safe to load on macOS; it does not open a bus or write an output.
 reserved_bcm_pins: [2, 3, 14, 15]

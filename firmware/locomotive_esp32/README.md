@@ -1,9 +1,9 @@
-# Locomotive ESP32 prototype
+# XIAO ESP32-C6 turntable controller
 
-`locomotive_esp32.ino` implements the UDP command frame and the fail-closed
-E-Stop behavior for the XIAO ESP32-C6 mock locomotive. Broadcast train ID 255
-with flag `0x80` immediately latches the motor at zero. Packet silence never
-clears that latch; the 500 ms watchdog independently forces zero output.
+`locomotive_esp32.ino` is retained as an uncommissioned prototype and is not a
+locomotive controller assignment. The finalized locomotive fleet uses M5 Atom
+Echo controllers. The XIAO ESP32-C6 is assigned to the dedicated turntable
+controller implemented by `turntable_esp32c6.ino`.
 
 The motor-driver mapping, Wi-Fi credentials, and local rearm-button pin remain
 placeholders. Set and validate them before an explicitly enabled bench build.
