@@ -10,9 +10,9 @@ usb_serial:
   serial_number: "90:64:9B:AA:64:AC"
   chip: ESP32-C6FH4
   mac_address: "90:64:9B:AA:64:AC"
-  raspberry_pi_path: /dev/serial/by-id/ho-tipper
-  raspberry_pi_path_status: pending_udev_verification
-port: /dev/serial/by-id/ho-tipper
+  raspberry_pi_path: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00-port0
+  raspberry_pi_path_status: verified_on_lab1
+port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00-port0
 speed_limit_mm_s: 25.4
 pins:
   motor_in1: null

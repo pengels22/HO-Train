@@ -3,9 +3,10 @@
 Install Raspberry Pi OS, Python 3.11+, clone the repository, create a virtual environment, install the package, and review `config/hardware.yaml`, `config/yard_power.yaml`, and the wiring PDF. Hardware mode is the deployment target but remains OFF/DISARMED until the physical E-Stop, power rails, fuses, I2C levels, relays, and controller links have been bench-verified. Use `--mode simulation` only for developer testing.
 
 Controller registration is fixed by architecture: locomotive IDs 1-4 use
-`m5_atom_echo` over UDP; `/dev/serial/by-id/ho-turntable` is the dedicated XIAO
-ESP32-C6 turntable controller; and `/dev/serial/by-id/ho-tipper` is the
-dedicated XIAO ESP32-C6 rotary tipper controller. Replace only the explicit
+`m5_atom_echo` over UDP; the Espressif USB serial identity ending in `64:5C` is
+the dedicated XIAO ESP32-C6 turntable controller; and the identity ending in
+`64:AC` is the dedicated XIAO ESP32-C6 rotary tipper controller. Replace only
+the explicit
 placeholder paths/addresses after wiring validation; do not substitute a XIAO
 locomotive controller or reuse an accessory port for a locomotive.
 
@@ -23,14 +24,14 @@ boots in a stopped fault state.
 | Chip | ESP32-C6FH4, 4 MB flash |
 | USB serial number / MAC | `90:64:9B:AA:64:5C` |
 | Commissioning host port | `/dev/cu.usbmodem14401` (transient macOS name) |
-| Pi service path | `/dev/serial/by-id/ho-turntable` (pending Pi-side udev verification) |
+| Pi service path | `/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:5C-if00-port0` |
 | Serial speed | `115200` baud |
 
 The verified `STATUS` response reported `alignment:"INVALID"`, so home and
 rotated sensors are not considered wired or aligned. It also reported
 `motor:false` and `track_power:false`. Do not infer a persistent Linux path
 from the macOS device name; match the USB serial number with `udevadm` on the
-Pi before creating the `ho-turntable` symlink.
+Pi before creating any additional `ho-turntable` symlink.
 
 ## Tipper USB commissioning
 
@@ -43,7 +44,7 @@ The verified USB identity is:
 | Chip | ESP32-C6FH4, 4 MB flash |
 | USB serial number / MAC | `90:64:9B:AA:64:AC` |
 | Commissioning host port | `/dev/cu.usbmodem14401` (transient macOS name) |
-| Pi service path | `/dev/serial/by-id/ho-tipper` (pending Pi-side udev verification) |
+| Pi service path | `/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00-port0` |
 | Serial speed | `115200` baud |
 
 On the Raspberry Pi, connect the board and use `udevadm info`/`udevadm test`

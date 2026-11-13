@@ -9,8 +9,8 @@ gpio_safe_start: true
 estop:
   gpio: null
   serial_controllers:
-    - {id: turntable, type: xiao_esp32_c6_turntable, port: /dev/serial/by-id/ho-turntable}
-    - {id: tipper, type: xiao_esp32_c6_tipper, port: /dev/serial/by-id/ho-tipper}
+    - {id: turntable, type: xiao_esp32_c6_turntable, port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:5C-if00-port0}
+    - {id: tipper, type: xiao_esp32_c6_tipper, port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00-port0}
   serial_baudrate: 115200
 # Final controller assignments. Ports/addresses remain commissioning
 # placeholders; hardware mode refuses to arm until the E-Stop and links are
