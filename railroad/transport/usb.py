@@ -54,6 +54,9 @@ class RegisteredController:
     def _write_estop(self) -> None:
         with self._write_lock:
             port = self.reconnect()
+            reset_input = getattr(port, "reset_input_buffer", None)
+            if reset_input is not None:
+                reset_input()
             port.write(b"ESTOP\n")
             # Controller firmware acknowledges the plain ESTOP command. Read
             # that line here so it cannot be mistaken for the next STATUS
@@ -61,7 +64,10 @@ class RegisteredController:
             # expose readline, so acknowledgement remains best-effort.
             reader = getattr(port, "readline", None)
             if reader is not None:
-                reader()
+                deadline = time.monotonic() + 0.2
+                while time.monotonic() < deadline:
+                    if reader():
+                        break
 
     def reconnect(self) -> SerialPort:
         if self.port is None:
