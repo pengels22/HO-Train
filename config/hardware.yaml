@@ -4,19 +4,16 @@ i2c:
   level_shifter_required: true
   boards: {motor_1: 0x40, motor_2: 0x41, servo: 0x42, sensors_1: 0x20, sensors_2: 0x21}
 gpio_safe_start: true
-# Physical E-Stop candidate: BCM GPIO26, physical pin 37. Wire COM to 3.3V
-# and NC to GPIO26; the input pull-down makes LOW the pressed/open-safe state.
-# This is a provisional assignment selected from the unassigned pins in the
-# master wiring map. Verify continuity, polarity, and open-circuit behavior
-# before treating the installation as commissioned.
+# No Raspberry Pi GPIO E-Stop is installed in this railroad configuration.
+# The serial controller registry remains the transport for controller-local
+# stop/watchdog handling and dispatcher stop propagation.
 estop:
-  gpio: 26
   serial_controllers:
     - {id: turntable, type: xiao_esp32_c6_turntable, port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:5C-if00}
     - {id: tipper, type: xiao_esp32_c6_tipper, port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00}
   serial_baudrate: 115200
 # Final controller assignments. Ports/addresses remain commissioning
-# placeholders; hardware mode refuses to arm until the E-Stop and links are
+# placeholders; hardware mode refuses to arm until the controller links are
 # physically validated.
 locomotive_controllers:
   - {id: 1, type: m5_atom_echo, transport: udp, address: 10.77.0.101}

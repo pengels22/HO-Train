@@ -4,14 +4,9 @@ See `config/` for the agreed provisional assignments. The controller split is:
 
 ## Raspberry Pi E-Stop
 
-| Signal | Raspberry Pi pin | Electrical assignment | Status |
-|---|---|---|---|
-| Physical E-Stop input | BCM GPIO26, physical pin 37 | NC contact to 3.3 V; internal pull-down; LOW is pressed/open-safe | Provisional; continuity and polarity must be bench-verified |
-
-GPIO26 is outside the supplied master PDF's assigned GPIO set. It is reserved
-for the physical E-Stop input and must not be reused for tipper, yard-relay,
-I2C, or serial-console wiring. Hardware startup remains disarmed until the
-E-Stop circuit is validated.
+No Raspberry Pi GPIO is assigned to a physical E-Stop. The Pi propagates
+dispatcher stop conditions to registered controllers; controller-local
+watchdogs and stop/E-Stop handling remain active.
 
 | Controller | Assignment | Pin status |
 |---|---|---|

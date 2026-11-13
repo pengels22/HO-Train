@@ -105,7 +105,6 @@ def configure_runtime(mode: str = "simulation") -> None:
         rpi_gpio = rpi_gpio_module
     if mode == "hardware":
         missing = []
-        if estop_config.get("gpio") is None: missing.append("estop.gpio")
         if not estop_config.get("serial_controllers"): missing.append("estop.serial_controllers")
         locomotive_config = hardware.get("locomotive_controllers")
         if not isinstance(locomotive_config, list) or not locomotive_config:
