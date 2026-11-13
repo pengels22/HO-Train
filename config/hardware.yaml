@@ -13,8 +13,8 @@ estop:
     - {id: tipper, type: xiao_esp32_c6_tipper, port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00}
   serial_baudrate: 115200
 # Final controller assignments. Ports/addresses remain commissioning
-# placeholders; hardware mode refuses to arm until the controller links are
-# physically validated.
+# placeholders. Each locomotive is an independent operating unit: a missing
+# or faulted M5 blocks only that locomotive, not the other three.
 locomotive_controllers:
   - {id: 1, type: m5_atom_echo, transport: udp, address: 10.77.0.101}
   - {id: 2, type: m5_atom_echo, transport: udp, address: 10.77.0.102}

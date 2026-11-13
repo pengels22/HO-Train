@@ -136,7 +136,8 @@ def configure_runtime(mode: str = "simulation") -> None:
             controller_id, port_name, connector,
             controller_type=entry.get("type", "usb_controller")))
     locomotive_ids = [int(i["id"]) for i in hardware.get("locomotive_controllers", [])]
-    HEALTH = ControllerHealthRegistry(USB_CONTROLLERS, locomotive_ids=locomotive_ids)
+    HEALTH = ControllerHealthRegistry(USB_CONTROLLERS, locomotive_ids=locomotive_ids,
+                                      independent_locomotives=True)
     DISPATCHER.attach_controller_health(HEALTH)
     DISPATCHER.simulation = False
     DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS), require_rearm=True)

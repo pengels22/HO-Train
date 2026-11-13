@@ -10,6 +10,10 @@ the explicit
 placeholder paths/addresses after wiring validation; do not substitute a XIAO
 locomotive controller or reuse an accessory port for a locomotive.
 
+The four M5 locomotives are independent operating units. Missing or unhealthy
+telemetry blocks commands to that locomotive only; it does not create a fleet
+wide presence requirement or stop the other locomotives.
+
 ## Turntable USB commissioning
 
 The dedicated turntable C6 was compiled and flashed successfully on
