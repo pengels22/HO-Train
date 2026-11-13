@@ -53,7 +53,15 @@ class RegisteredController:
 
     def _write_estop(self) -> None:
         with self._write_lock:
-            self.reconnect().write(b"ESTOP\n")
+            port = self.reconnect()
+            port.write(b"ESTOP\n")
+            # Controller firmware acknowledges the plain ESTOP command. Read
+            # that line here so it cannot be mistaken for the next STATUS
+            # response by the heartbeat thread. Older test/dummy ports may not
+            # expose readline, so acknowledgement remains best-effort.
+            reader = getattr(port, "readline", None)
+            if reader is not None:
+                reader()
 
     def reconnect(self) -> SerialPort:
         if self.port is None:
