@@ -14,7 +14,7 @@ Implement the HO railroad as an actual Raspberry Pi 4B-controlled model railway,
 - `config/yard_power.yaml` declares three relays but all outputs `unassigned`; `railroad/yard.py` understands 1A and 1B share Track 1.
 - `config/motors.yaml` maps 8 pairs to PCA9685 0x40; `config/servos.yaml` maps A-G and the tipper lock to PCA9685 0x42, plus provisional H on channel 13. Board 0x41 is reserved/spare.
 - The turntable firmware and Pi safety model now require a configured consist count and use stable reed edge events; physical pulse timing still requires bench validation.
-- `railroad/automation/tipper.py` and `firmware/tipper_esp32c6/tipper_esp32c6.ino` now provide the Pi serial boundary and dedicated C6 safety firmware; the C6 pin map and physical feedback remain unverified.
+- `railroad/automation/tipper.py` and `firmware/tipper_esp32c6/tipper_esp32c6.ino` now provide the Pi serial boundary and dedicated C6 safety firmware; the supplied C6 pin map is implemented, while physical feedback and mechanical limits remain bench-unverified.
 - `firmware/xiao_esp32c6_prototype/locomotive_esp32.ino` is an uncommissioned prototype and is not a locomotive assignment. The finalized architecture assigns `firmware/locomotive_m5_atom_echo/` to all four locomotives; dedicated XIAO ESP32-C6 boards are assigned to turntable and rotary tipper control.
 - `config/locomotives.yaml` speed calibration is null; `Dispatcher.command_motion` accepts a raw signed speed number and lacks destination-specific measured in/s caps.
 - `docs/PROJECT_STATUS.md`, `docs/CONTROLLER_DECISIONS.md`, `docs/CONFIGURATION_SOURCES.md` and README say simulation-first; rewrite truthfully after actual changes.

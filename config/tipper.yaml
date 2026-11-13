@@ -1,6 +1,5 @@
-# Dedicated XIAO ESP32-C6 rotary tipper controller.
-# All C6 pins remain intentionally unassigned until the physical harness is
-# verified. These are logical signals, not Raspberry Pi BCM numbers.
+# Dedicated XIAO ESP32-C6 rotary tipper controller. GPIOs are the validated
+# XIAO C6 assignments supplied for the dedicated tipper harness.
 controller: xiao_esp32_c6_tipper
 board: esp32:esp32:XIAO_ESP32C6
 transport: usb_serial
@@ -15,13 +14,16 @@ usb_serial:
 port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00
 speed_limit_mm_s: 25.4
 pins:
-  motor_in1: null
-  motor_in2: null
-  lock_output: null
-  decoupler_output: null
+  motor_in1: 16
+  motor_in2: 17
+  lock_in3: 19
+  lock_in4: 20
+  decoupler_output: 18
   ir_front_clear: null
   ir_back_clear: null
-  hall_back: null
-  hall_front: null
-  hall_clear: null
-  encoder: null
+  hall_back: 21
+  hall_front: 2
+  hall_clear: 22
+  encoder: 23
+  lock_direction: {unlock: forward, lock: reverse}
+  lock_duration_ms: 800
