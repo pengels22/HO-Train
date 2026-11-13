@@ -29,6 +29,7 @@ LocomotiveState state = DISARMED;
 unsigned long lastApplicableCommandMs = 0;
 unsigned long lastWifiAttemptMs = 0;
 bool udpStarted = false, communicationFault = true;
+bool wifiConnectedAnnounced = false;
 int16_t commandedSpeed = 0;
 uint8_t commandedTarget = 0;
 uint8_t irFrame[8];
@@ -133,8 +134,21 @@ void connectWifi() {
   if (WiFi.status() == WL_CONNECTED) return;
   if (millis() - lastWifiAttemptMs < 5000) return;
   lastWifiAttemptMs = millis();
+  Serial.println("WIFI_CONNECTING");
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+}
+
+void reportWifiState() {
+  const bool connected = WiFi.status() == WL_CONNECTED;
+  if (connected && !wifiConnectedAnnounced) {
+    Serial.print("WIFI_CONNECTED IP=");
+    Serial.println(WiFi.localIP());
+    wifiConnectedAnnounced = true;
+  } else if (!connected && wifiConnectedAnnounced) {
+    Serial.println("WIFI_DISCONNECTED");
+    wifiConnectedAnnounced = false;
+  }
 }
 
 void handleCommand(const uint8_t *p, size_t length) {
@@ -205,6 +219,9 @@ void sendTelemetry() {
 }
 
 void setup() {
+  Serial.begin(115200);
+  Serial.print("M5_ATOM_READY ID=");
+  Serial.println(LOCOMOTIVE_ID_VALUE);
   pinMode(MOTOR_FORWARD_PIN, OUTPUT); pinMode(MOTOR_REVERSE_PIN, OUTPUT);
   configureIrTransmitter();
   if (REARM_BUTTON_PIN >= 0) pinMode(REARM_BUTTON_PIN, INPUT_PULLUP);
@@ -215,6 +232,7 @@ void setup() {
 
 void loop() {
   connectWifi();
+  reportWifiState();
   if (WiFi.status() == WL_CONNECTED) {
     if (!udpStarted) { udp.begin(UDP_PORT); udpStarted = true; }
     const int packetSize = udp.parsePacket();
