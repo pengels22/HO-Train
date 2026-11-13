@@ -4,7 +4,7 @@
 
 | Device | Source | Current capability / limitation |
 |---|---|---|
-| Raspberry Pi 4B dispatcher | `railroad/` | Python control services and safety/route model; physical PCA9685/MCP23017/DRV8833 drivers are still stubs |
+| Raspberry Pi 4B dispatcher | `railroad/` | Hardware-first control services with validated I/O registry, optional Pi I2C backends, edge-debounced reed events, and guarded yard outputs; bench commissioning remains required |
 | Seeed XIAO ESP32-C6 locomotive | `locomotive_esp32/locomotive_esp32.ino` | UDP E-stop parser prototype; traction output is deliberately zero-only, and Wi-Fi/DRV8871/IR pins need implementation |
 | Seeed XIAO ESP32-C6 turntable | `locomotive_esp32/turntable_esp32c6.ino` | USB state machine, relay/motor controls and two reed inputs; currently hardcodes four magnets and 250 ms lockout; requires changes and compile/bench tests |
 | M5 Atom Echo alternative locomotive | `locomotive_m5_atom_echo/locomotive_m5_atom_echo.ino` | Older hardware path; keep as legacy, do not use as primary locomotive design |

@@ -2,7 +2,7 @@
 
 The master wiring document is **HO_Railroad_Complete_Wiring_and_Pinout.pdf** (two landscape vector pages), generated from the HO layout electrical design.
 
-**Current status:** The attached PDF is not yet checked in. It must be copied into this directory from the owner's downloaded copy; do not commit a placeholder file under a .pdf extension.
+**Current status:** The owner-supplied two-page PDF is checked in at `HO_Railroad_Complete_Wiring_and_Pinout.pdf`. It remains a design drawing, not proof of functional or safe electrical commissioning.
 
 Source document notes:
 - A–G is the agreed seven-powered-turnout plan; repository currently includes an unverified H/turntable spur and must reconcile that difference.

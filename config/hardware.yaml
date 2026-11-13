@@ -13,3 +13,39 @@ estop:
 # Explicit commissioning list.  Keep empty in the safe simulation template;
 # normal hardware mode refuses to initialize until the operator supplies IDs.
 locomotive_controllers: []
+# Declarative inventory used for validation and SETTINGS display. This list is
+# safe to load on macOS; it does not open a bus or write an output.
+reserved_bcm_pins: [2, 3, 14, 15]
+io_registry:
+  - {board: mcp23017_0x20, address: 0x20, channel: GPA0, device_type: mcp23017, function: turnout_A_1, location: turnout A, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPA1, device_type: mcp23017, function: turnout_A_2, location: turnout A, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPA2, device_type: mcp23017, function: turnout_A_3, location: turnout A, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPA3, device_type: mcp23017, function: turnout_B_1, location: turnout B, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPA4, device_type: mcp23017, function: turnout_B_2, location: turnout B, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPA5, device_type: mcp23017, function: turnout_B_3, location: turnout B, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPA6, device_type: mcp23017, function: turnout_C_1, location: turnout C, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPA7, device_type: mcp23017, function: turnout_C_2, location: turnout C, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPB0, device_type: mcp23017, function: turnout_C_3, location: turnout C, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPB1, device_type: mcp23017, function: turnout_D_1, location: turnout D, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPB2, device_type: mcp23017, function: turnout_D_2, location: turnout D, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPB3, device_type: mcp23017, function: turnout_D_3, location: turnout D, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPB4, device_type: mcp23017, function: turnout_E_1, location: turnout E, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPB5, device_type: mcp23017, function: turnout_E_2, location: turnout E, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPB6, device_type: mcp23017, function: turnout_E_3, location: turnout E, direction: input, polarity: active_low}
+  - {board: mcp23017_0x20, address: 0x20, channel: GPB7, device_type: mcp23017, function: spare_20_GPB7, location: spare, direction: input, polarity: active_low, spare: true}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPA0, device_type: mcp23017, function: turnout_F_1, location: turnout F, direction: input, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPA1, device_type: mcp23017, function: turnout_F_2, location: turnout F, direction: input, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPA2, device_type: mcp23017, function: turnout_F_3, location: turnout F, direction: input, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPA3, device_type: mcp23017, function: turnout_G_1, location: turnout G, direction: input, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPA4, device_type: mcp23017, function: turnout_G_2, location: turnout G, direction: input, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPA5, device_type: mcp23017, function: turnout_G_3, location: turnout G, direction: input, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPA6, device_type: mcp23017, function: mine_loading, location: mine, direction: input, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPA7, device_type: mcp23017, function: farm_loading, location: farm, direction: input, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB0, device_type: mcp23017, function: ski_lodge, location: ski, direction: input, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB1, device_type: mcp23017, function: town, location: town, direction: input, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB2, device_type: mcp23017, function: spare_21_GPB2, location: spare, direction: input, polarity: active_low, spare: true}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB3, device_type: mcp23017, function: spare_21_GPB3, location: spare, direction: input, polarity: active_low, spare: true}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB4, device_type: mcp23017, function: spare_21_GPB4, location: spare, direction: input, polarity: active_low, spare: true}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB5, device_type: mcp23017, function: spare_21_GPB5, location: spare, direction: input, polarity: active_low, spare: true}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB6, device_type: mcp23017, function: spare_21_GPB6, location: spare, direction: input, polarity: active_low, spare: true}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB7, device_type: mcp23017, function: spare_21_GPB7, location: spare, direction: input, polarity: active_low, spare: true}

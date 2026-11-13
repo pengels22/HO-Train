@@ -13,6 +13,7 @@ from railroad.transport.estop import create_bench_sender
 from railroad.transport.usb import ControllerRegistry, RegisteredController, pyserial_connector
 from railroad.transport.telemetry import ControllerHealthRegistry
 from railroad.hardware.gpio import GPIO
+from railroad.hardware.registry import HardwareRegistry
 from railroad.safety.emergency_stop import EmergencyStop as PhysicalEmergencyStop
 
 DISPATCHER = Dispatcher()
@@ -93,6 +94,7 @@ def configure_runtime(mode: str = "simulation") -> None:
     # disarmed until an operator performs the rearm sequence.
     import yaml
     hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
+    HardwareRegistry.from_config(hardware).require_valid()
     estop_config = hardware.get("estop", {}) or {}
     if mode == "hardware":
         missing = []
@@ -109,8 +111,8 @@ def configure_runtime(mode: str = "simulation") -> None:
         for entry in locomotive_config:
             if not isinstance(entry, dict) or type(entry.get("id")) is not int:
                 raise RuntimeError("locomotive_controllers entries require integer id and type")
-            if entry.get("type") != "m5_atom_echo":
-                raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}")
+            if entry.get("type") not in {"xiao_esp32_c6", "m5_atom_echo"}:
+                raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}; use xiao_esp32_c6 (m5_atom_echo is legacy)")
             ids.append(entry["id"])
         if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
             raise RuntimeError("invalid or inconsistent locomotive_controllers IDs")
@@ -224,12 +226,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             locomotives = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
             wifi = locomotives.get("wifi", {})
             io = [{"device": "Raspberry Pi GPIO", "io": "unassigned", "location": "Raspberry Pi", "function": "general-purpose I/O", "polarity": "n/a", "status": "reserved"}]
+            registry = HardwareRegistry.from_config(hardware)
+            io = [{"device": entry.device_type, "io": f"{entry.board}:{entry.channel}",
+                   "address": entry.address, "location": entry.location,
+                   "function": entry.function, "direction": entry.direction,
+                   "polarity": entry.polarity,
+                   "status": "spare" if entry.spare else ("active" if entry.active else "reserved")}
+                  for entry in registry.entries]
             for board, address in (hardware.get("i2c", {}).get("boards", {}) or {}).items():
                 device = "MCP23017" if board.startswith("sensors") else ("PCA9685" if board in {"motor_1", "motor_2", "servo"} else "I2C / " + board)
                 io.append({"device": device, "io": hex(address) if isinstance(address, int) else str(address), "location": "Raspberry Pi I2C", "function": board, "polarity": "n/a", "status": "configured"})
             for receiver in ir.get("receivers", []):
                 io.append({"device": "Arduino Nano", "io": receiver.get("pin", "unassigned"), "location": ", ".join(receiver.get("zones", [])) or "Yard", "function": receiver.get("description", "IR receiver"), "polarity": "active_high", "status": "configured"})
-            body = json.dumps({"io": io, "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": "3 physical sections (1A + 1B share Track 1)"}}).encode()
+            body = json.dumps({"io": io, "registry_errors": registry.validate(), "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": "3 physical sections (1A + 1B share Track 1)"}}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/geography":
             body = json.dumps(load_geography(ROOT)).encode()

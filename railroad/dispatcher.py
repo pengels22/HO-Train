@@ -1,4 +1,4 @@
-"""Simulation-first dispatcher and interlocks. No physical actuator writes."""
+"""Dispatcher and interlocks shared by simulation and Raspberry Pi hardware."""
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
@@ -11,6 +11,8 @@ STALLS = ("1A", "1B", "2", "3")
 TURNOUT_DEFAULTS = {"A":"diverging", "B":"straight", "C":"straight", "D":"straight", "E":"straight", "F":"straight", "G":"straight", "H":"straight"}
 TIPPER_LOCKED = frozenset(("MAIN-3", "UND-1"))
 DESTINATIONS = ("Mine", "Farm", "Ski", "Town", "Tipper", "Yard")
+SLOW_DESTINATIONS = frozenset(("Tipper", "Turntable"))
+MAX_SLOW_DESTINATION_MM_S = 25.4
 
 class SafetyError(RuntimeError):
     pass
@@ -62,6 +64,9 @@ class Dispatcher:
     motion_stops: list[Callable[[], None]] = field(default_factory=list, repr=False)
     accessory_errors: dict[str, str] = field(default_factory=dict, repr=False)
     controller_health: object | None = field(default=None, repr=False)
+    # Calibrated physical velocity at full command, per locomotive. None means
+    # the locomotive is not authorized for automatic slow-destination motion.
+    speed_mm_s_at_255: dict[int, float | None] = field(default_factory=dict, repr=False)
     _rearm_required: bool = field(default=False, repr=False)
     lock: RLock = field(default_factory=RLock, repr=False)
 
@@ -218,9 +223,27 @@ class Dispatcher:
             self.assert_motion_allowed()
             if train_id not in self.trains:
                 raise KeyError(train_id)
+            self._enforce_destination_speed(train_id, speed)
             if self.estop_controller:
                 self.estop_controller.send_motion(train_id, speed)
             self.trains[train_id].velocity = int(speed)
+
+    def set_speed_calibration(self, train_id: int, mm_s_at_255: float | None) -> None:
+        """Set measured full-command speed; null deliberately disables unknown hardware."""
+        if mm_s_at_255 is not None and mm_s_at_255 <= 0:
+            raise ValueError("calibrated speed must be positive")
+        self.speed_mm_s_at_255[train_id] = mm_s_at_255
+
+    def _enforce_destination_speed(self, train_id: int, speed: int) -> None:
+        destination = self.trains[train_id].destination
+        if destination not in SLOW_DESTINATIONS or speed == 0:
+            return
+        calibrated = self.speed_mm_s_at_255.get(train_id)
+        if calibrated is None:
+            raise SafetyError(f"train {train_id} has no calibrated speed for {destination}")
+        measured = abs(speed) / 255 * calibrated
+        if measured > MAX_SLOW_DESTINATION_MM_S + 1e-9:
+            raise SafetyError(f"{destination} approach exceeds {MAX_SLOW_DESTINATION_MM_S} mm/s")
 
     def assert_motion_allowed(self) -> None:
         if self.global_stop or self._rearm_required:

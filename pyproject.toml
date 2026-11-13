@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ho-railroad-control"
 version = "0.1.0"
-description = "Simulation-first control foundation for an HO-scale railroad"
+description = "Raspberry Pi hardware-first control foundation for an HO-scale railroad"
 requires-python = ">=3.11"
 dependencies = ["PyYAML>=6.0"]
 

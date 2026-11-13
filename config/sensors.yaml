@@ -1,5 +1,11 @@
 polarity: active_low
-debounce_ms: 250
+debounce_ms: 15
+count_mode: closed_open_cycle
+# Contact debounce is deliberately separate from train pulse/clear timing.
 mcp23017:
-  "0x20": {GPA0: turnout_A_1, GPA1: turnout_A_2, GPA2: turnout_A_3, GPA3: turnout_B_1, GPA4: turnout_B_2, GPA5: turnout_B_3, GPA6: turnout_C_1, GPA7: turnout_C_2, GPB0: turnout_C_3, GPB1: turnout_D_1, GPB2: turnout_D_2, GPB3: turnout_D_3, GPB4: turnout_E_1, GPB5: turnout_E_2, GPB6: turnout_E_3}
-  "0x21": {GPA0: turnout_F_1, GPA1: turnout_F_2, GPA2: turnout_F_3, GPA3: turnout_G_1, GPA4: turnout_G_2, GPA5: turnout_G_3, GPA6: mine_loading, GPA7: farm_loading, GPB0: ski_lodge, GPB1: town, GPB2: turnout_H_common, GPB3: turnout_H_straight, GPB4: turnout_H_diverging}
+  "0x20": {GPA0: turnout_A_1, GPA1: turnout_A_2, GPA2: turnout_A_3, GPA3: turnout_B_1, GPA4: turnout_B_2, GPA5: turnout_B_3, GPA6: turnout_C_1, GPA7: turnout_C_2, GPB0: turnout_C_3, GPB1: turnout_D_1, GPB2: turnout_D_2, GPB3: turnout_D_3, GPB4: turnout_E_1, GPB5: turnout_E_2, GPB6: turnout_E_3, GPB7: spare_20_GPB7}
+  "0x21": {GPA0: turnout_F_1, GPA1: turnout_F_2, GPA2: turnout_F_3, GPA3: turnout_G_1, GPA4: turnout_G_2, GPA5: turnout_G_3, GPA6: mine_loading, GPA7: farm_loading, GPB0: ski_lodge, GPB1: town, GPB2: spare_21_GPB2, GPB3: spare_21_GPB3, GPB4: spare_21_GPB4, GPB5: spare_21_GPB5, GPB6: spare_21_GPB6, GPB7: spare_21_GPB7}
+
+# H remains in the legacy route/turntable model; it is intentionally absent
+# from the confirmed seven-powered-turnout hardware roster.
+topology_reconciliation: {confirmed_turnouts: [A, B, C, D, E, F, G], legacy_turnout: H, status: unresolved}
