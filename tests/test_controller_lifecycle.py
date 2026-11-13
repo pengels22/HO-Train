@@ -16,7 +16,7 @@ def four_pulses(controller, entry=True):
 
 def test_complete_loaded_turntable_lifecycle():
     table = TurntableController("HOME")
-    table.authorize_entry(track_power=True, train_stopped=True)
+    table.authorize_entry(track_power=True, train_stopped=True, consist_count=4)
     assert table.state == TurntableState.TRAIN_ENTERING
     four_pulses(table)
     table.confirm_loaded(train_stopped=True, clearance_verified=True, now=2.0)
@@ -33,7 +33,7 @@ def test_complete_loaded_turntable_lifecycle():
 
 def test_turntable_estop_interruption_never_resumes_automatically():
     table = TurntableController("ROTATED")
-    table.authorize_entry(track_power=True, train_stopped=True)
+    table.authorize_entry(track_power=True, train_stopped=True, consist_count=4)
     table.emergency_stop()
     assert table.state == TurntableState.FAULT and not table.track_power
     with pytest.raises(RuntimeError): table.begin_rotation()

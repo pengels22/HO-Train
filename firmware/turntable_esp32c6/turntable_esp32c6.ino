@@ -9,7 +9,7 @@
 
 constexpr uint8_t ALL_TRAINS = 0xFF, ESTOP_FLAG = 0x80, VERSION = 1;
 constexpr unsigned long WATCHDOG_MS = 500, ROTATION_TIMEOUT_MS = 30000;
-constexpr unsigned long PULSE_LOCKOUT_MS = 250, PULSE_COOLDOWN_MS = 500;
+constexpr unsigned long REED_DEBOUNCE_MS = 15, PULSE_COOLDOWN_MS = 500;
 constexpr uint16_t UDP_PORT = 4210;
 constexpr int HOME_SWITCH = D0, ROTATED_SWITCH = D1, MOTOR_IN1 = D2, MOTOR_IN2 = D3;
 constexpr int POLARITY_RELAY = D4, TRACK_POWER_RELAY = D5, REED_END_A = D6, REED_END_B = D7;
@@ -20,8 +20,10 @@ TurntableState state = FAULT;
 bool estopLatched = false, communicationFault = true, trackPowerEnabled = false;
 bool reedAActive = false, reedBActive = false;
 bool stationaryConfirmed = false, gapClearanceConfirmed = false;
-uint8_t countA = 0, countB = 0;
-unsigned long lastPulseA = 0, lastPulseB = 0, cooldownA = 0, cooldownB = 0;
+uint8_t countA = 0, countB = 0, expectedVehicles = 0;
+unsigned long cooldownA = 0, cooldownB = 0;
+bool reedARaw = false, reedBRaw = false, reedACandidate = false, reedBCandidate = false;
+unsigned long reedACandidateSince = 0, reedBCandidateSince = 0, reedAClosedSince = 0, reedBClosedSince = 0;
 unsigned long lastValidPacketMs = 0, lastControlMs = 0, rotationDeadline = 0;
 int rotationDirection = 1;
 bool nextForward = true;
@@ -69,6 +71,7 @@ void reportStatus() {
   Serial.print(",\"track_power\":"); Serial.print(trackPowerEnabled ? "true" : "false");
   Serial.print(",\"fault\":\""); Serial.print(faultText);
   Serial.print("\",\"count_a\":"); Serial.print(countA); Serial.print(",\"count_b\":"); Serial.print(countB);
+  Serial.print(",\"expected_vehicles\":"); Serial.print(expectedVehicles);
   Serial.println("}");
   responseTransaction = "";
 }
@@ -86,6 +89,17 @@ bool jsonBool(const String &line, const char *name) {
   String marker = String("\"") + name + "\":";
   int start = line.indexOf(marker);
   return start >= 0 && line.substring(start + marker.length()).startsWith("true");
+}
+
+int jsonInt(const String &line, const char *name) {
+  String marker = String("\"") + name + "\":";
+  int start = line.indexOf(marker);
+  if (start < 0) return -1;
+  start += marker.length();
+  int end = start;
+  while (end < line.length() && line[end] >= '0' && line[end] <= '9') ++end;
+  if (end == start) return -1;
+  return line.substring(start, end).toInt();
 }
 
 bool validTransaction(const String &transaction) {
@@ -121,19 +135,32 @@ bool jsonLooksComplete(const String &line) {
   return depth == 0 && !quoted && !escaped;
 }
 
-void resetCounts() { countA = countB = 0; lastPulseA = lastPulseB = cooldownA = cooldownB = 0; reedAActive = reedBActive = false; stationaryConfirmed = gapClearanceConfirmed = false; }
+void resetCounts() {
+  countA = countB = 0; cooldownA = cooldownB = 0;
+  reedAActive = reedBActive = reedARaw = reedBRaw = false;
+  reedACandidate = reedBCandidate = false;
+  reedACandidateSince = reedBCandidateSince = reedAClosedSince = reedBClosedSince = 0;
+  stationaryConfirmed = gapClearanceConfirmed = false;
+}
 
-void countReed(bool endA, bool active, unsigned long now) {
-  bool &previous = endA ? reedAActive : reedBActive;
-  unsigned long &last = endA ? lastPulseA : lastPulseB;
+void countReed(bool endA, bool rawActive, unsigned long now) {
+  bool &raw = endA ? reedARaw : reedBRaw;
+  bool &candidate = endA ? reedACandidate : reedBCandidate;
+  unsigned long &candidateSince = endA ? reedACandidateSince : reedBCandidateSince;
+  unsigned long &closedSince = endA ? reedAClosedSince : reedBClosedSince;
+  bool &stable = endA ? reedAActive : reedBActive;
   unsigned long &cooldown = endA ? cooldownA : cooldownB;
   uint8_t &count = endA ? countA : countB;
-  if (!active) { if (previous && count == 4) cooldown = now + PULSE_COOLDOWN_MS; previous = false; return; }
-  if (previous) return;
-  previous = true;
-  if (now < cooldown || (last && now - last < PULSE_LOCKOUT_MS)) return;
-  if (count >= 4) { faultText = "extra_reed_pulse"; stopTurntableMotor(true); return; }
-  last = now; ++count;
+  if (rawActive != raw) { raw = rawActive; candidate = rawActive; candidateSince = now; }
+  if (candidate == stable || now - candidateSince < REED_DEBOUNCE_MS) return;
+  stable = candidate;
+  if (stable) { closedSince = now; return; }
+  // A vehicle counts only after a complete stable CLOSED -> OPEN cycle.
+  if (closedSince == 0 || expectedVehicles == 0) return;
+  closedSince = 0;
+  if (count >= expectedVehicles) { faultText = "extra_reed_pulse"; stopTurntableMotor(true); return; }
+  ++count;
+  if (count == expectedVehicles) cooldown = now + PULSE_COOLDOWN_MS;
 }
 
 bool safeAlignment() { return strcmp(alignmentName(), "INVALID") != 0; }
@@ -156,6 +183,8 @@ void handleSerialLine(String line) {
   if (isJson) {
     stationaryConfirmed = jsonBool(line, "train_stopped");
     gapClearanceConfirmed = jsonBool(line, "gap_clear");
+    int requestedVehicles = jsonInt(line, "consist_count");
+    if (requestedVehicles > 0) expectedVehicles = requestedVehicles;
     responseTransaction = jsonField(line, "transaction");
     line = jsonField(line, "command");
     if (line.length() == 0 || (stateChanging(line) && !validTransaction(responseTransaction))) {
@@ -176,17 +205,17 @@ void handleSerialLine(String line) {
   if (line == "REARM AUTH") {
     if (communicationFault || !safeAlignment() || trackPowerEnabled || state == TURNING ||
         (strcmp(faultText, "") != 0 && strcmp(faultText, "estop") != 0 && strcmp(faultText, "startup_disarmed") != 0)) { Serial.println("ERR REARM interlock"); return; }
-    lastStateTransaction = responseTransaction; estopLatched = false; faultText = ""; resetCounts(); state = EMPTY_READY; reportStatus(); return;
+    lastStateTransaction = responseTransaction; estopLatched = false; faultText = ""; expectedVehicles = 0; resetCounts(); state = EMPTY_READY; reportStatus(); return;
   }
   if (line == "REARM") { Serial.println("ERR REARM_AUTH_REQUIRED"); return; }
   if (line == "ENTRY AUTH") {
-    if (estopLatched || communicationFault || state != EMPTY_READY || !safeAlignment()) { Serial.println("ERR ENTRY interlock"); return; }
+    if (estopLatched || communicationFault || state != EMPTY_READY || !safeAlignment() || expectedVehicles == 0 || expectedVehicles > 32) { Serial.println("ERR ENTRY interlock"); return; }
     resetCounts(); trackPowerEnabled = true; digitalWrite(TRACK_POWER_RELAY, HIGH); state = TRAIN_ENTERING; Serial.println("OK ENTRY"); return;
   }
   if (line == "CLEARANCE") {
     const uint8_t count = strcmp(alignmentName(), "HOME") == 0 ? countA : countB;
     const unsigned long cooldown = strcmp(alignmentName(), "HOME") == 0 ? cooldownA : cooldownB;
-    if (state != TRAIN_ENTERING || count != 4 || reedAActive || reedBActive || millis() < cooldown || !stationaryConfirmed || !gapClearanceConfirmed) { Serial.println("ERR CLEARANCE interlock"); return; }
+    if (state != TRAIN_ENTERING || count != expectedVehicles || reedAActive || reedBActive || millis() < cooldown || !stationaryConfirmed || !gapClearanceConfirmed) { Serial.println("ERR CLEARANCE interlock"); return; }
     stopTurntableMotor(false); state = TRAIN_LOADED; Serial.println("OK LOADED"); return;
   }
   if (line == "POLARITY NORMAL" || line == "POLARITY REVERSED") {
@@ -200,7 +229,7 @@ void handleSerialLine(String line) {
   if (line == "EXIT COMPLETE") {
     const uint8_t count = strcmp(alignmentName(), "HOME") == 0 ? countB : countA;
     const unsigned long cooldown = strcmp(alignmentName(), "HOME") == 0 ? cooldownB : cooldownA;
-    if (state != TRAIN_EXITING || count != 4 || reedAActive || reedBActive || millis() < cooldown || !stationaryConfirmed || !gapClearanceConfirmed) { Serial.println("ERR EXIT interlock"); return; }
+    if (state != TRAIN_EXITING || count != expectedVehicles || reedAActive || reedBActive || millis() < cooldown || !stationaryConfirmed || !gapClearanceConfirmed) { Serial.println("ERR EXIT interlock"); return; }
     stopTurntableMotor(false); resetCounts(); polaritySelected = false; state = EMPTY_READY; Serial.println("OK EMPTY"); return;
   }
   if (line == "TURN") { beginTurn(); return; }

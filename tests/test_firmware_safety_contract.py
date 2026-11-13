@@ -14,7 +14,7 @@ def test_m5_rearm_has_random_boot_session_and_independent_telemetry_sequence():
 
 
 def test_turntable_serial_parser_is_bounded_and_preserves_plain_estop():
-    source = (ROOT / "firmware/locomotive_esp32/turntable_esp32c6.ino").read_text()
+    source = (ROOT / "firmware/turntable_esp32c6/turntable_esp32c6.ino").read_text()
     assert "MAX_SERIAL_LINE = 192" in source
     assert "serialOverflow" in source
     assert "line_too_long" in source

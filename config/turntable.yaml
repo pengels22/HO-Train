@@ -1,5 +1,6 @@
-# Simulated operating rules for the turntable at UND-4.
-# Actual motor stop control, travel-time calibration and interlocks remain to be implemented.
+# Operating rules for the dedicated XIAO ESP32-C6 turntable controller.
+# The consist count is supplied per entry authorization; no fixed vehicle count
+# is safe because locomotives and consists vary.
 mode: simulation
 approach_section: UND-4
 access_turnout: H
@@ -20,7 +21,7 @@ pins:
   reed_end_a: D6
   reed_end_b: D7
 switch_polarity: active_low
-vehicle_magnets: 4
-pulse_lockout_ms: 250
+vehicle_magnets: configured_consist_count
+reed_debounce_ms: 15
 post_train_cooldown_ms: 500
 require_stationary_clearance: true

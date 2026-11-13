@@ -10,7 +10,7 @@ ZONES = tuple(f"{line}-{n}" for line in ("SKI", "FARM", "UND", "MINE", "MAIN") f
 STALLS = ("1A", "1B", "2", "3")
 TURNOUT_DEFAULTS = {"A":"diverging", "B":"straight", "C":"straight", "D":"straight", "E":"straight", "F":"straight", "G":"straight", "H":"straight"}
 TIPPER_LOCKED = frozenset(("MAIN-3", "UND-1"))
-DESTINATIONS = ("Mine", "Farm", "Ski", "Town", "Tipper", "Yard")
+DESTINATIONS = ("Mine", "Farm", "Ski", "Town", "Tipper", "Turntable", "Yard")
 SLOW_DESTINATIONS = frozenset(("Tipper", "Turntable"))
 MAX_SLOW_DESTINATION_MM_S = 25.4
 

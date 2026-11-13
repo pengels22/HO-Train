@@ -27,13 +27,14 @@ class TipperSerialController:
         if port is not None: self.port = port
         self.communication_fault = False
 
-    def command(self, name: str) -> str:
-        if name not in {"ESTOP", "STOP", "STATUS", "REARM"}:
+    def command(self, name: str, **fields) -> str:
+        if name not in {"ESTOP", "STOP", "STATUS", "REARM", "LOCK", "UNLOCK",
+                        "DECOUPLER OFF", "ROTATE CW", "ROTATE CCW", "HOME"}:
             raise ValueError("unsupported tipper command")
         if self.communication_fault and name != "ESTOP":
             raise RuntimeError("tipper communication fault requires reconnection")
         transaction = f"tipper-{next(self._transactions)}"
-        future = self._executor.submit(self._exchange, name, transaction)
+        future = self._executor.submit(self._exchange, name, transaction, fields)
         try:
             reply = future.result(timeout=self.response_timeout_s)
         except TimeoutError as exc:
@@ -49,8 +50,9 @@ class TipperSerialController:
                 raise RuntimeError("stale tipper transaction response")
         return reply
 
-    def _exchange(self, name: str, transaction: str) -> str:
-        self.port.write((json.dumps({"controller": "tipper", "command": name, "transaction": transaction}, separators=(",", ":")) + "\n").encode("ascii"))
+    def _exchange(self, name: str, transaction: str, fields: dict) -> str:
+        payload = {"controller": "tipper", "command": name, "transaction": transaction, **fields}
+        self.port.write((json.dumps(payload, separators=(",", ":")) + "\n").encode("ascii"))
         return self.port.readline().decode("ascii", errors="replace").strip()
 
     def close(self) -> None:
@@ -72,6 +74,12 @@ class TipperSerialController:
         response = self.command("REARM")
         if not response.startswith("OK"):
             raise RuntimeError("tipper controller rejected REARM: " + response)
+
+    def lock(self) -> str: return self.command("LOCK")
+    def unlock(self) -> str: return self.command("UNLOCK")
+    def home(self) -> str: return self.command("HOME")
+    def rotate(self, clockwise: bool) -> str:
+        return self.command("ROTATE CW" if clockwise else "ROTATE CCW")
 
 class SafeTipperAdapter:
     """Hardware boundary; no GPIO, serial, or board assumptions are made."""

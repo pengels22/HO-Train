@@ -8,7 +8,10 @@
 #include <WiFiUdp.h>
 #include <esp_system.h>
 
-constexpr uint8_t LOCOMOTIVE_ID = 1;
+#ifndef LOCOMOTIVE_ID
+#define LOCOMOTIVE_ID 1
+#endif
+constexpr uint8_t LOCOMOTIVE_ID_VALUE = LOCOMOTIVE_ID;
 constexpr uint8_t ALL_TRAINS = 0xFF;
 constexpr uint8_t ESTOP_FLAG = 0x80;
 constexpr uint8_t REARM_FLAG = 0x40;
@@ -25,7 +28,7 @@ enum LocomotiveState { DISARMED, ARMED, ESTOP_LATCHED, COMMUNICATION_FAULT };
 LocomotiveState state = DISARMED;
 unsigned long lastApplicableCommandMs = 0;
 unsigned long lastWifiAttemptMs = 0;
-bool udpStarted = false;
+bool udpStarted = false, communicationFault = true;
 int16_t commandedSpeed = 0;
 uint8_t commandedTarget = 0;
 uint8_t irFrame[8];
@@ -94,7 +97,7 @@ uint8_t crc8(const uint8_t *data, size_t length) {
 
 void beginIrFrame() {
   // HR, version, locomotive ID, direction/status, destination, magnitude, CRC.
-  irFrame[0] = 'H'; irFrame[1] = 'R'; irFrame[2] = VERSION; irFrame[3] = LOCOMOTIVE_ID;
+  irFrame[0] = 'H'; irFrame[1] = 'R'; irFrame[2] = VERSION; irFrame[3] = LOCOMOTIVE_ID_VALUE;
   irFrame[4] = commandedSpeed < 0 ? 0x01 : 0x00;
   irFrame[5] = commandedTarget;
   irFrame[6] = uint8_t(constrain(abs(int(commandedSpeed)), 0, 255));
@@ -142,16 +145,17 @@ void handleCommand(const uint8_t *p, size_t length) {
   const int16_t speed = int16_t(uint16_t(p[6]) | uint16_t(p[7]) << 8);
   commandedTarget = p[8];
   if (trainId == ALL_TRAINS && (p[9] & ESTOP_FLAG)) {
-    state = ESTOP_LATCHED; setMotorSpeed(0); return;
+    communicationFault = false; state = ESTOP_LATCHED; setMotorSpeed(0); return;
   }
   if (trainId == ALL_TRAINS && (p[9] & REARM_FLAG) && speed == 0) {
     // This packet is the explicit dispatcher handshake. A normal zero speed
     // packet never changes either latch.
-    state = ARMED; setMotorSpeed(0); lastApplicableCommandMs = millis(); return;
+    communicationFault = false; state = ARMED; setMotorSpeed(0); lastApplicableCommandMs = millis(); return;
   }
-  if (trainId != LOCOMOTIVE_ID) return;
+  if (trainId != LOCOMOTIVE_ID_VALUE) return;
   lastAcceptedSequence = sequence;
   lastApplicableCommandMs = millis();
+  communicationFault = false;
   if (state != ARMED) {
     setMotorSpeed(0);
     return;
@@ -187,7 +191,7 @@ void sendTelemetry() {
   if (WiFi.status() != WL_CONNECTED || millis() - lastTelemetryMs < 100) return;
   lastTelemetryMs = millis();
   const char *stateName = state == ARMED ? "ARMED" : state == ESTOP_LATCHED ? "ESTOP_LATCHED" : state == COMMUNICATION_FAULT ? "COMMUNICATION_FAULT" : "DISARMED";
-  String body = String("HT{\"version\":1,\"id\":") + LOCOMOTIVE_ID +
+  String body = String("HT{\"version\":1,\"id\":") + LOCOMOTIVE_ID_VALUE +
     ",\"state\":\"" + stateName + "\",\"estop\":" + (state == ESTOP_LATCHED ? "true" : "false") +
     ",\"communication_fault\":" + (state == COMMUNICATION_FAULT ? "true" : "false") +
     ",\"armed\":" + (state == ARMED ? "true" : "false") + ",\"speed\":" + commandedSpeed +
@@ -218,11 +222,11 @@ void loop() {
   } else if (udpStarted) {
     udp.stop();
     udpStarted = false;
-    state = COMMUNICATION_FAULT;
+    communicationFault = true; state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   if (lastApplicableCommandMs == 0 || millis() - lastApplicableCommandMs > WATCHDOG_MS) {
-    state = COMMUNICATION_FAULT;
+    communicationFault = true; state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   serviceIrTransmission();
