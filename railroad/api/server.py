@@ -161,6 +161,9 @@ def configure_runtime(mode: str = "simulation") -> None:
 class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
+        if self.path == "/api/control":
+            self._control_command()
+            return
         if self.path == "/api/simulation":
             self._simulation_command()
             return
@@ -378,6 +381,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 SIMULATION.dispatch(int(payload["train_id"]), payload["path_id"], target_speed_mm_s=payload.get("target_speed_mm_s"), profile=profile, consist=consist)
             else: raise ValueError("unknown simulation action")
             self._json_response({"ok": True, "simulation": SIMULATION.snapshot()})
+        except (KeyError, TypeError, ValueError, RuntimeError, SafetyError) as exc:
+            self._json_response({"ok": False, "error": str(exc)}, 400)
+
+    def _control_command(self):
+        """Explicit hardware dispatcher controls; no motion command endpoint."""
+        try:
+            action = self._json_body().get("action")
+            if action == "global_stop":
+                DISPATCHER.stop_all("operator global stop")
+            elif action == "clear_stop":
+                DISPATCHER.clear_stop()
+            elif action == "rearm":
+                DISPATCHER.rearm()
+            else:
+                raise ValueError("unknown control action")
+            self._json_response({"ok": True, "action": action, "status": DISPATCHER.snapshot()})
         except (KeyError, TypeError, ValueError, RuntimeError, SafetyError) as exc:
             self._json_response({"ok": False, "error": str(exc)}, 400)
 
