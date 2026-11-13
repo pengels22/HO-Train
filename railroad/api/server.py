@@ -96,6 +96,13 @@ def configure_runtime(mode: str = "simulation") -> None:
     hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
     HardwareRegistry.from_config(hardware).require_valid()
     estop_config = hardware.get("estop", {}) or {}
+    rpi_gpio = None
+    if estop_config.get("gpio") is not None:
+        try:
+            import RPi.GPIO as rpi_gpio_module
+        except ImportError as exc:
+            raise RuntimeError("hardware safety configuration incomplete: RPi.GPIO unavailable") from exc
+        rpi_gpio = rpi_gpio_module
     if mode == "hardware":
         missing = []
         if estop_config.get("gpio") is None: missing.append("estop.gpio")
@@ -141,7 +148,6 @@ def configure_runtime(mode: str = "simulation") -> None:
     if pin is not None:
         # The backend is intentionally imported only for an explicit hardware
         # run with a configured pin; simulation never touches GPIO.
-        import RPi.GPIO as rpi_gpio
         class _RPiBackend:
             def setup_input(self, pin, *, pull_down):
                 rpi_gpio.setmode(rpi_gpio.BCM)
