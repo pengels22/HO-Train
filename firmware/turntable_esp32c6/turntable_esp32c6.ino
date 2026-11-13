@@ -7,6 +7,13 @@
 #include <Arduino.h>
 #include <WiFiUdp.h>
 
+#ifndef ENABLE_TURNTABLE_UDP
+// USB serial is the primary controller link. Starting a UDP socket before a
+// network interface exists crashes the ESP32-C6 lwIP task, so UDP remains an
+// explicit, deployment-time opt-in after Wi-Fi initialization is provided.
+#define ENABLE_TURNTABLE_UDP 0
+#endif
+
 constexpr uint8_t ALL_TRAINS = 0xFF, ESTOP_FLAG = 0x80, VERSION = 1;
 constexpr unsigned long WATCHDOG_MS = 500, ROTATION_TIMEOUT_MS = 30000;
 constexpr unsigned long REED_DEBOUNCE_MS = 15, PULSE_COOLDOWN_MS = 500;
@@ -260,12 +267,17 @@ void handleUdpPacket(const uint8_t *p, size_t length) {
 void setup() {
   pinMode(HOME_SWITCH, INPUT_PULLUP); pinMode(ROTATED_SWITCH, INPUT_PULLUP); pinMode(REED_END_A, INPUT_PULLUP); pinMode(REED_END_B, INPUT_PULLUP);
   pinMode(MOTOR_IN1, OUTPUT); pinMode(MOTOR_IN2, OUTPUT); pinMode(POLARITY_RELAY, OUTPUT); pinMode(TRACK_POWER_RELAY, OUTPUT);
-  digitalWrite(POLARITY_RELAY, LOW); Serial.begin(115200); stopTurntableMotor(true); resetCounts(); udp.begin(UDP_PORT);
+  digitalWrite(POLARITY_RELAY, LOW); Serial.begin(115200); stopTurntableMotor(true); resetCounts();
+#if ENABLE_TURNTABLE_UDP
+  udp.begin(UDP_PORT);
+#endif
 }
 
 void loop() {
   const unsigned long now = millis(); handleSerial();
+#if ENABLE_TURNTABLE_UDP
   int packetSize = udp.parsePacket(); if (packetSize > 0 && packetSize <= 64) { uint8_t p[64]; handleUdpPacket(p, size_t(udp.read(p,sizeof(p)))); }
+#endif
   countReed(true, digitalRead(REED_END_A) == LOW, now); countReed(false, digitalRead(REED_END_B) == LOW, now);
   if (state == TURNING) {
     if (strcmp(alignmentName(), targetAlignment) == 0) { stopTurntableMotor(false); state = ALIGNED_LOADED; Serial.println("OK ALIGNMENT"); }

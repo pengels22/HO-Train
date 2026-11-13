@@ -9,6 +9,29 @@ dedicated XIAO ESP32-C6 rotary tipper controller. Replace only the explicit
 placeholder paths/addresses after wiring validation; do not substitute a XIAO
 locomotive controller or reuse an accessory port for a locomotive.
 
+## Turntable USB commissioning
+
+The dedicated turntable C6 was compiled and flashed successfully on
+2026-11-13. The first image exposed a boot-time UDP socket crash when no
+network interface was initialized; the firmware was corrected so USB serial
+is the default and UDP is an explicit build-time opt-in. The corrected image
+boots in a stopped fault state.
+
+| Field | Value |
+|---|---|
+| Board | Seeed XIAO ESP32-C6 (`esp32:esp32:XIAO_ESP32C6`) |
+| Chip | ESP32-C6FH4, 4 MB flash |
+| USB serial number / MAC | `90:64:9B:AA:64:5C` |
+| Commissioning host port | `/dev/cu.usbmodem14401` (transient macOS name) |
+| Pi service path | `/dev/serial/by-id/ho-turntable` (pending Pi-side udev verification) |
+| Serial speed | `115200` baud |
+
+The verified `STATUS` response reported `alignment:"INVALID"`, so home and
+rotated sensors are not considered wired or aligned. It also reported
+`motor:false` and `track_power:false`. Do not infer a persistent Linux path
+from the macOS device name; match the USB serial number with `udevadm` on the
+Pi before creating the `ho-turntable` symlink.
+
 ## Tipper USB commissioning
 
 The dedicated tipper C6 was compiled and flashed successfully on 2026-11-13.

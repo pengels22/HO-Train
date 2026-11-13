@@ -2,6 +2,15 @@
 # The consist count is supplied per entry authorization; no fixed vehicle count
 # is safe because locomotives and consists vary.
 mode: simulation
+# Bench-verified on 2026-11-13. The macOS port is transient; match this USB
+# identity on the Raspberry Pi before installing the persistent service path.
+usb_serial:
+  serial_number: "90:64:9B:AA:64:5C"
+  chip: ESP32-C6FH4
+  mac_address: "90:64:9B:AA:64:5C"
+  raspberry_pi_path: /dev/serial/by-id/ho-turntable
+  raspberry_pi_path_status: pending_udev_verification
+serial_baudrate: 115200
 approach_section: UND-4
 access_turnout: H
 turnout_default: straight
