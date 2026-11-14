@@ -349,8 +349,12 @@ class Dispatcher:
             self.reservations[zone] = None
 
     def assign_destination(self, train_id: int, destination: str):
+        """Plan a destination without authorizing or commanding movement.
+
+        Planning remains available during a global stop or before hardware
+        rearm.  Motion and accessory commands continue to use the safety gate.
+        """
         with self.lock:
-            if self.global_stop or self._rearm_required: raise SafetyError("global stop/disarmed")
             if destination not in DESTINATIONS: raise ValueError("unknown destination")
             train = self.trains[train_id]
             if train.kind=="passenger" and destination in ("Mine","Farm","Tipper"):

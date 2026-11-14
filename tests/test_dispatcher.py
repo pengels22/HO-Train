@@ -14,6 +14,14 @@ def test_exclusive_zone_and_destination():
     d.hall_clear(1,"MAIN-2",detected_cars=3,expected_cars=3)
     assert d.zones["MAIN-2"] is None
 
+def test_destination_planning_remains_available_while_stopped():
+    d = Dispatcher()
+    d.stop_all("bench stop")
+    d.assign_destination(1, "Yard")
+    assert d.trains[1].destination == "Yard"
+    with pytest.raises(SafetyError):
+        d.command_motion(1, 20)
+
 def test_tipper_lockout_and_mine_exception():
     d=Dispatcher()
     d.set_tipper("ROTATING")
