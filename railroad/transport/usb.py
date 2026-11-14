@@ -43,12 +43,14 @@ class RegisteredController:
     session_id: str | None = None
     armed: bool | None = None
     estop: bool | None = None
+    status_payload: dict = None
     _transactions: object = None
 
     def __post_init__(self):
         self._lock = Lock()
         self._write_lock = Lock()
         self.faults = []
+        self.status_payload = {}
         self._transactions = count(1)
 
     def _write_estop(self) -> None:
@@ -137,6 +139,7 @@ class RegisteredController:
             self.session_id = payload.get("session", self.session_id)
             self.armed = payload.get("armed", self.armed)
             self.estop = payload.get("estop", self.estop)
+            self.status_payload = dict(payload)
             faults = payload.get("faults", payload.get("fault"))
             self.faults = list(faults) if isinstance(faults, list) else ([] if not faults else [str(faults)])
         self.last_error = None
@@ -229,6 +232,7 @@ class ControllerRegistry:
                  "state": c.reported_state, "faults": list(c.faults or []),
                  "last_ack": c.last_ack, "session": c.session_id,
                  "armed": c.armed, "estop": c.estop,
+                 "status": dict(c.status_payload or {}),
                  "error": str(c.last_error) if c.last_error else None}
                 for c in self.controllers]
 
