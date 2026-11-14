@@ -8,7 +8,10 @@
 #include <WiFiUdp.h>
 #include <esp_system.h>
 
-constexpr uint8_t LOCOMOTIVE_ID = 1;
+#ifndef LOCOMOTIVE_ID
+#define LOCOMOTIVE_ID 1
+#endif
+constexpr uint8_t LOCOMOTIVE_ID_VALUE = LOCOMOTIVE_ID;
 constexpr uint8_t ALL_TRAINS = 0xFF;
 constexpr uint8_t ESTOP_FLAG = 0x80;
 constexpr uint8_t REARM_FLAG = 0x40;
@@ -25,7 +28,8 @@ enum LocomotiveState { DISARMED, ARMED, ESTOP_LATCHED, COMMUNICATION_FAULT };
 LocomotiveState state = DISARMED;
 unsigned long lastApplicableCommandMs = 0;
 unsigned long lastWifiAttemptMs = 0;
-bool udpStarted = false;
+bool udpStarted = false, communicationFault = true;
+bool wifiConnectedAnnounced = false;
 int16_t commandedSpeed = 0;
 uint8_t commandedTarget = 0;
 uint8_t irFrame[8];
@@ -39,8 +43,8 @@ constexpr unsigned long IR_SYMBOL_US = 1000;
 
 // Credentials are intentionally supplied at build/deployment time, never
 // committed to the repository.
-const char *WIFI_SSID = "YOUR_SSID";
-const char *WIFI_PASSWORD = "YOUR_PASSWORD";
+const char *WIFI_SSID = "Lab 42";
+const char *WIFI_PASSWORD = "NerdsRock!";
 
 uint16_t crc16(const uint8_t *data, size_t length) {
   uint16_t crc = 0xFFFF;
@@ -52,7 +56,6 @@ uint16_t crc16(const uint8_t *data, size_t length) {
 }
 
 constexpr uint16_t TELEMETRY_PORT = 4211;
-const IPAddress TELEMETRY_BROADCAST(10, 77, 0, 255);
 uint16_t lastAcceptedSequence = 0;
 uint32_t telemetrySequence = 0;
 String bootSession;
@@ -94,7 +97,7 @@ uint8_t crc8(const uint8_t *data, size_t length) {
 
 void beginIrFrame() {
   // HR, version, locomotive ID, direction/status, destination, magnitude, CRC.
-  irFrame[0] = 'H'; irFrame[1] = 'R'; irFrame[2] = VERSION; irFrame[3] = LOCOMOTIVE_ID;
+  irFrame[0] = 'H'; irFrame[1] = 'R'; irFrame[2] = VERSION; irFrame[3] = LOCOMOTIVE_ID_VALUE;
   irFrame[4] = commandedSpeed < 0 ? 0x01 : 0x00;
   irFrame[5] = commandedTarget;
   irFrame[6] = uint8_t(constrain(abs(int(commandedSpeed)), 0, 255));
@@ -130,8 +133,23 @@ void connectWifi() {
   if (WiFi.status() == WL_CONNECTED) return;
   if (millis() - lastWifiAttemptMs < 5000) return;
   lastWifiAttemptMs = millis();
+  Serial.println("WIFI_CONNECTING");
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+}
+
+void reportWifiState() {
+  const bool connected = WiFi.status() == WL_CONNECTED;
+  if (connected && !wifiConnectedAnnounced) {
+    Serial.print("WIFI_CONNECTED IP=");
+    Serial.println(WiFi.localIP());
+    Serial.print("WIFI_BROADCAST=");
+    Serial.println(WiFi.broadcastIP());
+    wifiConnectedAnnounced = true;
+  } else if (!connected && wifiConnectedAnnounced) {
+    Serial.println("WIFI_DISCONNECTED");
+    wifiConnectedAnnounced = false;
+  }
 }
 
 void handleCommand(const uint8_t *p, size_t length) {
@@ -142,16 +160,17 @@ void handleCommand(const uint8_t *p, size_t length) {
   const int16_t speed = int16_t(uint16_t(p[6]) | uint16_t(p[7]) << 8);
   commandedTarget = p[8];
   if (trainId == ALL_TRAINS && (p[9] & ESTOP_FLAG)) {
-    state = ESTOP_LATCHED; setMotorSpeed(0); return;
+    communicationFault = false; state = ESTOP_LATCHED; setMotorSpeed(0); return;
   }
   if (trainId == ALL_TRAINS && (p[9] & REARM_FLAG) && speed == 0) {
     // This packet is the explicit dispatcher handshake. A normal zero speed
     // packet never changes either latch.
-    state = ARMED; setMotorSpeed(0); lastApplicableCommandMs = millis(); return;
+    communicationFault = false; state = ARMED; setMotorSpeed(0); lastApplicableCommandMs = millis(); return;
   }
-  if (trainId != LOCOMOTIVE_ID) return;
+  if (trainId != LOCOMOTIVE_ID_VALUE) return;
   lastAcceptedSequence = sequence;
   lastApplicableCommandMs = millis();
+  communicationFault = false;
   if (state != ARMED) {
     setMotorSpeed(0);
     return;
@@ -187,7 +206,7 @@ void sendTelemetry() {
   if (WiFi.status() != WL_CONNECTED || millis() - lastTelemetryMs < 100) return;
   lastTelemetryMs = millis();
   const char *stateName = state == ARMED ? "ARMED" : state == ESTOP_LATCHED ? "ESTOP_LATCHED" : state == COMMUNICATION_FAULT ? "COMMUNICATION_FAULT" : "DISARMED";
-  String body = String("HT{\"version\":1,\"id\":") + LOCOMOTIVE_ID +
+  String body = String("HT{\"version\":1,\"id\":") + LOCOMOTIVE_ID_VALUE +
     ",\"state\":\"" + stateName + "\",\"estop\":" + (state == ESTOP_LATCHED ? "true" : "false") +
     ",\"communication_fault\":" + (state == COMMUNICATION_FAULT ? "true" : "false") +
     ",\"armed\":" + (state == ARMED ? "true" : "false") + ",\"speed\":" + commandedSpeed +
@@ -195,12 +214,17 @@ void sendTelemetry() {
     ",\"session\":\"" + bootSession + "\",\"uptime_ms\":" + millis();
   if (rearmTransaction.length()) body += ",\"rearm_transaction\":\"" + rearmTransaction + "\"";
   body += "}";
-  telemetryUdp.beginPacket(TELEMETRY_BROADCAST, TELEMETRY_PORT);
+  // Use the active interface broadcast so telemetry reaches the dispatcher
+  // on the deployed subnet instead of assuming the old 10.77.0.0 network.
+  telemetryUdp.beginPacket(WiFi.broadcastIP(), TELEMETRY_PORT);
   telemetryUdp.write((const uint8_t *)body.c_str(), body.length());
   telemetryUdp.endPacket();
 }
 
 void setup() {
+  Serial.begin(115200);
+  Serial.print("M5_ATOM_READY ID=");
+  Serial.println(LOCOMOTIVE_ID_VALUE);
   pinMode(MOTOR_FORWARD_PIN, OUTPUT); pinMode(MOTOR_REVERSE_PIN, OUTPUT);
   configureIrTransmitter();
   if (REARM_BUTTON_PIN >= 0) pinMode(REARM_BUTTON_PIN, INPUT_PULLUP);
@@ -211,6 +235,7 @@ void setup() {
 
 void loop() {
   connectWifi();
+  reportWifiState();
   if (WiFi.status() == WL_CONNECTED) {
     if (!udpStarted) { udp.begin(UDP_PORT); udpStarted = true; }
     const int packetSize = udp.parsePacket();
@@ -218,11 +243,11 @@ void loop() {
   } else if (udpStarted) {
     udp.stop();
     udpStarted = false;
-    state = COMMUNICATION_FAULT;
+    communicationFault = true; state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   if (lastApplicableCommandMs == 0 || millis() - lastApplicableCommandMs > WATCHDOG_MS) {
-    state = COMMUNICATION_FAULT;
+    communicationFault = true; state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   serviceIrTransmission();

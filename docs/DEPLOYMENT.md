@@ -1,3 +1,58 @@
 # Deployment
 
-Install Raspberry Pi OS, Python 3.11+, clone the private repository, create a virtual environment, install the package, review configuration, and run in simulation first. Hardware mode remains disabled until commissioning is complete.
+Install Raspberry Pi OS, Python 3.11+, clone the repository, create a virtual environment, install the package, and review `config/hardware.yaml`, `config/yard_power.yaml`, and the wiring PDF. Hardware mode is the deployment target but remains OFF/DISARMED until power rails, fuses, I2C levels, relays, controller-local watchdogs, and controller links have been bench-verified. Use `--mode simulation` only for developer testing.
+
+Controller registration is fixed by architecture: locomotive IDs 1-4 use
+`m5_atom_echo` over UDP; the Espressif USB serial identity ending in `64:5C` is
+the dedicated XIAO ESP32-C6 turntable controller; and the identity ending in
+`64:AC` is the dedicated XIAO ESP32-C6 rotary tipper controller. Replace only
+the explicit
+placeholder paths/addresses after wiring validation; do not substitute a XIAO
+locomotive controller or reuse an accessory port for a locomotive.
+
+The four M5 locomotives are independent operating units. Missing or unhealthy
+telemetry blocks commands to that locomotive only; it does not create a fleet
+wide presence requirement or stop the other locomotives.
+
+## Turntable USB commissioning
+
+The dedicated turntable C6 was compiled and flashed successfully on
+2026-11-13. The first image exposed a boot-time UDP socket crash when no
+network interface was initialized; the firmware was corrected so USB serial
+is the default and UDP is an explicit build-time opt-in. The corrected image
+boots in a stopped fault state.
+
+| Field | Value |
+|---|---|
+| Board | Seeed XIAO ESP32-C6 (`esp32:esp32:XIAO_ESP32C6`) |
+| Chip | ESP32-C6FH4, 4 MB flash |
+| USB serial number / MAC | `90:64:9B:AA:64:5C` |
+| Commissioning host port | `/dev/cu.usbmodem14401` (transient macOS name) |
+| Pi service path | `/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:5C-if00` |
+| Serial speed | `115200` baud |
+
+The verified `STATUS` response reported `alignment:"INVALID"`, so home and
+rotated sensors are not considered wired or aligned. It also reported
+`motor:false` and `track_power:false`. Do not infer a persistent Linux path
+from the macOS device name; match the USB serial number with `udevadm` on the
+Pi before creating any additional `ho-turntable` symlink.
+
+## Tipper USB commissioning
+
+The dedicated tipper C6 was compiled and flashed successfully on 2026-11-13.
+The verified USB identity is:
+
+| Field | Value |
+|---|---|
+| Board | Seeed XIAO ESP32-C6 (`esp32:esp32:XIAO_ESP32C6`) |
+| Chip | ESP32-C6FH4, 4 MB flash |
+| USB serial number / MAC | `90:64:9B:AA:64:AC` |
+| Commissioning host port | `/dev/cu.usbmodem14401` (transient macOS name) |
+| Pi service path | `/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00` |
+| Serial speed | `115200` baud |
+
+On the Raspberry Pi, connect the board and use `udevadm info`/`udevadm test`
+to match the USB serial number before installing the `ho-tipper` symlink. Do
+not assume the macOS port name is persistent. The tipper firmware currently
+has no finalized GPIO map, so its motor, lock, and decoupler outputs remain
+disabled and it must not be rearmed during commissioning.

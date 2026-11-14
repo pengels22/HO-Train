@@ -1,4 +1,4 @@
-"""Simulation-first dispatcher and interlocks. No physical actuator writes."""
+"""Dispatcher and interlocks shared by simulation and Raspberry Pi hardware."""
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
@@ -10,7 +10,9 @@ ZONES = tuple(f"{line}-{n}" for line in ("SKI", "FARM", "UND", "MINE", "MAIN") f
 STALLS = ("1A", "1B", "2", "3")
 TURNOUT_DEFAULTS = {"A":"diverging", "B":"straight", "C":"straight", "D":"straight", "E":"straight", "F":"straight", "G":"straight", "H":"straight"}
 TIPPER_LOCKED = frozenset(("MAIN-3", "UND-1"))
-DESTINATIONS = ("Mine", "Farm", "Ski", "Town", "Tipper", "Yard")
+DESTINATIONS = ("Mine", "Farm", "Ski", "Town", "Tipper", "Turntable", "Yard")
+SLOW_DESTINATIONS = frozenset(("Tipper", "Turntable"))
+MAX_SLOW_DESTINATION_MM_S = 25.4
 
 class SafetyError(RuntimeError):
     pass
@@ -62,6 +64,9 @@ class Dispatcher:
     motion_stops: list[Callable[[], None]] = field(default_factory=list, repr=False)
     accessory_errors: dict[str, str] = field(default_factory=dict, repr=False)
     controller_health: object | None = field(default=None, repr=False)
+    # Calibrated physical velocity at full command, per locomotive. None means
+    # the locomotive is not authorized for automatic slow-destination motion.
+    speed_mm_s_at_255: dict[int, float | None] = field(default_factory=dict, repr=False)
     _rearm_required: bool = field(default=False, repr=False)
     lock: RLock = field(default_factory=RLock, repr=False)
 
@@ -92,8 +97,16 @@ class Dispatcher:
     def attach_controller_health(self, registry) -> None:
         with self.lock:
             self.controller_health = registry
-            registry.on_failure = lambda controller, reason: self.stop_all(
-                f"controller {controller} communication failure: {reason}", cause="controller_fault")
+            def on_failure(controller, reason):
+                if str(controller).startswith("locomotive-"):
+                    try:
+                        train_id = int(str(controller).split("-", 1)[1])
+                        self.trains[train_id].velocity = 0
+                    except (ValueError, KeyError):
+                        pass
+                    return
+                self.stop_all(f"controller {controller} communication failure: {reason}", cause="controller_fault")
+            registry.on_failure = on_failure
 
     def attach_motion_stop(self, callback: Callable[[], None]) -> None:
         """Register a local motion engine stop hook.
@@ -215,22 +228,40 @@ class Dispatcher:
         cannot issue a nonzero command while stopped, latched, or disarmed.
         """
         with self.lock:
-            self.assert_motion_allowed()
+            self.assert_motion_allowed(train_id)
             if train_id not in self.trains:
                 raise KeyError(train_id)
+            self._enforce_destination_speed(train_id, speed)
             if self.estop_controller:
                 self.estop_controller.send_motion(train_id, speed)
             self.trains[train_id].velocity = int(speed)
 
-    def assert_motion_allowed(self) -> None:
+    def set_speed_calibration(self, train_id: int, mm_s_at_255: float | None) -> None:
+        """Set measured full-command speed; null deliberately disables unknown hardware."""
+        if mm_s_at_255 is not None and mm_s_at_255 <= 0:
+            raise ValueError("calibrated speed must be positive")
+        self.speed_mm_s_at_255[train_id] = mm_s_at_255
+
+    def _enforce_destination_speed(self, train_id: int, speed: int) -> None:
+        destination = self.trains[train_id].destination
+        if destination not in SLOW_DESTINATIONS or speed == 0:
+            return
+        calibrated = self.speed_mm_s_at_255.get(train_id)
+        if calibrated is None:
+            raise SafetyError(f"train {train_id} has no calibrated speed for {destination}")
+        measured = abs(speed) / 255 * calibrated
+        if measured > MAX_SLOW_DESTINATION_MM_S + 1e-9:
+            raise SafetyError(f"{destination} approach exceeds {MAX_SLOW_DESTINATION_MM_S} mm/s")
+
+    def assert_motion_allowed(self, train_id: int | None = None) -> None:
         if self.global_stop or self._rearm_required:
             raise SafetyError("motion command blocked by E-Stop/disarmed state")
         if self.physical_estop and self.physical_estop():
             raise SafetyError("physical E-Stop remains engaged")
         if self.tipper_fault or self.accessory_errors:
             raise SafetyError("safety faults remain unresolved")
-        if self.controller_health and not self.controller_health.operating_ready():
-            raise SafetyError("required controller health is not ready")
+            if self.controller_health and not self.controller_health.operating_ready(train_id):
+                raise SafetyError(f"locomotive {train_id} controller health is not ready")
 
     def reconcile_controller(self, locomotive_id) -> None:
         """Operator-authorized reconciliation; never called by telemetry arrival."""

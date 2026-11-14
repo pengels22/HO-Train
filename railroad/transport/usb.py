@@ -43,17 +43,33 @@ class RegisteredController:
     session_id: str | None = None
     armed: bool | None = None
     estop: bool | None = None
+    status_payload: dict = None
     _transactions: object = None
 
     def __post_init__(self):
         self._lock = Lock()
         self._write_lock = Lock()
         self.faults = []
+        self.status_payload = {}
         self._transactions = count(1)
 
     def _write_estop(self) -> None:
         with self._write_lock:
-            self.reconnect().write(b"ESTOP\n")
+            port = self.reconnect()
+            reset_input = getattr(port, "reset_input_buffer", None)
+            if reset_input is not None:
+                reset_input()
+            port.write(b"ESTOP\n")
+            # Controller firmware acknowledges the plain ESTOP command. Read
+            # that line here so it cannot be mistaken for the next STATUS
+            # response by the heartbeat thread. Older test/dummy ports may not
+            # expose readline, so acknowledgement remains best-effort.
+            reader = getattr(port, "readline", None)
+            if reader is not None:
+                deadline = time.monotonic() + 0.2
+                while time.monotonic() < deadline:
+                    if reader():
+                        break
 
     def reconnect(self) -> SerialPort:
         if self.port is None:
@@ -123,6 +139,7 @@ class RegisteredController:
             self.session_id = payload.get("session", self.session_id)
             self.armed = payload.get("armed", self.armed)
             self.estop = payload.get("estop", self.estop)
+            self.status_payload = dict(payload)
             faults = payload.get("faults", payload.get("fault"))
             self.faults = list(faults) if isinstance(faults, list) else ([] if not faults else [str(faults)])
         self.last_error = None
@@ -215,6 +232,7 @@ class ControllerRegistry:
                  "state": c.reported_state, "faults": list(c.faults or []),
                  "last_ack": c.last_ack, "session": c.session_id,
                  "armed": c.armed, "estop": c.estop,
+                 "status": dict(c.status_payload or {}),
                  "error": str(c.last_error) if c.last_error else None}
                 for c in self.controllers]
 

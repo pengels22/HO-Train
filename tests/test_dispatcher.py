@@ -68,3 +68,14 @@ def test_udp_crc_and_serial():
     assert Command.decode(msg).speed==-120
     with pytest.raises(ValueError):Command.decode(msg[:-1]+b"\x00")
     assert parse_event('{"receiver":"Stall 1A","train_id":2}')["train_id"]==2
+
+def test_turntable_and_tipper_motion_are_limited_by_measured_speed():
+    d = Dispatcher()
+    d.assign_destination(1, "Turntable")
+    with pytest.raises(SafetyError, match="no calibrated speed"):
+        d.command_motion(1, 20)
+    d.set_speed_calibration(1, 100.0)
+    with pytest.raises(SafetyError, match="exceeds 25.4"):
+        d.command_motion(1, 100)
+    d.command_motion(1, 50)
+    assert d.trains[1].velocity == 50

@@ -68,6 +68,27 @@ def test_dispatcher_accepts_100_healthy_nonzero_commands():
     assert dispatcher.trains[1].velocity == 30
 
 
+def test_independent_locomotives_do_not_require_missing_fleet_members():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1, 2], independent_locomotives=True)
+    now = time.monotonic()
+    health.update(telemetry(sequence=1).encode(), now=now)
+    health.check_freshness(now)
+    assert health.operating_ready(1)
+    assert not health.operating_ready(2)
+    assert health.operating_ready()
+    status = {item["id"]: item for item in health.status()}
+    assert status["locomotive-2"]["required"] is False
+
+
+def test_independent_locomotive_fault_does_not_global_stop_dispatcher():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1, 2], independent_locomotives=True)
+    dispatcher = Dispatcher()
+    dispatcher.attach_controller_health(health)
+    health.update(telemetry(state="COMMUNICATION_FAULT", communication_fault=True, armed=False).encode(), now=time.monotonic())
+    assert not dispatcher.global_stop
+    assert dispatcher.trains[1].velocity == 0
+
+
 def test_new_boot_session_invalidates_previous_health():
     health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1])
     failures = []
