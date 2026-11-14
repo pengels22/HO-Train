@@ -11,3 +11,4 @@
 .mode-badge.hardware{}
 body:has(#mode-badge.hardware) .simulation-card{display:none}
 .map-card #map-viewport{height:auto;aspect-ratio:752/602;max-height:none;cursor:default}.map-tools{display:none}.map-card #map-viewport{touch-action:none}
+.map-card #map-viewport{user-select:none;-webkit-user-select:none;touch-action:none}
