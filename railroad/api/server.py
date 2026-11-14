@@ -394,6 +394,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 DISPATCHER.clear_stop()
             elif action == "rearm":
                 DISPATCHER.rearm()
+            elif action == "assign_destination":
+                payload = self._json_body()
+                train_id = int(payload["train_id"])
+                destination = str(payload["destination"])
+                # Assignment changes dispatcher state only; it never issues
+                # a motion command to a locomotive or accessory.
+                DISPATCHER.assign_destination(train_id, destination)
             else:
                 raise ValueError("unknown control action")
             self._json_response({"ok": True, "action": action, "status": DISPATCHER.snapshot()})
