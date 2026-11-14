@@ -292,7 +292,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if root not in asset.parents or not asset.is_file():
             self.send_error(404); return
         body = asset.read_bytes()
-        self.send_response(200); self.send_header("Content-Type", content_type); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        self.send_response(200); self.send_header("Content-Type", content_type); self.send_header("Content-Length", str(len(body))); self.send_header("Cache-Control", "no-store, no-cache, must-revalidate"); self.send_header("Pragma", "no-cache"); self.end_headers(); self.wfile.write(body)
 
     def _save_geography_marker(self):
         import yaml
