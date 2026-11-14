@@ -387,7 +387,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _control_command(self):
         """Explicit hardware dispatcher controls; no motion command endpoint."""
         try:
-            action = self._json_body().get("action")
+            payload = self._json_body()
+            action = payload.get("action")
             if action == "global_stop":
                 DISPATCHER.stop_all("operator global stop")
             elif action == "clear_stop":
@@ -395,7 +396,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             elif action == "rearm":
                 DISPATCHER.rearm()
             elif action == "assign_destination":
-                payload = self._json_body()
                 train_id = int(payload["train_id"])
                 destination = str(payload["destination"])
                 # Assignment changes dispatcher state only; it never issues
