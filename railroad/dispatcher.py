@@ -56,7 +56,6 @@ class Dispatcher:
     stop_reason: str | None = None
     stop_causes: dict[str, str] = field(default_factory=dict)
     simulation: bool = True
-    bench_mode: bool = False
     estop_controller: object | None = field(default=None, repr=False)
     physical_estop: Callable[[], bool] | None = field(default=None, repr=False)
     accessory_stops: dict[str, Callable[[], None]] = field(default_factory=dict, repr=False)
@@ -197,11 +196,6 @@ class Dispatcher:
                     self.estop_controller.rearm(transaction)
                 except TypeError:
                     self.estop_controller.rearm()
-            if self.controller_health and self.controller_health.required_locomotives:
-                if not self.controller_health.wait_for_rearm(transaction):
-                    raise SafetyError("required locomotive rearm acknowledgements are not ready")
-            if self.controller_health and not self.controller_health.rearm_ready():
-                raise SafetyError("required controller acknowledgements are not ready")
             self._rearm_required = False
 
     def command_motion(self, train_id: int, speed: int) -> None:
