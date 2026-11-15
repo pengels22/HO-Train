@@ -23,10 +23,11 @@ supported endpoint IDs. A falling/active sensor edge emits one event such as:
 {"receiver":"Mine Station","endpoint_id":"mine_station","train_id":1,"speed":0,"source":"bench_nano_esp32"}
 ```
 
-The receiver detects an M5 carrier burst rather than waiting for a sustained
-LOW level: the M5 frame uses 1 ms symbols and the demodulated output returns
-HIGH between carrier symbols. A burst is accepted after 1 ms of carrier and
-closed after an 8 ms idle gap, with an 80 ms minimum event interval.
+The receiver decodes the M5 pulse-distance protocol rather than waiting for a
+sustained LOW level. It recognizes four approximately 6 ms sync pulse-start
+intervals, a 20 ms separator, then approximately 8 ms (zero) or 14 ms (one)
+data intervals. The 64-bit frame is accepted only after the `HR` header and
+CRC-8 validate. The receiver tolerates normal demodulator timing variation.
 
 For timing diagnostics, stop the Pi serial reader and send `CAPTURE`. The
 Nano passively samples D2 at 100 microsecond intervals for one frame and

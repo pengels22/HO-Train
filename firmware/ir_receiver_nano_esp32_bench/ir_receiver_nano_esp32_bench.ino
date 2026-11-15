@@ -59,6 +59,10 @@ uint32_t lastCarrierMs = 0;
 uint32_t lastEvent = 0;
 bool burstActive = false;
 bool captureRequested = false;
+uint32_t lastPulseUs = 0;
+uint8_t syncPulses = 0;
+bool dataStarted = false;
+uint8_t dataBit = 0;
 bool decodingFrame = false;
 uint8_t frame[IR_FRAME_BYTES] = {};
 uint8_t frameBit = 0;
@@ -178,31 +182,38 @@ void sampleFrame() {
 
 void sampleSensor() {
   const bool active = digitalRead(IR_SENSOR_PIN) == LOW;
-  const uint32_t now = millis();
   sensorActive = active;
-  if (active) {
-    lastCarrierMs = now;
-    if (!burstActive) {
-      if (activeSince == 0) activeSince = now;
-      if (now - activeSince >= BURST_START_MS) {
-        burstActive = true;
-        // The first carrier in the M5 preamble is bit 3 of 'H' (LSB first).
-        memset(frame, 0, sizeof(frame));
-        frame[0] = 0x08;
-        frameBit = 4;
-        decodingFrame = true;
-        nextSampleUs = micros() + IR_SYMBOL_US / 2;
-      }
-    }
-  } else {
-    activeSince = 0;
-    sampleFrame();
-    if (burstActive && now - lastCarrierMs >= BURST_IDLE_MS) {
-      burstActive = false;
-      decodingFrame = false;
-    }
+  static bool previousActive = false;
+  if (!active || previousActive) { previousActive = active; return; }
+  previousActive = true;
+  const uint32_t now = micros();
+  if (lastPulseUs == 0) {
+    memset(frame, 0, sizeof(frame));
+    syncPulses = 1; dataStarted = false; dataBit = 0;
+    lastPulseUs = now; return;
   }
-  sampleFrame();
+  const uint32_t interval = now - lastPulseUs;
+  lastPulseUs = now;
+  if (!dataStarted) {
+    if (syncPulses < 4 && interval >= 4500 && interval <= 7500) { ++syncPulses; return; }
+    if (syncPulses >= 4 && interval >= 24000 && interval <= 38000) {
+      const bool one = interval >= 31000;
+      if (one) frame[0] |= 1;
+      dataStarted = true; dataBit = 1; return;
+    }
+    syncPulses = 1; dataBit = 0; memset(frame, 0, sizeof(frame)); return;
+  }
+  if (dataBit >= IR_FRAME_BYTES * 8) return;
+  if (interval < 7000 || interval > 17000) {
+    dataStarted = false; syncPulses = 1; dataBit = 0; memset(frame, 0, sizeof(frame)); return;
+  }
+  if (interval >= 11000) frame[dataBit / 8] |= uint8_t(1u << (dataBit % 8));
+  ++dataBit;
+  if (dataBit >= IR_FRAME_BYTES * 8) {
+    lastDecodedTrainId = 0;
+    finishFrame();
+    lastPulseUs = 0;
+  }
 }
 
 void captureRawBurst() {

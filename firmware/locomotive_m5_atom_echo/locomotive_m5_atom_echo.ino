@@ -35,11 +35,19 @@ uint8_t commandedTarget = 0;
 uint8_t irFrame[8];
 uint8_t irByte = 0, irBit = 0;
 bool irSending = false;
-unsigned long irNextFrameMs = 0, irSymbolStartedUs = 0;
+unsigned long irNextFrameMs = 0, irPhaseStartedUs = 0;
+uint8_t irSyncPulse = 0, irDataBit = 0;
+bool irInGap = false, irDataStarted = false;
 // The repository specifies the frame fields and 38 kHz carrier, but does not
 // specify receiver symbol width. Keep it configurable until receiver timing
 // is validated on the bench rather than silently choosing a new protocol.
-constexpr unsigned long IR_SYMBOL_US = 1000;
+// Pulse-distance IR protocol for common demodulating 38 kHz receivers.
+// Carrier marks are short; bit values are represented by the following gap.
+constexpr unsigned long IR_MARK_US = 2000;
+constexpr unsigned long IR_SYNC_GAP_US = 4000;
+constexpr unsigned long IR_SEPARATOR_GAP_US = 20000;
+constexpr unsigned long IR_ZERO_GAP_US = 6000;
+constexpr unsigned long IR_ONE_GAP_US = 12000;
 
 // Credentials are intentionally supplied at build/deployment time, never
 // committed to the repository.
@@ -102,22 +110,42 @@ void beginIrFrame() {
   irFrame[5] = commandedTarget;
   irFrame[6] = uint8_t(constrain(abs(int(commandedSpeed)), 0, 255));
   irFrame[7] = crc8(irFrame + 2, 5);
-  irByte = irBit = 0; irSending = true; irSymbolStartedUs = micros();
-  irDuty((irFrame[0] & 1) ? 128 : 0);
+  irByte = irBit = 0; irSyncPulse = 1; irDataBit = 0;
+  irDataStarted = false; irInGap = false; irSending = true;
+  irPhaseStartedUs = micros();
+  irDuty(128);
 }
 
 void serviceIrTransmission() {
   const unsigned long nowMs = millis();
   if (!irSending && nowMs >= irNextFrameMs) beginIrFrame();
-  if (!irSending || micros() - irSymbolStartedUs < IR_SYMBOL_US) return;
-  irSymbolStartedUs += IR_SYMBOL_US;
-  irBit++;
-  if (irBit >= 8) { irBit = 0; irByte++; }
-  if (irByte >= sizeof(irFrame)) {
-    irDuty(0); irSending = false; irNextFrameMs = nowMs + 100; return;
+  if (!irSending) return;
+  const unsigned long elapsed = micros() - irPhaseStartedUs;
+  if (!irInGap && elapsed >= IR_MARK_US) {
+    irDuty(0); irInGap = true; irPhaseStartedUs += IR_MARK_US; return;
   }
-  const bool one = (irFrame[irByte] & (uint8_t(1) << irBit)) != 0;
-  irDuty(one ? 128 : 0);
+  if (irInGap) {
+    unsigned long gap = IR_SYNC_GAP_US;
+    if (irSyncPulse >= 4 && !irDataStarted) {
+      const bool one = (irFrame[0] & 1) != 0;
+      gap = IR_SEPARATOR_GAP_US + (one ? IR_ONE_GAP_US : IR_ZERO_GAP_US);
+    }
+    else if (irDataStarted) {
+      const bool one = (irFrame[irByte] & (uint8_t(1) << irBit)) != 0;
+      gap = one ? IR_ONE_GAP_US : IR_ZERO_GAP_US;
+    }
+    if (elapsed < gap) return;
+    if (irSyncPulse < 4) ++irSyncPulse;
+    else if (!irDataStarted) { irDataStarted = true; }
+    else {
+      ++irDataBit; ++irBit;
+      if (irBit >= 8) { irBit = 0; ++irByte; }
+      if (irDataBit >= sizeof(irFrame) * 8) {
+        irSending = false; irNextFrameMs = nowMs + 100; return;
+      }
+    }
+    irDuty(128); irInGap = false; irPhaseStartedUs += gap;
+  }
 }
 
 void setMotorSpeed(int16_t speed) {
