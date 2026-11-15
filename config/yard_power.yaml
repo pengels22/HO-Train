@@ -1,12 +1,9 @@
-# Three relay control signals on MCP23017 0x21 (no direct Pi GPIO).
-# Commission the 3.3V logic driver and relay fail-off behavior before enabling.
+# Yard track arrangement only. No yard control signals or direct Pi GPIO assigned.
+# Power control wiring and implementation are not defined here.
 default_power: off
-relay_outputs:
-  1: {board: mcp23017_0x21, address: 0x21, channel: GPB5, active_low: true, verified: false}
-  2: {board: mcp23017_0x21, address: 0x21, channel: GPB6, active_low: true, verified: false}
-  3: {board: mcp23017_0x21, address: 0x21, channel: GPB7, active_low: true, verified: false}
+relay_outputs: {}
 tracks:
-  "1": {stalls: ["1A", "1B"], relay_output: 1}
-  "2": {stalls: ["2"], relay_output: 2}
-  "3": {stalls: ["3"], relay_output: 3}
+  "1": {stalls: ["1A", "1B"]}
+  "2": {stalls: ["2"]}
+  "3": {stalls: ["3"]}
 departure: restore_power_then_require_fresh_zero_speed_command_and_route_clear
