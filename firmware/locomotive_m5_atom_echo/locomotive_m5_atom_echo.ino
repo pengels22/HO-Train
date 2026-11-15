@@ -221,11 +221,11 @@ void loop() {
   } else if (udpStarted) {
     udp.stop();
     udpStarted = false;
-    state = COMMUNICATION_FAULT;
+    if (state != ESTOP_LATCHED) state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   if (lastApplicableCommandMs == 0 || millis() - lastApplicableCommandMs > WATCHDOG_MS) {
-    state = COMMUNICATION_FAULT;
+    if (state != ESTOP_LATCHED) state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   serviceIrTransmission();
