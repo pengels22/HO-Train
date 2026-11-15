@@ -13,6 +13,12 @@ usb_serial:
   raspberry_pi_path_status: verified_on_lab1
 port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00
 speed_limit_mm_s: 25.4
+# Optical encoder is rotation feedback, not train-clearance sensing.
+encoder_slots: 40
+encoder_wheel_diameter_in: 1.125
+rotation_counts_per_120_degrees: null  # calibrate before motion
+decoupler_active_high: null  # confirm actual relay polarity
+decoupler_pulse_ms: 250
 pins:
   motor_in1: 16
   motor_in2: 17
@@ -23,12 +29,5 @@ pins:
   hall_front: 2
   hall_clear: 22
   encoder: 23
-  # Optical wheel sensing is for shaft movement only, not train clearance.
-  # One rising-edge count per slot; mechanically calibrate barrel angle before motion.
-  encoder_slots: 40
-  encoder_wheel_diameter_in: 1.125
-  rotation_counts_per_120_degrees: null  # required before ROTATE/HOME may energize
-  decoupler_active_high: true  # VERIFY relay polarity before energizing
-  decoupler_pulse_ms: 250
   lock_direction: {unlock: forward, lock: reverse}
   lock_duration_ms: 800
