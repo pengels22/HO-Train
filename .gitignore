@@ -7,3 +7,4 @@ __pycache__/
 config/local*.yaml
 logs/
 dist/
+firmware/**/wifi_credentials.h

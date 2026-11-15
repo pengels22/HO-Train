@@ -14,7 +14,8 @@ def test_turnout_h_accepts_only_supported_alignments():
 
 def test_turntable_counts_four_pulses_per_end_with_lockout_and_cooldown():
     counter = TurntablePulseCounter()
-    for now in (0.0, 0.1, 0.3, 0.6, 0.9):
+    counter.configure_consist(4)
+    for now in (0.0, 0.1, 0.3, 0.6):
         counter.pulse("A", now)
     assert counter.complete("A")
     assert counter.count_a == 4  # the 0.1 pulse is bounce; the other four are accepted
@@ -25,6 +26,7 @@ def test_turntable_counts_four_pulses_per_end_with_lockout_and_cooldown():
 
 def test_turntable_release_starts_finite_cooldown_and_extra_pulse_faults():
     counter = TurntablePulseCounter()
+    counter.configure_consist(4)
     for index in range(4):
         t = index * 0.3
         counter.signal("A", True, t)

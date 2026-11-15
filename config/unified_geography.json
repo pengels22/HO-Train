@@ -306,77 +306,77 @@
       "name": "Tunnel Entrance",
       "x": 286,
       "y": 21,
-      "verified": false,
+      "verified": true,
       "displayName": "Tunnel Entrance"
     },
     {
       "name": "Yard Entrance",
       "x": 322.6,
       "y": 109.8,
-      "verified": false,
+      "verified": true,
       "displayName": "Yard Entrance"
     },
     {
       "name": "Ski Entrance",
       "x": 552.4,
       "y": 45.9,
-      "verified": false,
+      "verified": true,
       "displayName": "Ski Entrance"
     },
     {
       "name": "Tunnel Exit West",
       "x": 306,
       "y": 247,
-      "verified": false,
+      "verified": true,
       "displayName": "Tunnel Exit West"
     },
     {
       "name": "Tunnel Exit East",
       "x": 449,
       "y": 250,
-      "verified": false,
+      "verified": true,
       "displayName": "Tunnel Exit East"
     },
     {
       "name": "Underground Entrance",
       "x": 86,
       "y": 329,
-      "verified": false,
+      "verified": true,
       "displayName": "Underground Entrance"
     },
     {
       "name": "Tipper Entrance",
       "x": 231,
       "y": 431,
-      "verified": false,
+      "verified": true,
       "displayName": "Tipper Entrance"
     },
     {
       "name": "Stall 1A",
       "x": 492,
       "y": 95,
-      "verified": false,
+      "verified": true,
       "displayName": "Stall 1A"
     },
     {
       "name": "Stall 1B",
       "x": 616.2,
       "y": 100.1,
-      "verified": false,
+      "verified": true,
       "displayName": "Stall 1B"
     },
     {
       "name": "Stall 2",
       "x": 619,
       "y": 124.5,
-      "verified": false,
+      "verified": true,
       "displayName": "Stall 2"
     },
     {
       "name": "Stall 3",
       "x": 619.5,
       "y": 146.2,
-      "verified": false,
+      "verified": true,
       "displayName": "Stall 3"
     }
   ],

@@ -1,4 +1,4 @@
-# Controller / XIAO emergency stop contract
+# Controller emergency-stop contract
 
 The dispatcher must set all requested locomotive speeds to **zero immediately**
 when E-Stop is activated. The hardware command runtime must call
@@ -16,7 +16,8 @@ The sender broadcasts the existing 12-byte `Command` frame to
 There is **no remote clear packet** in this protocol revision. On clearing the
 controller latch, the sender stops repeated ESTOP frames but remains disarmed.
 After inspecting the locomotive's status and interlocks, the operator must
-explicitly rearm. The XIAO must also require its **own explicit reset/rearm**;
+explicitly rearm. Each M5 locomotive and dedicated XIAO accessory controller
+must also require its **own explicit reset/rearm**;
 the controller cannot assume the locomotive has cleared its local latch.
 
 ## Locomotive firmware requirements

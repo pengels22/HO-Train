@@ -8,7 +8,10 @@
 #include <WiFiUdp.h>
 #include <esp_system.h>
 
-constexpr uint8_t LOCOMOTIVE_ID = 1;
+#ifndef LOCOMOTIVE_ID
+#define LOCOMOTIVE_ID 1
+#endif
+constexpr uint8_t LOCOMOTIVE_ID_VALUE = LOCOMOTIVE_ID;
 constexpr uint8_t ALL_TRAINS = 0xFF;
 constexpr uint8_t ESTOP_FLAG = 0x80;
 constexpr uint8_t REARM_FLAG = 0x40;
@@ -25,22 +28,42 @@ enum LocomotiveState { DISARMED, ARMED, ESTOP_LATCHED, COMMUNICATION_FAULT };
 LocomotiveState state = DISARMED;
 unsigned long lastApplicableCommandMs = 0;
 unsigned long lastWifiAttemptMs = 0;
-bool udpStarted = false;
+bool udpStarted = false, communicationFault = true;
+bool wifiConnectedAnnounced = false;
 int16_t commandedSpeed = 0;
 uint8_t commandedTarget = 0;
 uint8_t irFrame[8];
 uint8_t irByte = 0, irBit = 0;
 bool irSending = false;
-unsigned long irNextFrameMs = 0, irSymbolStartedUs = 0;
+unsigned long irNextFrameMs = 0, irPhaseStartedUs = 0;
+uint8_t irSyncPulse = 0, irDataBit = 0;
+bool irInGap = false, irDataStarted = false;
 // The repository specifies the frame fields and 38 kHz carrier, but does not
 // specify receiver symbol width. Keep it configurable until receiver timing
 // is validated on the bench rather than silently choosing a new protocol.
-constexpr unsigned long IR_SYMBOL_US = 1000;
+// Pulse-distance IR protocol for common demodulating 38 kHz receivers.
+// Carrier marks are short; bit values are represented by the following gap.
+constexpr unsigned long IR_MARK_US = 2000;
+constexpr unsigned long IR_SYNC_GAP_US = 4000;
+constexpr unsigned long IR_SEPARATOR_GAP_US = 20000;
+constexpr unsigned long IR_ZERO_GAP_US = 6000;
+constexpr unsigned long IR_ONE_GAP_US = 12000;
 
 // Credentials are intentionally supplied at build/deployment time, never
 // committed to the repository.
-const char *WIFI_SSID = "YOUR_SSID";
-const char *WIFI_PASSWORD = "YOUR_PASSWORD";
+// Supply these through build flags or an untracked local header.
+// Blank defaults compile safely but never connect to a network.
+#if __has_include("wifi_credentials.h")
+#include "wifi_credentials.h"
+#endif
+#ifndef HO_WIFI_SSID
+#define HO_WIFI_SSID ""
+#endif
+#ifndef HO_WIFI_PASSWORD
+#define HO_WIFI_PASSWORD ""
+#endif
+const char *WIFI_SSID = HO_WIFI_SSID;
+const char *WIFI_PASSWORD = HO_WIFI_PASSWORD;
 
 uint16_t crc16(const uint8_t *data, size_t length) {
   uint16_t crc = 0xFFFF;
@@ -52,7 +75,6 @@ uint16_t crc16(const uint8_t *data, size_t length) {
 }
 
 constexpr uint16_t TELEMETRY_PORT = 4211;
-const IPAddress TELEMETRY_BROADCAST(10, 77, 0, 255);
 uint16_t lastAcceptedSequence = 0;
 uint32_t telemetrySequence = 0;
 String bootSession;
@@ -94,27 +116,47 @@ uint8_t crc8(const uint8_t *data, size_t length) {
 
 void beginIrFrame() {
   // HR, version, locomotive ID, direction/status, destination, magnitude, CRC.
-  irFrame[0] = 'H'; irFrame[1] = 'R'; irFrame[2] = VERSION; irFrame[3] = LOCOMOTIVE_ID;
+  irFrame[0] = 'H'; irFrame[1] = 'R'; irFrame[2] = VERSION; irFrame[3] = LOCOMOTIVE_ID_VALUE;
   irFrame[4] = commandedSpeed < 0 ? 0x01 : 0x00;
   irFrame[5] = commandedTarget;
   irFrame[6] = uint8_t(constrain(abs(int(commandedSpeed)), 0, 255));
   irFrame[7] = crc8(irFrame + 2, 5);
-  irByte = irBit = 0; irSending = true; irSymbolStartedUs = micros();
-  irDuty((irFrame[0] & 1) ? 128 : 0);
+  irByte = irBit = 0; irSyncPulse = 1; irDataBit = 0;
+  irDataStarted = false; irInGap = false; irSending = true;
+  irPhaseStartedUs = micros();
+  irDuty(128);
 }
 
 void serviceIrTransmission() {
   const unsigned long nowMs = millis();
   if (!irSending && nowMs >= irNextFrameMs) beginIrFrame();
-  if (!irSending || micros() - irSymbolStartedUs < IR_SYMBOL_US) return;
-  irSymbolStartedUs += IR_SYMBOL_US;
-  irBit++;
-  if (irBit >= 8) { irBit = 0; irByte++; }
-  if (irByte >= sizeof(irFrame)) {
-    irDuty(0); irSending = false; irNextFrameMs = nowMs + 100; return;
+  if (!irSending) return;
+  const unsigned long elapsed = micros() - irPhaseStartedUs;
+  if (!irInGap && elapsed >= IR_MARK_US) {
+    irDuty(0); irInGap = true; irPhaseStartedUs += IR_MARK_US; return;
   }
-  const bool one = (irFrame[irByte] & (uint8_t(1) << irBit)) != 0;
-  irDuty(one ? 128 : 0);
+  if (irInGap) {
+    unsigned long gap = IR_SYNC_GAP_US;
+    if (irSyncPulse >= 4 && !irDataStarted) {
+      const bool one = (irFrame[0] & 1) != 0;
+      gap = IR_SEPARATOR_GAP_US + (one ? IR_ONE_GAP_US : IR_ZERO_GAP_US);
+    }
+    else if (irDataStarted) {
+      const bool one = (irFrame[irByte] & (uint8_t(1) << irBit)) != 0;
+      gap = one ? IR_ONE_GAP_US : IR_ZERO_GAP_US;
+    }
+    if (elapsed < gap) return;
+    if (irSyncPulse < 4) ++irSyncPulse;
+    else if (!irDataStarted) { irDataStarted = true; }
+    else {
+      ++irDataBit; ++irBit;
+      if (irBit >= 8) { irBit = 0; ++irByte; }
+      if (irDataBit >= sizeof(irFrame) * 8) {
+        irSending = false; irNextFrameMs = nowMs + 100; return;
+      }
+    }
+    irDuty(128); irInGap = false; irPhaseStartedUs += gap;
+  }
 }
 
 void setMotorSpeed(int16_t speed) {
@@ -130,8 +172,29 @@ void connectWifi() {
   if (WiFi.status() == WL_CONNECTED) return;
   if (millis() - lastWifiAttemptMs < 5000) return;
   lastWifiAttemptMs = millis();
+  Serial.println("WIFI_CONNECTING");
+  if (!WIFI_SSID[0] || !WIFI_PASSWORD[0]) {
+    // No credentials: remain offline with the motor stopped.
+    analogWrite(MOTOR_FORWARD_PIN, 0);
+    analogWrite(MOTOR_REVERSE_PIN, 0);
+    return;
+  }
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+}
+
+void reportWifiState() {
+  const bool connected = WiFi.status() == WL_CONNECTED;
+  if (connected && !wifiConnectedAnnounced) {
+    Serial.print("WIFI_CONNECTED IP=");
+    Serial.println(WiFi.localIP());
+    Serial.print("WIFI_BROADCAST=");
+    Serial.println(WiFi.broadcastIP());
+    wifiConnectedAnnounced = true;
+  } else if (!connected && wifiConnectedAnnounced) {
+    Serial.println("WIFI_DISCONNECTED");
+    wifiConnectedAnnounced = false;
+  }
 }
 
 void handleCommand(const uint8_t *p, size_t length) {
@@ -142,14 +205,14 @@ void handleCommand(const uint8_t *p, size_t length) {
   const int16_t speed = int16_t(uint16_t(p[6]) | uint16_t(p[7]) << 8);
   commandedTarget = p[8];
   if (trainId == ALL_TRAINS && (p[9] & ESTOP_FLAG)) {
-    state = ESTOP_LATCHED; setMotorSpeed(0); return;
+    communicationFault = false; state = ESTOP_LATCHED; setMotorSpeed(0); return;
   }
   if (trainId == ALL_TRAINS && (p[9] & REARM_FLAG) && speed == 0) {
     // This packet is the explicit dispatcher handshake. A normal zero speed
     // packet never changes either latch.
-    state = ARMED; setMotorSpeed(0); lastApplicableCommandMs = millis(); return;
+    communicationFault = false; state = ARMED; setMotorSpeed(0); lastApplicableCommandMs = millis(); return;
   }
-  if (trainId != LOCOMOTIVE_ID) return;
+  if (trainId != LOCOMOTIVE_ID_VALUE) return;
   lastAcceptedSequence = sequence;
   lastApplicableCommandMs = millis();
   // A fresh, valid command can recover startup/disconnect watchdog states.
@@ -158,6 +221,7 @@ void handleCommand(const uint8_t *p, size_t length) {
     setMotorSpeed(0);
     return;
   }
+  communicationFault = false;
   state = ARMED;
   setMotorSpeed(speed);
 }
@@ -190,7 +254,7 @@ void sendTelemetry() {
   if (WiFi.status() != WL_CONNECTED || millis() - lastTelemetryMs < 100) return;
   lastTelemetryMs = millis();
   const char *stateName = state == ARMED ? "ARMED" : state == ESTOP_LATCHED ? "ESTOP_LATCHED" : state == COMMUNICATION_FAULT ? "COMMUNICATION_FAULT" : "DISARMED";
-  String body = String("HT{\"version\":1,\"id\":") + LOCOMOTIVE_ID +
+  String body = String("HT{\"version\":1,\"id\":") + LOCOMOTIVE_ID_VALUE +
     ",\"state\":\"" + stateName + "\",\"estop\":" + (state == ESTOP_LATCHED ? "true" : "false") +
     ",\"communication_fault\":" + (state == COMMUNICATION_FAULT ? "true" : "false") +
     ",\"armed\":" + (state == ARMED ? "true" : "false") + ",\"speed\":" + commandedSpeed +
@@ -198,12 +262,17 @@ void sendTelemetry() {
     ",\"session\":\"" + bootSession + "\",\"uptime_ms\":" + millis();
   if (rearmTransaction.length()) body += ",\"rearm_transaction\":\"" + rearmTransaction + "\"";
   body += "}";
-  telemetryUdp.beginPacket(TELEMETRY_BROADCAST, TELEMETRY_PORT);
+  // Use the active interface broadcast so telemetry reaches the dispatcher
+  // on the deployed subnet instead of assuming the old 10.77.0.0 network.
+  telemetryUdp.beginPacket(WiFi.broadcastIP(), TELEMETRY_PORT);
   telemetryUdp.write((const uint8_t *)body.c_str(), body.length());
   telemetryUdp.endPacket();
 }
 
 void setup() {
+  Serial.begin(115200);
+  Serial.print("M5_ATOM_READY ID=");
+  Serial.println(LOCOMOTIVE_ID_VALUE);
   pinMode(MOTOR_FORWARD_PIN, OUTPUT); pinMode(MOTOR_REVERSE_PIN, OUTPUT);
   configureIrTransmitter();
   if (REARM_BUTTON_PIN >= 0) pinMode(REARM_BUTTON_PIN, INPUT_PULLUP);
@@ -214,6 +283,7 @@ void setup() {
 
 void loop() {
   connectWifi();
+  reportWifiState();
   if (WiFi.status() == WL_CONNECTED) {
     if (!udpStarted) { udp.begin(UDP_PORT); udpStarted = true; }
     const int packetSize = udp.parsePacket();
@@ -221,11 +291,12 @@ void loop() {
   } else if (udpStarted) {
     udp.stop();
     udpStarted = false;
+    communicationFault = true;
     if (state != ESTOP_LATCHED) state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   if (lastApplicableCommandMs == 0 || millis() - lastApplicableCommandMs > WATCHDOG_MS) {
-    if (state != ESTOP_LATCHED) state = COMMUNICATION_FAULT;
+    communicationFault = true; state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   serviceIrTransmission();

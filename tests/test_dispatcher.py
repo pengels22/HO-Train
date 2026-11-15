@@ -14,6 +14,14 @@ def test_exclusive_zone_and_destination():
     d.hall_clear(1,"MAIN-2",detected_cars=3,expected_cars=3)
     assert d.zones["MAIN-2"] is None
 
+def test_destination_planning_remains_available_while_stopped():
+    d = Dispatcher()
+    d.stop_all("bench stop")
+    d.assign_destination(1, "Yard")
+    assert d.trains[1].destination == "Yard"
+    with pytest.raises(SafetyError):
+        d.command_motion(1, 20)
+
 def test_tipper_lockout_and_mine_exception():
     d=Dispatcher()
     d.set_tipper("ROTATING")
@@ -38,10 +46,17 @@ def test_tipper_failure_recovery():
     d.set_tipper("FAULT","alignment")
     assert d.trains[1].destination=="Yard"
     assert d.trains[1].cargo==Cargo.UNKNOWN
-    assert d.global_stop
+    assert not d.global_stop
     with pytest.raises(SafetyError):d.clear_tipper_fault(True,False,True)
     d.clear_tipper_fault(True,True,True)
-    assert d.global_stop
+    assert not d.global_stop
+
+def test_tipper_fault_does_not_stop_unrelated_train():
+    d = Dispatcher()
+    d.trains[2].velocity = 40
+    d.set_tipper("FAULT", "alignment")
+    assert not d.global_stop
+    assert d.trains[2].velocity == 40
 
 def test_cycle_mandatory_unload():
     d=Dispatcher()
@@ -68,3 +83,14 @@ def test_udp_crc_and_serial():
     assert Command.decode(msg).speed==-120
     with pytest.raises(ValueError):Command.decode(msg[:-1]+b"\x00")
     assert parse_event('{"receiver":"Stall 1A","train_id":2}')["train_id"]==2
+
+def test_turntable_and_tipper_motion_are_limited_by_measured_speed():
+    d = Dispatcher()
+    d.assign_destination(1, "Turntable")
+    with pytest.raises(SafetyError, match="no calibrated speed"):
+        d.command_motion(1, 20)
+    d.set_speed_calibration(1, 100.0)
+    with pytest.raises(SafetyError, match="exceeds 25.4"):
+        d.command_motion(1, 100)
+    d.command_motion(1, 50)
+    assert d.trains[1].velocity == 50

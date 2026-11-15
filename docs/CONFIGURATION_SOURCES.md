@@ -16,3 +16,7 @@ are not commandable turnouts. Turntable hardware assignments and pulse timing
 are documented in `config/turntable.yaml`. Simulation remains the default and
 all hardware output configuration is disabled unless explicitly supplied by a
 validated deployment.
+
+The I/O documentation's “passive splitters” (`P1`–`P3`) are physical track
+branches from the imported JMRI layout, not electrical I/O points and not
+powered turnouts. They therefore do not appear as GPIO or relay assignments.

@@ -12,7 +12,9 @@ from railroad.track_geometry import load_centerlines
 from railroad.transport.estop import create_bench_sender
 from railroad.transport.usb import ControllerRegistry, RegisteredController, pyserial_connector
 from railroad.transport.telemetry import ControllerHealthRegistry
+from railroad.transport.ir_bench import BenchIRReader
 from railroad.hardware.gpio import GPIO
+from railroad.hardware.registry import HardwareRegistry
 from railroad.safety.emergency_stop import EmergencyStop as PhysicalEmergencyStop
 
 DISPATCHER = Dispatcher()
@@ -30,6 +32,7 @@ USB_CONTROLLERS = ControllerRegistry()
 HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
 TELEMETRY_STOP = None
 TELEMETRY_SOCKET = None
+IR_BENCH = None
 
 
 def _stop_telemetry_listener():
@@ -64,6 +67,24 @@ def _start_telemetry_listener():
     Thread(target=loop, name="locomotive-telemetry", daemon=True).start()
 
 
+def _stop_ir_bench():
+    global IR_BENCH
+    if IR_BENCH:
+        IR_BENCH.stop()
+    IR_BENCH = None
+
+
+def _start_ir_bench(hardware):
+    global IR_BENCH
+    _stop_ir_bench()
+    config = hardware.get("bench_ir_receiver", {}) or {}
+    if not config.get("enabled") or not config.get("port"):
+        return
+    IR_BENCH = BenchIRReader(config["port"], int(config.get("baudrate", 115200)),
+                             lambda event: DISPATCHER.process_ir_event(event))
+    IR_BENCH.start()
+
+
 def configure_runtime(mode: str = "simulation") -> None:
     """Configure the command gate; network transmission is never implicit."""
     global PHYSICAL_ESTOP, USB_CONTROLLERS, HEALTH
@@ -71,6 +92,7 @@ def configure_runtime(mode: str = "simulation") -> None:
         raise ValueError("mode must be simulation, hardware, or bench")
     if mode == "simulation":
         _stop_telemetry_listener()
+        _stop_ir_bench()
         if PHYSICAL_ESTOP:
             PHYSICAL_ESTOP.stop()
             PHYSICAL_ESTOP = None
@@ -89,13 +111,18 @@ def configure_runtime(mode: str = "simulation") -> None:
         DISPATCHER.simulation = True
         DISPATCHER.disarm()
         return
-    # Physical outputs are enabled by explicitly choosing hardware operation.
+    # ``hardware``/``bench`` are explicit opt-ins. Missing accessories and an
+    # uninstalled physical E-stop are not startup errors.
     import yaml
     hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
     estop_config = hardware.get("estop", {}) or {}
-    # An HO railroad can run with whichever devices are currently connected.
-    # Missing accessory boards and an uninstalled physical E-stop are not
-    # startup errors. Validate any locomotive IDs the operator *does* configure.
+    rpi_gpio = None
+    if estop_config.get("gpio") is not None:
+        try:
+            import RPi.GPIO as rpi_gpio_module
+        except ImportError as exc:
+            raise RuntimeError("hardware safety configuration incomplete: RPi.GPIO unavailable") from exc
+        rpi_gpio = rpi_gpio_module
     locomotive_config = hardware.get("locomotive_controllers") or []
     configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
     known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
@@ -115,24 +142,26 @@ def configure_runtime(mode: str = "simulation") -> None:
             continue
         baudrate = int(entry.get("baudrate", estop_config.get("serial_baudrate", 115200)))
         connector = lambda port, baudrate=baudrate: pyserial_connector(port, baudrate=baudrate)
-        USB_CONTROLLERS.controllers.append(RegisteredController(controller_id, port_name, connector))
+        USB_CONTROLLERS.controllers.append(RegisteredController(
+            controller_id, port_name, connector,
+            controller_type=entry.get("type", "usb_controller")))
     locomotive_ids = [int(i["id"]) for i in hardware.get("locomotive_controllers", [])]
-    HEALTH = ControllerHealthRegistry(USB_CONTROLLERS, locomotive_ids=locomotive_ids)
+    HEALTH = ControllerHealthRegistry(USB_CONTROLLERS, locomotive_ids=locomotive_ids,
+                                      independent_locomotives=True)
     DISPATCHER.attach_controller_health(HEALTH)
     DISPATCHER.simulation = False
     DISPATCHER.bench_mode = mode == "bench"
-    # Normal operation accepts motion without commissioning unrelated accessories.
-    DISPATCHER.attach_estop(
-        create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS, start_armed=True),
-        require_rearm=False,
-    )
+    # Healthy locomotive operation is independent of accessory availability.
+    DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS, start_armed=True), require_rearm=False)
     HEALTH.on_failure = None
+    USB_CONTROLLERS.start_heartbeat()
+    HEALTH.start_monitor()
+    _start_ir_bench(hardware)
     _start_telemetry_listener()
     pin = estop_config.get("gpio")
     if pin is not None:
         # The backend is intentionally imported only for an explicit hardware
         # run with a configured pin; simulation never touches GPIO.
-        import RPi.GPIO as rpi_gpio
         class _RPiBackend:
             def setup_input(self, pin, *, pull_down):
                 rpi_gpio.setmode(rpi_gpio.BCM)
@@ -146,6 +175,9 @@ def configure_runtime(mode: str = "simulation") -> None:
 class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
+        if self.path == "/api/control":
+            self._control_command()
+            return
         if self.path == "/api/simulation":
             self._simulation_command()
             return
@@ -191,6 +223,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             status = DISPATCHER.snapshot()
             status["simulation"] = SIMULATION.snapshot()
             status["estop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}
+            status["bench_ir_receiver"] = IR_BENCH.status() if IR_BENCH else {"enabled": False}
             body = json.dumps(status).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/simulation":
@@ -219,12 +252,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             locomotives = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
             wifi = locomotives.get("wifi", {})
             io = [{"device": "Raspberry Pi GPIO", "io": "unassigned", "location": "Raspberry Pi", "function": "general-purpose I/O", "polarity": "n/a", "status": "reserved"}]
+            registry = HardwareRegistry.from_config(hardware)
+            io = [{"device": entry.device_type, "io": f"{entry.board}:{entry.channel}",
+                   "address": entry.address, "location": entry.location,
+                   "function": entry.function, "direction": entry.direction,
+                   "polarity": entry.polarity,
+                   "status": "spare" if entry.spare else ("active" if entry.active else "reserved")}
+                  for entry in registry.entries]
             for board, address in (hardware.get("i2c", {}).get("boards", {}) or {}).items():
                 device = "MCP23017" if board.startswith("sensors") else ("PCA9685" if board in {"motor_1", "motor_2", "servo"} else "I2C / " + board)
                 io.append({"device": device, "io": hex(address) if isinstance(address, int) else str(address), "location": "Raspberry Pi I2C", "function": board, "polarity": "n/a", "status": "configured"})
             for receiver in ir.get("receivers", []):
                 io.append({"device": "Arduino Nano", "io": receiver.get("pin", "unassigned"), "location": ", ".join(receiver.get("zones", [])) or "Yard", "function": receiver.get("description", "IR receiver"), "polarity": "active_high", "status": "configured"})
-            body = json.dumps({"io": io, "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": "3 physical sections (1A + 1B share Track 1)"}}).encode()
+            body = json.dumps({"io": io, "registry_errors": registry.validate(), "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": "3 physical sections (1A + 1B share Track 1)"}}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/geography":
             body = json.dumps(load_geography(ROOT)).encode()
@@ -267,7 +307,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if root not in asset.parents or not asset.is_file():
             self.send_error(404); return
         body = asset.read_bytes()
-        self.send_response(200); self.send_header("Content-Type", content_type); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        self.send_response(200); self.send_header("Content-Type", content_type); self.send_header("Content-Length", str(len(body))); self.send_header("Cache-Control", "no-store, no-cache, must-revalidate"); self.send_header("Pragma", "no-cache"); self.end_headers(); self.wfile.write(body)
 
     def _save_geography_marker(self):
         import yaml
@@ -356,6 +396,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 SIMULATION.dispatch(int(payload["train_id"]), payload["path_id"], target_speed_mm_s=payload.get("target_speed_mm_s"), profile=profile, consist=consist)
             else: raise ValueError("unknown simulation action")
             self._json_response({"ok": True, "simulation": SIMULATION.snapshot()})
+        except (KeyError, TypeError, ValueError, RuntimeError, SafetyError) as exc:
+            self._json_response({"ok": False, "error": str(exc)}, 400)
+
+    def _control_command(self):
+        """Explicit hardware dispatcher controls; no motion command endpoint."""
+        try:
+            payload = self._json_body()
+            action = payload.get("action")
+            if action == "global_stop":
+                DISPATCHER.stop_all("operator global stop")
+            elif action == "clear_stop":
+                DISPATCHER.clear_stop()
+            elif action == "rearm":
+                DISPATCHER.rearm()
+            elif action == "assign_destination":
+                train_id = int(payload["train_id"])
+                destination = str(payload["destination"])
+                # Assignment changes dispatcher state only; it never issues
+                # a motion command to a locomotive or accessory.
+                DISPATCHER.assign_destination(train_id, destination)
+            else:
+                raise ValueError("unknown control action")
+            self._json_response({"ok": True, "action": action, "status": DISPATCHER.snapshot()})
         except (KeyError, TypeError, ValueError, RuntimeError, SafetyError) as exc:
             self._json_response({"ok": False, "error": str(exc)}, 400)
 

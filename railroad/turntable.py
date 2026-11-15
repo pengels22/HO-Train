@@ -1,13 +1,66 @@
-"""Turntable safety primitives shared by simulation and a future controller adapter."""
+"""Turntable safety primitives and the Pi serial interface to the XIAO controller."""
 from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
+import json
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from itertools import count
+
+MAX_APPROACH_MM_S = 25.4
+
+
+class TurntableSerialController:
+    """Bounded JSON command adapter for the dedicated XIAO turntable board."""
+    def __init__(self, port, response_timeout_s: float = 0.1):
+        self.port = port
+        self.response_timeout_s = response_timeout_s
+        self._transactions = count(1)
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ho-turntable")
+
+    def command(self, name: str, **fields) -> str:
+        allowed = {"STATUS", "ESTOP", "STOP", "REARM AUTH", "ENTRY AUTH", "CLEARANCE",
+                   "TURN", "POLARITY NORMAL", "POLARITY REVERSED", "POWER ON", "EXIT COMPLETE"}
+        if name not in allowed:
+            raise ValueError("unsupported turntable command")
+        transaction = f"turntable-{next(self._transactions)}"
+        payload = {"controller": "turntable", "command": name, "transaction": transaction, **fields}
+        future = self._executor.submit(self._exchange, payload)
+        try:
+            reply = future.result(timeout=self.response_timeout_s)
+        except TimeoutError as exc:
+            raise TimeoutError(f"turntable {name} acknowledgement timed out") from exc
+        if reply.startswith("{"):
+            data = json.loads(reply)
+            if data.get("transaction") not in (None, transaction):
+                raise RuntimeError("turntable transaction mismatch")
+            if data.get("error"):
+                raise RuntimeError(str(data["error"]))
+        return reply
+
+    def _exchange(self, payload: dict) -> str:
+        self.port.write((json.dumps(payload, separators=(",", ":")) + "\n").encode("ascii"))
+        return self.port.readline().decode("ascii", errors="replace").strip()
+
+    def entry(self, consist_count: int, *, train_stopped: bool, approach_speed_mm_s: float) -> str:
+        if consist_count < 1:
+            raise ValueError("consist_count must be positive")
+        if approach_speed_mm_s > MAX_APPROACH_MM_S:
+            raise ValueError("turntable approach exceeds 25.4 mm/s")
+        return self.command("ENTRY AUTH", consist_count=consist_count,
+                            train_stopped=train_stopped, gap_clear=False)
+
+    def clearance(self, *, train_stopped: bool, gap_clear: bool) -> str:
+        return self.command("CLEARANCE", train_stopped=train_stopped, gap_clear=gap_clear)
+
+    def close(self) -> None:
+        self._executor.shutdown(wait=False, cancel_futures=True)
 
 
 @dataclass
 class TurntablePulseCounter:
-    """Count four vehicle magnets per end with bounce and post-train cooldown."""
-    lockout_s: float = 0.250
+    """Count a configured consist using stable reed CLOSED->OPEN cycles."""
+    expected_vehicles: int = 0
+    debounce_s: float = 0.015
     cooldown_s: float = 0.500
     count_a: int = 0
     count_b: int = 0
@@ -19,22 +72,30 @@ class TurntablePulseCounter:
     active_b: bool = False
     fault: str | None = None
 
+    def configure_consist(self, vehicles: int) -> None:
+        if vehicles < 1 or vehicles > 32:
+            raise ValueError("expected consist must contain 1..32 vehicles")
+        self.expected_vehicles = vehicles
+        self.reset()
+
     def pulse(self, end: str, now: float) -> int:
         if end not in {"A", "B"}:
             raise ValueError("turntable end must be A or B")
         last = self.last_a if end == "A" else self.last_b
         cooldown = self.cooldown_until_a if end == "A" else self.cooldown_until_b
         count = self.count_a if end == "A" else self.count_b
-        if count >= 4 and now >= cooldown:
+        if self.expected_vehicles <= 0:
+            raise RuntimeError("expected consist is not configured")
+        if count >= self.expected_vehicles and now >= cooldown:
             raise RuntimeError(f"unexpected extra vehicle pulse at turntable end {end}")
-        if now < cooldown or (last is not None and now - last < self.lockout_s):
+        if now < cooldown:
             return count
         if end == "A":
             self.last_a = now; self.count_a += 1
-            if self.count_a == 4: self.cooldown_until_a = now + self.cooldown_s
+            if self.count_a == self.expected_vehicles: self.cooldown_until_a = now + self.cooldown_s
             return self.count_a
         self.last_b = now; self.count_b += 1
-        if self.count_b == 4: self.cooldown_until_b = now + self.cooldown_s
+        if self.count_b == self.expected_vehicles: self.cooldown_until_b = now + self.cooldown_s
         return self.count_b
 
     def reset(self, end: str | None = None) -> None:
@@ -55,7 +116,7 @@ class TurntablePulseCounter:
         else: self.active_b = active
         if not active:
             count = self.count_a if end == "A" else self.count_b
-            if was_active and count == 4:
+            if was_active and count == self.expected_vehicles:
                 if end == "A": self.cooldown_until_a = max(self.cooldown_until_a, now + self.cooldown_s)
                 else: self.cooldown_until_b = max(self.cooldown_until_b, now + self.cooldown_s)
             return count
@@ -69,7 +130,7 @@ class TurntablePulseCounter:
 
     def complete(self, end: str) -> bool:
         if end not in {"A", "B"}: raise ValueError("turntable end must be A or B")
-        return (self.count_a if end == "A" else self.count_b) == 4
+        return self.expected_vehicles > 0 and (self.count_a if end == "A" else self.count_b) == self.expected_vehicles
 
     def ready(self, end: str, now: float) -> bool:
         if not self.complete(end):
@@ -116,7 +177,8 @@ class TurntableController:
         self.state = TurntableState.FAULT; self.fault = reason
         raise RuntimeError(reason)
 
-    def authorize_entry(self, *, track_power: bool, train_stopped: bool):
+    def authorize_entry(self, *, track_power: bool, train_stopped: bool, consist_count: int):
+        self.counter.configure_consist(consist_count)
         if self.state != TurntableState.EMPTY_READY or not track_power or not train_stopped:
             self._fail("entry authorization interlock")
         self.power_authorized = True; self.train_stopped = True

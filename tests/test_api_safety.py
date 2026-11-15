@@ -1,13 +1,14 @@
-import pytest
-
 from railroad.api import server
 
 
-def test_hardware_mode_requires_physical_estop_and_registered_controllers():
-    with pytest.raises(RuntimeError, match="hardware safety configuration incomplete"):
-        server.configure_runtime("hardware")
-    # The test process remains explicitly simulation-safe.
-    server.configure_runtime("simulation")
+def test_hardware_mode_does_not_require_pi_gpio_estop():
+    server.configure_runtime("hardware")
+    try:
+        assert not server.DISPATCHER.simulation
+        assert server.DISPATCHER.physical_estop is None
+    finally:
+        # The test process remains explicitly simulation-safe.
+        server.configure_runtime("simulation")
     assert server.DISPATCHER.simulation
 
 

@@ -71,9 +71,11 @@ class LocomotiveTelemetry:
 
 class ControllerHealthRegistry:
     """Thread-safe health view; sequences are monotonic within each boot session."""
-    def __init__(self, usb_registry, locomotive_ids=(), freshness_s: float = 0.75, clock=time.monotonic):
+    def __init__(self, usb_registry, locomotive_ids=(), freshness_s: float = 0.75,
+                 clock=time.monotonic, *, independent_locomotives: bool = False):
         self.usb_registry = usb_registry
         self.required_locomotives = set(locomotive_ids)
+        self.independent_locomotives = bool(independent_locomotives)
         self.freshness_s = float(freshness_s)
         self.clock = clock
         self.telemetry = {}
@@ -129,7 +131,8 @@ class ControllerHealthRegistry:
     def begin_rearm(self, transaction):
         with self._lock:
             self._rearm_event.clear()
-            self._rearm = {i: {"transaction": transaction, "session": self._sessions.get(i), "requested_at": self.clock(), "ack": False} for i in self.required_locomotives}
+            ids = self.telemetry.keys() if self.independent_locomotives else self.required_locomotives
+            self._rearm = {i: {"transaction": transaction, "session": self._sessions.get(i), "requested_at": self.clock(), "ack": False} for i in ids}
 
     def wait_for_rearm(self, transaction, timeout=0.75):
         deadline = self.clock() + timeout
@@ -145,6 +148,8 @@ class ControllerHealthRegistry:
         now = self.clock() if now is None else now
         for ident in self.required_locomotives:
             item = self.telemetry.get(ident)
+            if item is None and self.independent_locomotives:
+                continue
             if item is None or now - item[1] > self.freshness_s:
                 self._fail(f"locomotive-{ident}", "telemetry stale or missing")
 
@@ -167,16 +172,27 @@ class ControllerHealthRegistry:
     def rearm_ready(self):
         now = self.clock(); self.check_freshness(now)
         with self._lock:
-            fresh = all(i in self.telemetry and now - self.telemetry[i][1] <= self.freshness_s for i in self.required_locomotives)
-            ready = all(t.armed and not t.estop and not t.communication_fault and t.speed == 0 for t, _ in self.telemetry.values() if t.locomotive_id in self.required_locomotives)
-            no_loco_faults = all(not any(key.startswith(f"locomotive-{i}:") for key in self._failures) for i in self.required_locomotives)
+            ids = set(self.telemetry) if self.independent_locomotives else self.required_locomotives
+            fresh = all(now - self.telemetry[i][1] <= self.freshness_s for i in ids)
+            ready = all(t.armed and not t.estop and not t.communication_fault and t.speed == 0 for i, (t, _) in self.telemetry.items() if i in ids)
+            no_loco_faults = all(not any(key.startswith(f"locomotive-{i}:") for key in self._failures) for i in ids)
             acknowledgements = not self._rearm or all(item["ack"] for item in self._rearm.values())
-            return self.usb_registry.all_required_ready() and acknowledgements and (not self.required_locomotives or (fresh and len(self.telemetry) == len(self.required_locomotives) and ready and no_loco_faults))
+            return self.usb_registry.all_required_ready() and acknowledgements and (not ids or (fresh and ready and no_loco_faults))
 
-    def operating_ready(self):
+    def operating_ready(self, locomotive_id: int | None = None):
         """Health gate for motion; unlike rearm, a moving train may be nonzero speed."""
         now = self.clock(); self.check_freshness(now)
         with self._lock:
+            if locomotive_id is None and self.independent_locomotives:
+                return self.usb_registry.all_required_ready()
+            if locomotive_id is not None:
+                item = self.telemetry.get(int(locomotive_id))
+                if item is None or now - item[1] > self.freshness_s:
+                    return False
+                telemetry, _ = item
+                return (self.usb_registry.all_required_ready() and telemetry.state == "ARMED" and
+                        telemetry.armed and not telemetry.estop and not telemetry.communication_fault and
+                        not any(k.startswith(f"locomotive-{int(locomotive_id)}:") for k in self._failures))
             fresh = all(i in self.telemetry and now - self.telemetry[i][1] <= self.freshness_s for i in self.required_locomotives)
             safe = all(t.state == "ARMED" and t.armed and not t.estop and not t.communication_fault
                        for t, _ in self.telemetry.values() if t.locomotive_id in self.required_locomotives)
@@ -216,10 +232,10 @@ class ControllerHealthRegistry:
             for ident in sorted(self.required_locomotives):
                 item = self.telemetry.get(ident)
                 if item is None:
-                    result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": True, "connected": False, "state": None, "faults": ["telemetry_missing"], "unverified": True}); continue
+                    result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": not self.independent_locomotives, "connected": False, "state": None, "faults": ["telemetry_missing"], "unverified": True}); continue
                 telemetry, received = item
                 faults = [key.split(":", 1)[1] for key in self._failures if key.startswith(f"locomotive-{ident}:")]
                 if telemetry.communication_fault and "reported unsafe state" not in faults:
                     faults.append("reported unsafe state")
-                result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": True, "connected": now - received <= self.freshness_s, "state": telemetry.state, "faults": faults, "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "last_command_sequence": telemetry.last_command_sequence, "session": telemetry.session, "last_success": received})
+                result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": not self.independent_locomotives, "connected": now - received <= self.freshness_s, "state": telemetry.state, "faults": faults, "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "last_command_sequence": telemetry.last_command_sequence, "session": telemetry.session, "last_success": received})
         return result

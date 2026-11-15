@@ -1,4 +1,4 @@
-/* XIAO ESP32-C6 mock locomotive receiver.
+/* XIAO ESP32-C6 accessory-controller prototype (not a locomotive receiver).
  *
  * The motor-driver pins and Wi-Fi credentials are intentionally placeholders.
  * This sketch is not used by the simulation dashboard.  Before bench use,

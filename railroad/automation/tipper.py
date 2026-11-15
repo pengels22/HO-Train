@@ -27,13 +27,14 @@ class TipperSerialController:
         if port is not None: self.port = port
         self.communication_fault = False
 
-    def command(self, name: str) -> str:
-        if name not in {"ESTOP", "STOP", "STATUS", "REARM"}:
+    def command(self, name: str, **fields) -> str:
+        if name not in {"ESTOP", "STOP", "STATUS", "REARM", "LOCK", "UNLOCK",
+                        "DECOUPLER OFF", "DECOUPLER ON", "ROTATE CW", "ROTATE CCW", "HOME"}:
             raise ValueError("unsupported tipper command")
         if self.communication_fault and name != "ESTOP":
             raise RuntimeError("tipper communication fault requires reconnection")
         transaction = f"tipper-{next(self._transactions)}"
-        future = self._executor.submit(self._exchange, name, transaction)
+        future = self._executor.submit(self._exchange, name, transaction, fields)
         try:
             reply = future.result(timeout=self.response_timeout_s)
         except TimeoutError as exc:
@@ -47,10 +48,13 @@ class TipperSerialController:
             if self.last_status.get("transaction") != transaction:
                 self.communication_fault = True
                 raise RuntimeError("stale tipper transaction response")
+        if not reply or reply.startswith(("ERR ", "{\"ok\":false")):
+            raise RuntimeError(f"tipper {name} rejected command: {reply!r}")
         return reply
 
-    def _exchange(self, name: str, transaction: str) -> str:
-        self.port.write((json.dumps({"controller": "tipper", "command": name, "transaction": transaction}, separators=(",", ":")) + "\n").encode("ascii"))
+    def _exchange(self, name: str, transaction: str, fields: dict) -> str:
+        payload = {"controller": "tipper", "command": name, "transaction": transaction, **fields}
+        self.port.write((json.dumps(payload, separators=(",", ":")) + "\n").encode("ascii"))
         return self.port.readline().decode("ascii", errors="replace").strip()
 
     def close(self) -> None:
@@ -58,20 +62,33 @@ class TipperSerialController:
 
     def stop_motor(self) -> None:
         reply = self.command("ESTOP")
-        confirmed = self.last_status is not None and self.last_status.get("motor") is False and self.last_status.get("decoupler") is False
-        if not confirmed and reply != "OK ESTOP motor=off decoupler=off":
-            raise RuntimeError("tipper controller did not confirm motor-off")
+        acknowledged = reply == "OK ESTOP" or (
+            reply.startswith("{") and self.last_status and self.last_status.get("ok") is True
+        )
+        if not acknowledged:
+            raise RuntimeError("tipper controller did not acknowledge ESTOP")
+        status = self.command("STATUS")
+        if not self.last_status or self.last_status.get("motor") is not False or self.last_status.get("decoupler") is not False:
+            raise RuntimeError("tipper controller did not confirm motor and decoupler OFF")
 
     def set_decoupler(self, enabled: bool) -> None:
-        if enabled:
-            raise RuntimeError("tipper decoupler protocol is not configured")
-        if self.last_status is not None and self.last_status.get("decoupler", False):
-            raise RuntimeError("tipper controller did not confirm decoupler-off")
+        reply = self.command("DECOUPLER ON" if enabled else "DECOUPLER OFF")
+        if reply != ("OK DECOUPLER ON" if enabled else "OK DECOUPLER OFF"):
+            raise RuntimeError("tipper decoupler command not acknowledged")
+        self.command("STATUS")
+        if not self.last_status or self.last_status.get("decoupler") is not enabled:
+            raise RuntimeError("tipper controller decoupler state mismatch")
 
     def rearm(self) -> None:
         response = self.command("REARM")
-        if not response.startswith("OK"):
+        if not self.last_status or self.last_status.get("estop") is not False:
             raise RuntimeError("tipper controller rejected REARM: " + response)
+
+    def lock(self) -> str: return self.command("LOCK")
+    def unlock(self) -> str: return self.command("UNLOCK")
+    def home(self) -> str: return self.command("HOME")
+    def rotate(self, clockwise: bool) -> str:
+        return self.command("ROTATE CW" if clockwise else "ROTATE CCW")
 
 class SafeTipperAdapter:
     """Hardware boundary; no GPIO, serial, or board assumptions are made."""

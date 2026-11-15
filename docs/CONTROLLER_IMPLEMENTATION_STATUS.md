@@ -1,6 +1,9 @@
 # Dispatcher implementation status
 
-This branch is simulation-first, not commissioned train automation.
+This branch is hardware-first, not yet commissioned train automation. The Pi is
+the central dispatcher/I/O controller; M5 Atom Echo is assigned to all four
+locomotives; dedicated XIAO ESP32-C6 boards control the turntable and rotary
+tipper.
 
 ## Included
 - Four train objects; 15 exclusive operating zones and one train per destination.
@@ -15,8 +18,8 @@ This branch is simulation-first, not commissioned train automation.
 ## Work required before live trains
 - Actual I/O configuration editor, three-tab web dashboard and exact RailModeller background with centerline coordinates.
 - Per-loco speed calibration and train-position interpolation; Hall tail-of-train verification across all cars.
-- Arduino Nano 11-channel decoder and actual XIAO firmware integration; verify pulse timing and infrared receiver field of view.
-- Hardware drivers for PCA9685, MCP23017, track relay outputs, and USB serial Nano.
+- Arduino Nano 11-channel decoder and M5 Atom IR integration; verify pulse timing and infrared receiver field of view.
+- Hardware drivers for PCA9685, MCP23017, track relay outputs, USB serial Nano, and registration of the two dedicated XIAO accessory controllers.
 - Complete tipper sensor/action state machine and safety qualification, plus bench tests.
 - Security and operator interlocks before any hardware outputs are enabled.
 

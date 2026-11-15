@@ -8,7 +8,7 @@ servos:
   yard_1: {channel: 5}
   yard_2: {channel: 6}
   yard_3: {channel: 7}
-  tipper_locks: {channel: 8}
+  # CH8 spare: tipper lock is controlled by XIAO ESP32-C6 D8/D9.
   turnout_D: {channel: 9}
   turnout_E: {channel: 10}
   turnout_F: {channel: 11}

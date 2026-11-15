@@ -95,6 +95,9 @@ def test_faults_are_deterministic(fault):
     if fault == "stall":
         engine.advance(2)
         assert engine.trains[1].distance_mm == 0
+    elif fault == "tipper":
+        assert not dispatcher.global_stop
+        assert dispatcher.tipper_fault is not None
     else:
         assert dispatcher.global_stop
 

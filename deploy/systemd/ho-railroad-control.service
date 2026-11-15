@@ -1,13 +1,13 @@
 [Unit]
-Description=HO Railroad Control (simulation-safe default)
+Description=HO Railroad Control (Raspberry Pi hardware, disarmed startup)
 After=network.target
 
 [Service]
 Type=simple
 WorkingDirectory=/opt/ho-railroad-control
-ExecStart=/opt/ho-railroad-control/.venv/bin/python -m railroad.main --mode simulation --dashboard
+ExecStart=/opt/ho-railroad-control/.venv/bin/python -m railroad.main --mode hardware --dashboard
 Restart=on-failure
-Environment=RAILROAD_MODE=simulation
+Environment=RAILROAD_MODE=hardware
 
 [Install]
 WantedBy=multi-user.target

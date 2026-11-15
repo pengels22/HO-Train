@@ -1,8 +1,8 @@
 # HO Railroad Control
 
-Simulation-first, safety-oriented Python foundation for the HO railroad controller. The default mode is simulation and hardware outputs are never enabled implicitly.
+Raspberry Pi 4B-first, safety-oriented controller for the HO railroad. Hardware is the primary deployment target; simulation remains the safe developer default and physical outputs are never enabled implicitly.
 
-## Run on macOS
+## Run on macOS (safe simulation)
 
 ```sh
 python3 -m venv .venv
@@ -12,7 +12,11 @@ pytest
 python -m railroad.main --mode simulation --dashboard
 ```
 
-Open http://127.0.0.1:8080. The dashboard is intentionally local and read/control endpoints are guarded by simulation mode until authentication is added for live hardware.
+Open http://127.0.0.1:8080. The dashboard is local and simulation controls are unavailable when hardware mode is selected.
+
+On a Raspberry Pi, complete the wiring/current checks and fill the explicit E-Stop,
+controller, and relay configuration before using `--mode hardware`. Startup remains
+OFF/DISARMED; an operator must explicitly rearm after bench checks.
 
 ## Status
 
