@@ -248,54 +248,92 @@ void reportStatus() {
 
 void handleCommand(String line) {
   line.trim();
-  if (line == "ESTOP") { latchEstop("serial"); return; }
-  const bool isJson = line.startsWith("{");
-  if (isJson) {
+  if (line == "ESTOP") { stopAll(); Serial.println("OK ESTOP"); return; }
+  if (line.startsWith("{")) {
     if (!jsonComplete(line)) { Serial.println("{\"ok\":false,\"error\":\"malformed_json\"}"); return; }
     responseTransaction = jsonField(line, "transaction");
-    String command = jsonField(line, "command");
-    if (command.length() == 0) { Serial.println("{\"ok\":false,\"error\":\"missing_command\"}"); return; }
-    if (command != "STATUS" && command != "ESTOP" && command != "STOP" && !validTransaction(responseTransaction)) {
-      Serial.println("{\"ok\":false,\"error\":\"authorization_required\"}"); return;
+    const String command = jsonField(line, "command");
+    if (!validTransaction(responseTransaction)) {
+      Serial.println("{\"ok\":false,\"error\":\"transaction_required\"}"); return;
     }
     if (command != "STATUS" && responseTransaction == lastTransaction) {
       Serial.println("{\"ok\":false,\"error\":\"duplicate_transaction\"}"); return;
     }
     line = command;
   }
-  lastControlMs = millis(); communicationFault = false;
-  if (line == "STATUS") { reportStatus(); return; }
-  if (line == "STOP") { motorOff(); state = IDLE; Serial.println("OK STOP"); return; }
-  if (line == "REARM") {
-    if (!validTransaction(responseTransaction) || !allPinsConfigured() || !locked || rotationDirection != 0) {
-      Serial.println("ERR REARM interlock"); return;
-    }
-    lastTransaction = responseTransaction; estopLatched = false; communicationFault = false;
-    state = IDLE; reportStatus(); return;
+  lastControlMs = millis();
+  if (line == "STATUS") { reportStatus(); return; } // read only
+  // Existing upstream ESTOP and REARM commands remain compatible but local
+  // STOP is not latched. STOP is the explicit operator recovery step.
+  if (line == "STOP" || line == "REARM" || line == "ESTOP") {
+    stopAll();
+    lastTransaction = responseTransaction;
+    if (line == "REARM") reportStatus();
+    else Serial.println(line == "ESTOP" ? "OK ESTOP" : "OK STOP");
+    return;
   }
-  if (line == "LOCK") { motorOff(); if (!startLockMotion(true)) { Serial.println("ERR LOCK interlock"); return; } state = IDLE; Serial.println("OK LOCK"); return; }
-  if (line == "UNLOCK") { if (!startLockMotion(false)) { Serial.println("ERR UNLOCK interlock"); return; } Serial.println("OK UNLOCK"); return; }
-  if (line == "DECOUPLER OFF") { setDecouplerOff(); Serial.println("OK DECOUPLER OFF"); return; }
+  if (communicationFault || state == FAULT) {
+    Serial.println("ERR FAULT use_STOP"); return;
+  }
+  if (line == "LOCK") {
+    motorOff();
+    if (!startLockMotion(true)) { Serial.println("ERR LOCK interlock"); return; }
+    state = IDLE; Serial.println("OK LOCK"); return;
+  }
+  if (line == "UNLOCK") {
+    if (!startLockMotion(false)) { Serial.println("ERR UNLOCK interlock"); return; }
+    state = IDLE; Serial.println("OK UNLOCK"); return;
+  }
+  if (line == "DECOUPLER OFF") {
+    setDecouplerOff(); Serial.println("OK DECOUPLER OFF"); return;
+  }
   if (line == "DECOUPLER ON") {
-    if (!pulseDecoupler()) { Serial.println("ERR DECOUPLER interlock_or_unverified_relay"); return; }
+    if (!pulseDecoupler()) { Serial.println("ERR DECOUPLER interlock"); return; }
     Serial.println("OK DECOUPLER ON"); return;
   }
-  if (line == "ROTATE CW" || line == "ROTATE CCW") {
-    if (estopLatched || communicationFault || locked || !allPinsConfigured() ||
-        TIPPER_ROTATION_COUNTS_PER_120_DEG <= 0 || !trainPositionConfirmed() ||
-        !decouplerOff || lockMotionActive) {
-      Serial.println("ERR ROTATE interlock_or_uncalibrated"); return;
+  if (line == "JOG CW" || line == "JOG CCW") {
+    if (!startJog(line == "JOG CW" ? 1 : -1)) {
+      Serial.println("ERR JOG interlock"); return;
     }
-    rotationStartTicks = encoderTicks;
-    previousEncoderTicks = rotationStartTicks;
-    previousEncoderMs = millis();
-    rotationDeadline = millis() + ROTATION_TIMEOUT_MS; state = ROTATING;
-    setMotor(line == "ROTATE CW" ? 1 : -1, 255); Serial.println("OK ROTATE"); return;
+    Serial.println("OK JOG"); return;
+  }
+  if (line == "MARK START") {
+    // Visually align the tipper to the starting rail before marking.
+    if (state != IDLE || rotationDirection || lockMotionActive) {
+      Serial.println("ERR MARK START moving"); return;
+    }
+    noInterrupts(); positionTicks = 0; interrupts();
+    startMarked = true;
+    calibrated120Ticks = 0;
+    Serial.println("OK MARK START"); return;
+  }
+  if (line == "SET 120") {
+    // Operator visually verifies the 120-degree dump endpoint.
+    const int32_t current = positionTicks;
+    if (!startMarked || state != IDLE || rotationDirection || lockMotionActive ||
+        current == 0) { Serial.println("ERR SET 120 interlock"); return; }
+    calibrated120Ticks = uint32_t(current < 0 ? -current : current);
+    Serial.println("OK SET 120"); return;
+  }
+  if (line == "ROTATE CW" || line == "ROTATE CCW") {
+    if (!trainPositionConfirmed() || !startMarked || !calibrated120Ticks ||
+        positionTicks != 0) { Serial.println("ERR ROTATE positioning_or_calibration"); return; }
+    const int direction = line == "ROTATE CW" ? 1 : -1;
+    if (!startCountedMove(direction, direction * int32_t(calibrated120Ticks))) {
+      Serial.println("ERR ROTATE interlock"); return;
+    }
+    Serial.println("OK ROTATE"); return;
   }
   if (line == "HOME") {
-    // Hall Clear senses a railcar, NOT an angular home reference.
-    // A physical home datum/validated return procedure must be fitted first.
-    Serial.println("ERR HOME angular_reference_not_verified"); return;
+    // Encoder-counted return to operator-marked start; visually check alignment.
+    const int32_t current = positionTicks;
+    if (!startMarked || !calibrated120Ticks || current == 0) {
+      Serial.println("ERR HOME no_marked_start"); return;
+    }
+    if (!startCountedMove(current > 0 ? -1 : 1, 0)) {
+      Serial.println("ERR HOME interlock"); return;
+    }
+    Serial.println("OK HOME"); return;
   }
   Serial.println("ERR UNKNOWN_COMMAND");
 }
@@ -336,25 +374,32 @@ void loop() {
   handleSerial();
   const unsigned long now = millis();
   if (lockMotionActive && now >= lockDeadline) {
-    gripperMotorOff(); locked = lockTarget;
+    gripperMotorOff();
+    locked = lockTarget;
   }
+  // A lost serial heartbeat stops operating outputs; no latched E-stop.
   if (lastControlMs == 0 || now - lastControlMs > WATCHDOG_MS) {
-    communicationFault = true; motorOff(); gripperMotorOff(); setDecouplerOff(); state = FAULT;
-  }
-  if (!decouplerOff && now >= decouplerOffDeadline) setDecouplerOff();
-  if (state == ROTATING) {
-    const uint32_t ticks = encoderTicks;
-    if (ticks - rotationStartTicks >= uint32_t(TIPPER_ROTATION_COUNTS_PER_120_DEG)) {
-      motorOff(); state = IDLE;
-    } else if (ticks != previousEncoderTicks) {
-      previousEncoderTicks = ticks; previousEncoderMs = now;
-    } else if (now - previousEncoderMs >= ENCODER_STALL_TIMEOUT_MS) {
-      motorOff(); communicationFault = true; state = FAULT;
-      Serial.println("ERR ENCODER_STALL");
+    if (rotationDirection != 0 || lockMotionActive || !decouplerOff) {
+      motorOff(); gripperMotorOff(); setDecouplerOff();
+      communicationFault = true; state = FAULT;
     }
   }
-  if ((state == ROTATING || state == HOMING) && now >= rotationDeadline) {
-    motorOff(); communicationFault = true; state = FAULT; Serial.println("ERR ROTATION_TIMEOUT");
+  if (!decouplerOff && now >= decouplerOffDeadline) setDecouplerOff();
+  if (state == JOGGING && now >= rotationDeadline) {
+    motorOff(); state = IDLE;
   }
-  // Never infer angular home from a car-detection Hall sensor.
+  if (state == ROTATING || state == HOMING) {
+    const int32_t position = positionTicks;
+    const bool reached = rotationDirection > 0
+      ? position >= targetPosition : position <= targetPosition;
+    if (reached) {
+      motorOff(); state = IDLE;
+    } else if (encoderTicks != previousEncoderTicks) {
+      previousEncoderTicks = encoderTicks;
+      previousEncoderMs = now;
+    } else if (now - previousEncoderMs >= ENCODER_STALL_TIMEOUT_MS ||
+               now >= rotationDeadline) {
+      motorOff(); communicationFault = true; state = FAULT;
+    }
+  }
 }
