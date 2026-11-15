@@ -6,9 +6,11 @@
  * D8/GPIO19 and D9/GPIO20 gripper motor IN3/IN4, and D10/GPIO18
  * magnetic decoupler relay. Forward gripper motion unlocks; reverse locks.
  *
+ * The destination IR system is independent; no train-clearance IR inputs
+ * are connected to this controller. Encoder uses 40 slots on a 1.125-inch wheel.
  * USB newline JSON is the primary control path. ESTOP is always accepted as a
  * plain line. Commands are ESTOP, STOP, STATUS, REARM, LOCK, UNLOCK,
- * DECOUPLER OFF, ROTATE CW/CCW, and HOME.
+ * DECOUPLER OFF/ON, ROTATE CW/CCW, and HOME.
  */
 #include <Arduino.h>
 
@@ -27,12 +29,6 @@
 #ifndef TIPPER_DECOUPLER_OUTPUT
 #define TIPPER_DECOUPLER_OUTPUT 18
 #endif
-#ifndef TIPPER_IR_FRONT_CLEAR
-#define TIPPER_IR_FRONT_CLEAR -1
-#endif
-#ifndef TIPPER_IR_BACK_CLEAR
-#define TIPPER_IR_BACK_CLEAR -1
-#endif
 #ifndef TIPPER_HALL_BACK
 #define TIPPER_HALL_BACK 21
 #endif
@@ -49,6 +45,22 @@
 constexpr unsigned long WATCHDOG_MS = 500;
 constexpr unsigned long ROTATION_TIMEOUT_MS = 30000;
 constexpr unsigned long LOCK_PULSE_MS = 800;
+constexpr unsigned long DECOUPLER_PULSE_MS = 250;
+// D10/GPIO18 relay polarity MUST be verified on the actual module before
+// enabling output. Never assume a relay board is active-high.
+#ifndef TIPPER_DECOUPLER_RELAY_VERIFIED
+#define TIPPER_DECOUPLER_RELAY_VERIFIED 0
+#endif
+#ifndef TIPPER_DECOUPLER_ACTIVE_HIGH
+#define TIPPER_DECOUPLER_ACTIVE_HIGH 1
+#endif
+// 40 encoder slots on a 1.125" diameter wheel: 0.08836" per rising edge.
+// The wheel's coupling ratio to barrel angle is NOT yet known; remain
+// motion-inhibited until the real 120-degree pulse count is calibrated.
+#ifndef TIPPER_ROTATION_COUNTS_PER_120_DEG
+#define TIPPER_ROTATION_COUNTS_PER_120_DEG 0
+#endif
+constexpr unsigned long ENCODER_STALL_TIMEOUT_MS = 1500;
 constexpr uint8_t MAX_ROTATION_PWM = 255;
 constexpr size_t MAX_LINE = 192;
 
@@ -65,6 +77,9 @@ uint8_t rotationPwm = 0;
 volatile uint32_t encoderTicks = 0;
 unsigned long lastControlMs = 0;
 unsigned long rotationDeadline = 0;
+unsigned long decouplerOffDeadline = 0;
+uint32_t rotationStartTicks = 0, previousEncoderTicks = 0;
+unsigned long previousEncoderMs = 0;
 String responseTransaction;
 String lastTransaction;
 char serialBuffer[MAX_LINE];
@@ -131,7 +146,27 @@ bool startLockMotion(bool engage) {
 
 void setDecouplerOff() {
   decouplerOff = true;
-  if (configured(TIPPER_DECOUPLER_OUTPUT)) digitalWrite(TIPPER_DECOUPLER_OUTPUT, LOW);
+  decouplerOffDeadline = 0;
+  if (configured(TIPPER_DECOUPLER_OUTPUT))
+    digitalWrite(TIPPER_DECOUPLER_OUTPUT, TIPPER_DECOUPLER_ACTIVE_HIGH ? LOW : HIGH);
+}
+
+bool pulseDecoupler() {
+  if (!TIPPER_DECOUPLER_RELAY_VERIFIED || estopLatched || communicationFault ||
+      state != IDLE || rotationDirection != 0 || lockMotionActive ||
+      !configured(TIPPER_DECOUPLER_OUTPUT)) return false;
+  digitalWrite(TIPPER_DECOUPLER_OUTPUT, TIPPER_DECOUPLER_ACTIVE_HIGH ? HIGH : LOW);
+  decouplerOff = false;
+  decouplerOffDeadline = millis() + DECOUPLER_PULSE_MS;
+  return true;
+}
+
+bool trainPositionConfirmed() {
+  return configured(TIPPER_HALL_FRONT) && configured(TIPPER_HALL_BACK) &&
+         configured(TIPPER_HALL_CLEAR) &&
+         digitalRead(TIPPER_HALL_FRONT) == LOW &&
+         digitalRead(TIPPER_HALL_BACK) == LOW &&
+         digitalRead(TIPPER_HALL_CLEAR) == LOW;
 }
 
 void latchEstop(const char *reason) {
@@ -180,6 +215,8 @@ void reportStatus() {
   Serial.print(",\"locked\":"); Serial.print(locked ? "true" : "false");
   Serial.print(",\"decoupler\":"); Serial.print(decouplerOff ? "false" : "true");
   Serial.print(",\"pin_map_verified\":"); Serial.print(allPinsConfigured() ? "true" : "false");
+  Serial.print(",\"rotation_calibrated\":"); Serial.print(TIPPER_ROTATION_COUNTS_PER_120_DEG > 0 ? "true" : "false");
+  Serial.print(",\"decoupler_relay_verified\":"); Serial.print(TIPPER_DECOUPLER_RELAY_VERIFIED ? "true" : "false");
   Serial.print(",\"encoder_ticks\":"); Serial.print(encoderTicks);
   Serial.println("}");
   responseTransaction = "";
@@ -214,15 +251,27 @@ void handleCommand(String line) {
   }
   if (line == "LOCK") { motorOff(); if (!startLockMotion(true)) { Serial.println("ERR LOCK interlock"); return; } state = IDLE; Serial.println("OK LOCK"); return; }
   if (line == "UNLOCK") { if (!startLockMotion(false)) { Serial.println("ERR UNLOCK interlock"); return; } Serial.println("OK UNLOCK"); return; }
-  if (line == "DECOUPLER OFF") { motorOff(); setDecouplerOff(); Serial.println("OK DECOUPLER"); return; }
+  if (line == "DECOUPLER OFF") { setDecouplerOff(); Serial.println("OK DECOUPLER OFF"); return; }
+  if (line == "DECOUPLER ON") {
+    if (!pulseDecoupler()) { Serial.println("ERR DECOUPLER interlock_or_unverified_relay"); return; }
+    Serial.println("OK DECOUPLER ON"); return;
+  }
   if (line == "ROTATE CW" || line == "ROTATE CCW") {
-    if (estopLatched || communicationFault || locked || !allPinsConfigured()) { Serial.println("ERR ROTATE interlock"); return; }
+    if (estopLatched || communicationFault || locked || !allPinsConfigured() ||
+        TIPPER_ROTATION_COUNTS_PER_120_DEG <= 0 || !trainPositionConfirmed() ||
+        !decouplerOff || lockMotionActive) {
+      Serial.println("ERR ROTATE interlock_or_uncalibrated"); return;
+    }
+    rotationStartTicks = encoderTicks;
+    previousEncoderTicks = rotationStartTicks;
+    previousEncoderMs = millis();
     rotationDeadline = millis() + ROTATION_TIMEOUT_MS; state = ROTATING;
     setMotor(line == "ROTATE CW" ? 1 : -1, 255); Serial.println("OK ROTATE"); return;
   }
   if (line == "HOME") {
-    if (estopLatched || communicationFault || locked || !allPinsConfigured()) { Serial.println("ERR HOME interlock"); return; }
-    rotationDeadline = millis() + ROTATION_TIMEOUT_MS; state = HOMING; setMotor(-1, 255); Serial.println("OK HOME"); return;
+    // Hall Clear senses a railcar, NOT an angular home reference.
+    // A physical home datum/validated return procedure must be fitted first.
+    Serial.println("ERR HOME angular_reference_not_verified"); return;
   }
   Serial.println("ERR UNKNOWN_COMMAND");
 }
@@ -247,8 +296,6 @@ void setup() {
   if (configured(TIPPER_LOCK_IN3)) pinMode(TIPPER_LOCK_IN3, OUTPUT);
   if (configured(TIPPER_LOCK_IN4)) pinMode(TIPPER_LOCK_IN4, OUTPUT);
   if (configured(TIPPER_DECOUPLER_OUTPUT)) pinMode(TIPPER_DECOUPLER_OUTPUT, OUTPUT);
-  if (configured(TIPPER_IR_FRONT_CLEAR)) pinMode(TIPPER_IR_FRONT_CLEAR, INPUT);
-  if (configured(TIPPER_IR_BACK_CLEAR)) pinMode(TIPPER_IR_BACK_CLEAR, INPUT);
   if (configured(TIPPER_HALL_BACK)) pinMode(TIPPER_HALL_BACK, INPUT_PULLUP);
   if (configured(TIPPER_HALL_FRONT)) pinMode(TIPPER_HALL_FRONT, INPUT_PULLUP);
   if (configured(TIPPER_HALL_CLEAR)) pinMode(TIPPER_HALL_CLEAR, INPUT_PULLUP);
@@ -266,12 +313,20 @@ void loop() {
   if (lastControlMs == 0 || now - lastControlMs > WATCHDOG_MS) {
     communicationFault = true; motorOff(); gripperMotorOff(); setDecouplerOff(); state = FAULT;
   }
+  if (!decouplerOff && now >= decouplerOffDeadline) setDecouplerOff();
+  if (state == ROTATING) {
+    const uint32_t ticks = encoderTicks;
+    if (ticks - rotationStartTicks >= uint32_t(TIPPER_ROTATION_COUNTS_PER_120_DEG)) {
+      motorOff(); state = IDLE;
+    } else if (ticks != previousEncoderTicks) {
+      previousEncoderTicks = ticks; previousEncoderMs = now;
+    } else if (now - previousEncoderMs >= ENCODER_STALL_TIMEOUT_MS) {
+      motorOff(); communicationFault = true; state = FAULT;
+      Serial.println("ERR ENCODER_STALL");
+    }
+  }
   if ((state == ROTATING || state == HOMING) && now >= rotationDeadline) {
     motorOff(); communicationFault = true; state = FAULT; Serial.println("ERR ROTATION_TIMEOUT");
   }
-  // Dedicated feedback is required for physical completion; this firmware
-  // never infers home/clearance from a missing or unconfigured input.
-  if (state == HOMING && configured(TIPPER_HALL_CLEAR) && digitalRead(TIPPER_HALL_CLEAR) == LOW) {
-    motorOff(); state = IDLE; Serial.println("OK HOME");
-  }
+  // Never infer angular home from a car-detection Hall sensor.
 }
