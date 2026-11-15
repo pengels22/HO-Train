@@ -4,7 +4,8 @@ import json
 
 RECEIVERS=("Tunnel Entrance","Yard Entrance","Ski Entrance","Tunnel Exit East",
            "Tunnel Exit West","Underground Entrance","Tipper Entrance",
-           "Stall 1A","Stall 1B","Stall 2","Stall 3")
+           "Stall 1A","Stall 1B","Stall 2","Stall 3",
+           "Mine Station","Farm Station","Town Station")
 
 def parse_event(line:str)->dict:
     obj=json.loads(line)
