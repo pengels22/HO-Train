@@ -57,7 +57,10 @@ class EStopFanout:
         else:
             # Compatibility path for deterministic simulation/test senders.
             self.udp_sender.send(Command(ALL_TRAINS, self._next_sequence(), 0, flags=REARM_FLAG))
-        self.controllers.rearm_all(transaction)
+        # Accessory faults remain local. A disconnected/faulted tipper or
+        # turntable must not prevent independent locomotive rearm.
+        # Accessories keep their own E-stop latch until explicitly rearmed
+        # through their validated local workflow.
         self.controllers.set_estop_active(False)
 
     def close(self) -> None:
