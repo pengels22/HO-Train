@@ -52,11 +52,29 @@ def test_tipper_d10_assignment_and_ir_clearance_removed():
     assert "encoder_wheel_diameter_in: 1.125" in config
 
 
-def test_tipper_motion_and_decoupler_require_physical_verification():
+def test_tipper_has_bounded_operator_calibration_and_active_low_d10():
     root = Path(__file__).resolve().parents[1]
     firmware = (root / "firmware" / "tipper_esp32c6" / "tipper_esp32c6.ino").read_text()
-    assert "#define TIPPER_ROTATION_COUNTS_PER_120_DEG 0" in firmware
-    assert "TIPPER_ROTATION_COUNTS_PER_120_DEG <= 0" in firmware
-    assert "#define TIPPER_DECOUPLER_RELAY_VERIFIED 0" in firmware
-    assert "TIPPER_DECOUPLER_RELAY_VERIFIED" in firmware
-    assert 'ERR HOME angular_reference_not_verified' in firmware
+    config = (root / "config" / "tipper.yaml").read_text()
+    assert "#define TIPPER_DECOUPLER_OUTPUT 18" in firmware
+    assert "#define TIPPER_DECOUPLER_ACTIVE_HIGH 0" in firmware
+    assert "decoupler_active_high: false" in config
+    assert "JOG_DURATION_MS = 200" in firmware
+    assert 'line == "JOG CW"' in firmware
+    assert 'line == "MARK START"' in firmware
+    assert 'line == "SET 120"' in firmware
+    assert 'line == "HOME"' in firmware
+    assert "estopLatched" not in firmware
+    assert "TIPPER_ROTATION_COUNTS_PER_120_DEG" not in firmware
+
+
+def test_yard_has_no_assigned_io_and_pi_gpio_is_unused():
+    root = Path(__file__).resolve().parents[1]
+    hardware = (root / "config" / "hardware.yaml").read_text()
+    yard = (root / "config" / "yard_power.yaml").read_text()
+    assert "relay_outputs: {}" in yard
+    assert "bcm:" not in yard
+    assert "reserved_bcm_pins:" not in hardware
+    assert "yard_track_1_relay" not in hardware
+    assert "yard_track_2_relay" not in hardware
+    assert "yard_track_3_relay" not in hardware
