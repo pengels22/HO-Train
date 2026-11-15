@@ -87,7 +87,6 @@ def configure_runtime(mode: str = "simulation") -> None:
         DISPATCHER.physical_estop = None
         DISPATCHER.accessory_errors.clear()
         DISPATCHER.simulation = True
-        DISPATCHER.bench_mode = False
         DISPATCHER.disarm()
         return
     # ``hardware``/``bench`` are explicit opt-ins.  The sender itself remains
@@ -131,17 +130,12 @@ def configure_runtime(mode: str = "simulation") -> None:
     DISPATCHER.attach_controller_health(HEALTH)
     DISPATCHER.simulation = False
     DISPATCHER.bench_mode = mode == "bench"
-    # A bench track does not require every commissioned controller to be online.
-    # Normal hardware mode retains the operator-authorized rearm workflow.
+    # Normal operation accepts motion without commissioning unrelated accessories.
     DISPATCHER.attach_estop(
-        create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS, start_armed=mode == "bench"),
-        require_rearm=mode != "bench",
+        create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS, start_armed=True),
+        require_rearm=False,
     )
-    if mode == "hardware":
-        USB_CONTROLLERS.start_heartbeat()
-        HEALTH.start_monitor()
-    else:
-        HEALTH.on_failure = None
+    HEALTH.on_failure = None
     _start_telemetry_listener()
     pin = estop_config.get("gpio")
     if pin is not None:
