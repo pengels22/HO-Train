@@ -18,12 +18,17 @@ pins:
   motor_in2: 17
   lock_in3: 19
   lock_in4: 20
-  decoupler_output: 18
-  ir_front_clear: null
-  ir_back_clear: null
+  decoupler_output: 18  # XIAO D10; sole tipper decoupler owner
   hall_back: 21
   hall_front: 2
   hall_clear: 22
   encoder: 23
+  # Optical wheel sensing is for shaft movement only, not train clearance.
+  # One rising-edge count per slot; mechanically calibrate barrel angle before motion.
+  encoder_slots: 40
+  encoder_wheel_diameter_in: 1.125
+  rotation_counts_per_120_degrees: null  # required before ROTATE/HOME may energize
+  decoupler_active_high: true  # VERIFY relay polarity before energizing
+  decoupler_pulse_ms: 250
   lock_direction: {unlock: forward, lock: reverse}
   lock_duration_ms: 800
