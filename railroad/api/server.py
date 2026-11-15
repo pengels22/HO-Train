@@ -12,6 +12,7 @@ from railroad.track_geometry import load_centerlines
 from railroad.transport.estop import create_bench_sender
 from railroad.transport.usb import ControllerRegistry, RegisteredController, pyserial_connector
 from railroad.transport.telemetry import ControllerHealthRegistry
+from railroad.transport.ir_bench import BenchIRReader
 from railroad.hardware.gpio import GPIO
 from railroad.hardware.registry import HardwareRegistry
 from railroad.safety.emergency_stop import EmergencyStop as PhysicalEmergencyStop
@@ -31,6 +32,7 @@ USB_CONTROLLERS = ControllerRegistry()
 HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
 TELEMETRY_STOP = None
 TELEMETRY_SOCKET = None
+IR_BENCH = None
 
 
 def _stop_telemetry_listener():
@@ -65,6 +67,24 @@ def _start_telemetry_listener():
     Thread(target=loop, name="locomotive-telemetry", daemon=True).start()
 
 
+def _stop_ir_bench():
+    global IR_BENCH
+    if IR_BENCH:
+        IR_BENCH.stop()
+    IR_BENCH = None
+
+
+def _start_ir_bench(hardware):
+    global IR_BENCH
+    _stop_ir_bench()
+    config = hardware.get("bench_ir_receiver", {}) or {}
+    if not config.get("enabled") or not config.get("port"):
+        return
+    IR_BENCH = BenchIRReader(config["port"], int(config.get("baudrate", 115200)),
+                             lambda event: DISPATCHER.process_ir_event(event))
+    IR_BENCH.start()
+
+
 def configure_runtime(mode: str = "simulation") -> None:
     """Configure the command gate; network transmission is never implicit."""
     global PHYSICAL_ESTOP, USB_CONTROLLERS, HEALTH
@@ -72,6 +92,7 @@ def configure_runtime(mode: str = "simulation") -> None:
         raise ValueError("mode must be simulation, hardware, or bench")
     if mode == "simulation":
         _stop_telemetry_listener()
+        _stop_ir_bench()
         if PHYSICAL_ESTOP:
             PHYSICAL_ESTOP.stop()
             PHYSICAL_ESTOP = None
@@ -143,6 +164,7 @@ def configure_runtime(mode: str = "simulation") -> None:
     DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS), require_rearm=True)
     USB_CONTROLLERS.start_heartbeat()
     HEALTH.start_monitor()
+    _start_ir_bench(hardware)
     _start_telemetry_listener()
     pin = estop_config.get("gpio")
     if pin is not None:
@@ -209,6 +231,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             status = DISPATCHER.snapshot()
             status["simulation"] = SIMULATION.snapshot()
             status["estop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}
+            status["bench_ir_receiver"] = IR_BENCH.status() if IR_BENCH else {"enabled": False}
             body = json.dumps(status).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/simulation":

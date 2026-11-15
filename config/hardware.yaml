@@ -12,6 +12,10 @@ estop:
     - {id: turntable, type: xiao_esp32_c6_turntable, port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:5C-if00}
     - {id: tipper, type: xiao_esp32_c6_tipper, port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00}
   serial_baudrate: 115200
+bench_ir_receiver:
+  enabled: true
+  port: /dev/serial/by-id/usb-Arduino_Nano_ESP32_4827E2FC9A24-if01
+  baudrate: 115200
 # Final controller assignments. Ports/addresses remain commissioning
 # placeholders. Each locomotive is an independent operating unit: a missing
 # or faulted M5 blocks only that locomotive, not the other three.
