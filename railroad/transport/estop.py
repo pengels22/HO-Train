@@ -74,7 +74,7 @@ class EmergencyStop:
     keeps the system DISARMED, with all trains stopped.
     """
 
-    def __init__(self, sender: Sender, period_s: float = DEFAULT_PERIOD_S):
+    def __init__(self, sender: Sender, period_s: float = DEFAULT_PERIOD_S, *, start_armed: bool = False):
         if period_s <= 0:
             raise ValueError("period_s must be positive")
         self._sender = sender
@@ -83,7 +83,7 @@ class EmergencyStop:
         self._wake = Event()
         self._closed = False
         self._estop = False
-        self._armed = False
+        self._armed = start_armed
         self._sequence = 0
         self._last_error: Exception | None = None
         self._thread = Thread(target=self._broadcast_loop, name="ho-estop", daemon=True)
@@ -199,8 +199,8 @@ class EmergencyStop:
             close()
 
 
-def create_bench_sender(*, enable_network: bool = False, controllers: ControllerRegistry | None = None) -> EmergencyStop:
+def create_bench_sender(*, enable_network: bool = False, controllers: ControllerRegistry | None = None, start_armed: bool = False) -> EmergencyStop:
     """Explicit opt-in only. Never call from simulation runtime."""
     if not enable_network:
         raise RuntimeError("hardware network broadcasts are disabled by default")
-    return EmergencyStop(EStopFanout(Broadcaster(), controllers))
+    return EmergencyStop(EStopFanout(Broadcaster(), controllers), start_armed=start_armed)

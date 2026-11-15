@@ -1,7 +1,7 @@
 /* M5 Atom Echo locomotive receiver.
  * Motor driver: GPIO19 forward PWM, GPIO22 reverse PWM.
- * IR transmitter: GPIO23.  The dispatcher supplies the explicit UDP rearm
- * handshake; simulation never runs this firmware or sends UDP.
+ * IR transmitter: GPIO23.  Normal validated throttle packets enable bench
+ * control after boot/watchdog recovery; explicit ESTOP still requires REARM.
  */
 #include <Arduino.h>
 #include <WiFi.h>
@@ -152,10 +152,13 @@ void handleCommand(const uint8_t *p, size_t length) {
   if (trainId != LOCOMOTIVE_ID) return;
   lastAcceptedSequence = sequence;
   lastApplicableCommandMs = millis();
-  if (state != ARMED) {
+  // A fresh, valid command can recover startup/disconnect watchdog states.
+  // Explicit ESTOP remains held until the existing REARM command.
+  if (state == ESTOP_LATCHED) {
     setMotorSpeed(0);
     return;
   }
+  state = ARMED;
   setMotorSpeed(speed);
 }
 
@@ -218,11 +221,11 @@ void loop() {
   } else if (udpStarted) {
     udp.stop();
     udpStarted = false;
-    state = COMMUNICATION_FAULT;
+    if (state != ESTOP_LATCHED) state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   if (lastApplicableCommandMs == 0 || millis() - lastApplicableCommandMs > WATCHDOG_MS) {
-    state = COMMUNICATION_FAULT;
+    if (state != ESTOP_LATCHED) state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   serviceIrTransmission();
