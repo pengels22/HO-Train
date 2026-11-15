@@ -46,13 +46,13 @@ constexpr unsigned long WATCHDOG_MS = 500;
 constexpr unsigned long ROTATION_TIMEOUT_MS = 30000;
 constexpr unsigned long LOCK_PULSE_MS = 800;
 constexpr unsigned long DECOUPLER_PULSE_MS = 250;
-// D10/GPIO18 relay polarity MUST be verified on the actual module before
-// enabling output. Never assume a relay board is active-high.
+// D10/GPIO18 is an active-low relay: HIGH is OFF, LOW is ON.
+// Keep the relay output disabled until bench verification is completed.
 #ifndef TIPPER_DECOUPLER_RELAY_VERIFIED
 #define TIPPER_DECOUPLER_RELAY_VERIFIED 0
 #endif
 #ifndef TIPPER_DECOUPLER_ACTIVE_HIGH
-#define TIPPER_DECOUPLER_ACTIVE_HIGH 1
+#define TIPPER_DECOUPLER_ACTIVE_HIGH 0
 #endif
 // 40 encoder slots on a 1.125" diameter wheel: 0.08836" per rising edge.
 // The wheel's coupling ratio to barrel angle is NOT yet known; remain
@@ -295,7 +295,11 @@ void setup() {
   if (configured(TIPPER_MOTOR_IN2)) pinMode(TIPPER_MOTOR_IN2, OUTPUT);
   if (configured(TIPPER_LOCK_IN3)) pinMode(TIPPER_LOCK_IN3, OUTPUT);
   if (configured(TIPPER_LOCK_IN4)) pinMode(TIPPER_LOCK_IN4, OUTPUT);
-  if (configured(TIPPER_DECOUPLER_OUTPUT)) pinMode(TIPPER_DECOUPLER_OUTPUT, OUTPUT);
+  // Inactive HIGH for the active-low relay; avoid startup LOW pulse.
+  if (configured(TIPPER_DECOUPLER_OUTPUT)) {
+    digitalWrite(TIPPER_DECOUPLER_OUTPUT, HIGH);
+    pinMode(TIPPER_DECOUPLER_OUTPUT, OUTPUT);
+  }
   if (configured(TIPPER_HALL_BACK)) pinMode(TIPPER_HALL_BACK, INPUT_PULLUP);
   if (configured(TIPPER_HALL_FRONT)) pinMode(TIPPER_HALL_FRONT, INPUT_PULLUP);
   if (configured(TIPPER_HALL_CLEAR)) pinMode(TIPPER_HALL_CLEAR, INPUT_PULLUP);
