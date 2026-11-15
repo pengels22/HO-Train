@@ -24,6 +24,9 @@ constexpr uint32_t BURST_IDLE_MS = 8;
 constexpr uint32_t MIN_EVENT_GAP_MS = 80;
 constexpr uint32_t IR_SYMBOL_US = 1000;
 constexpr uint8_t IR_FRAME_BYTES = 8;
+constexpr uint32_t CAPTURE_SAMPLE_US = 100;
+constexpr uint32_t CAPTURE_LENGTH_US = 80000;
+constexpr uint32_t CAPTURE_WAIT_US = 250000;
 constexpr size_t MAX_LINE = 96;
 
 struct Endpoint { const char *id; const char *name; };
@@ -55,6 +58,7 @@ uint32_t activeSince = 0;
 uint32_t lastCarrierMs = 0;
 uint32_t lastEvent = 0;
 bool burstActive = false;
+bool captureRequested = false;
 bool decodingFrame = false;
 uint8_t frame[IR_FRAME_BYTES] = {};
 uint8_t frameBit = 0;
@@ -79,7 +83,7 @@ void printStatus() {
 }
 
 void printHelp() {
-  Serial.println(F("Commands: STATUS | LIST | SET ENDPOINT <id> | SET TRAIN <1-4> | HELP"));
+  Serial.println(F("Commands: STATUS | CAPTURE | LIST | SET ENDPOINT <id> | SET TRAIN <1-4> | HELP"));
 }
 
 int endpointFor(const char *value) {
@@ -106,6 +110,7 @@ void saveSettings() {
 void handleCommand(char *command) {
   while (*command == ' ') ++command;
   if (strcasecmp(command, "STATUS") == 0) { printStatus(); return; }
+  if (strcasecmp(command, "CAPTURE") == 0) { captureRequested = true; Serial.println(F("{\"capture\":\"armed\"}")); return; }
   if (strcasecmp(command, "LIST") == 0) { printList(); return; }
   if (strcasecmp(command, "HELP") == 0) { printHelp(); return; }
   if (strncasecmp(command, "SET TRAIN ", 10) == 0) {
@@ -200,6 +205,35 @@ void sampleSensor() {
   sampleFrame();
 }
 
+void captureRawBurst() {
+  captureRequested = false;
+  const uint32_t waitStart = micros();
+  while (digitalRead(IR_SENSOR_PIN) != LOW && micros() - waitStart < CAPTURE_WAIT_US) yield();
+  if (digitalRead(IR_SENSOR_PIN) != LOW) {
+    Serial.println(F("IR_CAPTURE_TIMEOUT"));
+    return;
+  }
+  const uint32_t start = micros();
+  uint32_t next = start;
+  bool previous = false;
+  uint16_t run = 0;
+  Serial.print(F("IR_CAPTURE sample_us=100 runs="));
+  while (micros() - start < CAPTURE_LENGTH_US) {
+    while (int32_t(micros() - next) < 0) yield();
+    const bool active = digitalRead(IR_SENSOR_PIN) == LOW;
+    if (active == previous) {
+      ++run;
+    } else {
+      if (run) { Serial.print(previous ? '1' : '0'); Serial.print(':'); Serial.print(run); Serial.print(','); }
+      previous = active;
+      run = 1;
+    }
+    next += CAPTURE_SAMPLE_US;
+  }
+  if (run) { Serial.print(previous ? '1' : '0'); Serial.print(':'); Serial.print(run); }
+  Serial.println();
+}
+
 void setup() {
   pinMode(IR_SENSOR_PIN, INPUT_PULLUP);
   Serial.begin(SERIAL_BAUD);
@@ -217,5 +251,6 @@ void setup() {
 
 void loop() {
   readCommands();
+  if (captureRequested) { captureRawBurst(); return; }
   sampleSensor();
 }

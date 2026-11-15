@@ -28,6 +28,10 @@ LOW level: the M5 frame uses 1 ms symbols and the demodulated output returns
 HIGH between carrier symbols. A burst is accepted after 1 ms of carrier and
 closed after an 8 ms idle gap, with an 80 ms minimum event interval.
 
+For timing diagnostics, stop the Pi serial reader and send `CAPTURE`. The
+Nano passively samples D2 at 100 microsecond intervals for one frame and
+prints compressed active/inactive runs over USB; it does not drive hardware.
+
 This sketch does not drive motors, relays, track power, or locomotives. It is
 separate from the production 11-channel Nano diagnostic sketch.
 
