@@ -29,7 +29,7 @@ class TipperSerialController:
 
     def command(self, name: str, **fields) -> str:
         if name not in {"ESTOP", "STOP", "STATUS", "REARM", "LOCK", "UNLOCK",
-                        "DECOUPLER OFF", "ROTATE CW", "ROTATE CCW", "HOME"}:
+                        "DECOUPLER OFF", "DECOUPLER ON", "ROTATE CW", "ROTATE CCW", "HOME"}:
             raise ValueError("unsupported tipper command")
         if self.communication_fault and name != "ESTOP":
             raise RuntimeError("tipper communication fault requires reconnection")
@@ -48,6 +48,8 @@ class TipperSerialController:
             if self.last_status.get("transaction") != transaction:
                 self.communication_fault = True
                 raise RuntimeError("stale tipper transaction response")
+        if not reply or reply.startswith(("ERR ", "{\"ok\":false")):
+            raise RuntimeError(f"tipper {name} rejected command: {reply!r}")
         return reply
 
     def _exchange(self, name: str, transaction: str, fields: dict) -> str:
@@ -60,19 +62,23 @@ class TipperSerialController:
 
     def stop_motor(self) -> None:
         reply = self.command("ESTOP")
-        confirmed = self.last_status is not None and self.last_status.get("motor") is False and self.last_status.get("decoupler") is False
-        if not confirmed and reply != "OK ESTOP motor=off decoupler=off":
-            raise RuntimeError("tipper controller did not confirm motor-off")
+        if reply != "OK ESTOP":
+            raise RuntimeError("tipper controller did not acknowledge ESTOP")
+        status = self.command("STATUS")
+        if not self.last_status or self.last_status.get("motor") is not False or self.last_status.get("decoupler") is not False:
+            raise RuntimeError("tipper controller did not confirm motor and decoupler OFF")
 
     def set_decoupler(self, enabled: bool) -> None:
-        if enabled:
-            raise RuntimeError("tipper decoupler protocol is not configured")
-        if self.last_status is not None and self.last_status.get("decoupler", False):
-            raise RuntimeError("tipper controller did not confirm decoupler-off")
+        reply = self.command("DECOUPLER ON" if enabled else "DECOUPLER OFF")
+        if reply != ("OK DECOUPLER ON" if enabled else "OK DECOUPLER OFF"):
+            raise RuntimeError("tipper decoupler command not acknowledged")
+        self.command("STATUS")
+        if not self.last_status or self.last_status.get("decoupler") is not enabled:
+            raise RuntimeError("tipper controller decoupler state mismatch")
 
     def rearm(self) -> None:
         response = self.command("REARM")
-        if not response.startswith("OK"):
+        if not self.last_status or self.last_status.get("estop") is not False:
             raise RuntimeError("tipper controller rejected REARM: " + response)
 
     def lock(self) -> str: return self.command("LOCK")
