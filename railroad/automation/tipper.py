@@ -29,7 +29,8 @@ class TipperSerialController:
 
     def command(self, name: str, **fields) -> str:
         if name not in {"ESTOP", "STOP", "STATUS", "REARM", "LOCK", "UNLOCK",
-                        "DECOUPLER OFF", "DECOUPLER ON", "ROTATE CW", "ROTATE CCW", "HOME"}:
+                        "DECOUPLER OFF", "DECOUPLER ON", "JOG CW", "JOG CCW",
+                        "MARK START", "SET 120", "ROTATE CW", "ROTATE CCW", "HOME"}:
             raise ValueError("unsupported tipper command")
         if self.communication_fault and name != "ESTOP":
             raise RuntimeError("tipper communication fault requires reconnection")
@@ -86,6 +87,10 @@ class TipperSerialController:
 
     def lock(self) -> str: return self.command("LOCK")
     def unlock(self) -> str: return self.command("UNLOCK")
+    def jog(self, clockwise: bool) -> str:
+        return self.command("JOG CW" if clockwise else "JOG CCW")
+    def mark_start(self) -> str: return self.command("MARK START")
+    def set_120(self) -> str: return self.command("SET 120")
     def home(self) -> str: return self.command("HOME")
     def rotate(self, clockwise: bool) -> str:
         return self.command("ROTATE CW" if clockwise else "ROTATE CCW")
