@@ -92,8 +92,19 @@ class BenchIRReader:
             now = time.monotonic()
             self.on_event(ReceiverEvent(receiver, event["train_id"], now))
             self.events += 1
-            self.last_event = {"receiver": receiver, "train_id": event["train_id"], "timestamp": now}
-            self.logger.info("bench IR event receiver=%s train=%s", receiver, event["train_id"])
+            self.last_event = {
+                "receiver": receiver,
+                "train_id": event["train_id"],
+                "speed": event.get("speed", 0),
+                "direction": event.get("direction"),
+                "source": event.get("source"),
+                "timestamp": now,
+            }
+            self.logger.info(
+                "bench IR event receiver=%s train=%s speed=%s direction=%s source=%s",
+                receiver, event["train_id"], event.get("speed", 0),
+                event.get("direction"), event.get("source"),
+            )
         except Exception as exc:
             if line.lstrip().startswith(b"{"):
                 self.logger.warning("ignored bench IR line: %s (%s)", line.decode(errors="replace").strip(), exc)

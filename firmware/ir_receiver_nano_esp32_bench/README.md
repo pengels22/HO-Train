@@ -5,8 +5,10 @@ demodulated IR receiver output to Arduino Nano ESP32 `D2`, with the receiver
 output idle HIGH and active LOW. USB serial runs at 115200 baud.
 
 The device reports the selected logical endpoint in the same JSON event shape
-used by the Pi IR parser. Since one simple receiver cannot decode the M5
-beacon's train identity, select the test identity explicitly:
+used by the Pi IR parser. It decodes the M5 beacon's 8-byte `HR` frame
+(including version, locomotive ID, direction, speed, and CRC-8), so the
+reported train ID comes from the beacon. `SET TRAIN` remains available for
+status/fallback compatibility when no valid frame has been received:
 
 ```text
 SET ENDPOINT mine_station

@@ -5,10 +5,10 @@
  * Sensor: one demodulated IR receiver output on D2
  * Serial: USB CDC, 115200 baud
  *
- * This is a non-actuating bench instrument. It cannot decode the M5 beacon's
- * train identity; SET TRAIN selects the identity to report for test-track
- * events. SET ENDPOINT selects which logical layout receiver the one physical
- * sensor represents. Settings are retained in ESP32 NVS.
+ * This is a non-actuating bench instrument. It decodes the M5 beacon's
+ * 1 ms OOK symbols and validates the HR preamble and CRC-8. SET ENDPOINT
+ * selects which logical layout receiver the one physical sensor represents.
+ * Settings are retained in ESP32 NVS.
  */
 #include <Arduino.h>
 #include <Preferences.h>
@@ -22,6 +22,8 @@ constexpr uint32_t SERIAL_BAUD = 115200;
 constexpr uint32_t BURST_START_MS = 1;
 constexpr uint32_t BURST_IDLE_MS = 8;
 constexpr uint32_t MIN_EVENT_GAP_MS = 80;
+constexpr uint32_t IR_SYMBOL_US = 1000;
+constexpr uint8_t IR_FRAME_BYTES = 8;
 constexpr size_t MAX_LINE = 96;
 
 struct Endpoint { const char *id; const char *name; };
@@ -53,6 +55,13 @@ uint32_t activeSince = 0;
 uint32_t lastCarrierMs = 0;
 uint32_t lastEvent = 0;
 bool burstActive = false;
+bool decodingFrame = false;
+uint8_t frame[IR_FRAME_BYTES] = {};
+uint8_t frameBit = 0;
+uint32_t nextSampleUs = 0;
+uint8_t lastDecodedTrainId = 0;
+int16_t lastDecodedSpeed = 0;
+uint8_t lastDecodedFlags = 0;
 
 void printStatus() {
   Serial.print(F("{\"controller\":\"ir_bench_nano_esp32\",\"pin\":\"D2\",\"endpoint_id\":\""));
@@ -60,7 +69,10 @@ void printStatus() {
   Serial.print(F("\",\"receiver\":\""));
   Serial.print(ENDPOINTS[endpointIndex].name);
   Serial.print(F("\",\"train_id\":"));
-  Serial.print(trainId);
+  Serial.print(lastDecodedTrainId ? lastDecodedTrainId : trainId);
+  Serial.print(F(",\"train_id_source\":\""));
+  Serial.print(lastDecodedTrainId ? F("m5_frame") : F("bench_config"));
+  Serial.print(F("\""));
   Serial.print(F(",\"active\":"));
   Serial.print(sensorActive ? F("true") : F("false"));
   Serial.println(F(",\"outputs_disabled\":true}"));
@@ -123,8 +135,40 @@ void emitEvent() {
   lastEvent = millis();
   Serial.print(F("{\"receiver\":\"")); Serial.print(ENDPOINTS[endpointIndex].name);
   Serial.print(F("\",\"endpoint_id\":\"")); Serial.print(ENDPOINTS[endpointIndex].id);
-  Serial.print(F("\",\"train_id\":")); Serial.print(trainId);
-  Serial.println(F(",\"speed\":0,\"source\":\"bench_nano_esp32\"}"));
+  Serial.print(F("\",\"train_id\":")); Serial.print(lastDecodedTrainId ? lastDecodedTrainId : trainId);
+  Serial.print(F(",\"speed\":")); Serial.print(lastDecodedSpeed);
+  Serial.print(F(",\"direction\":")); Serial.print((lastDecodedFlags & 0x01) ? -1 : 1);
+  Serial.println(F(",\"source\":\"bench_nano_esp32_m5_decode\"}"));
+}
+
+uint8_t crc8(const uint8_t *data, size_t length) {
+  uint8_t crc = 0;
+  for (size_t i = 0; i < length; ++i) {
+    crc ^= data[i];
+    for (uint8_t bit = 0; bit < 8; ++bit)
+      crc = (crc & 0x80) ? uint8_t((crc << 1) ^ 0x07) : uint8_t(crc << 1);
+  }
+  return crc;
+}
+
+void finishFrame() {
+  decodingFrame = false;
+  if (frame[0] != 'H' || frame[1] != 'R' || frame[2] != 1 ||
+      frame[3] < 1 || frame[3] > 4 || crc8(frame + 2, 5) != frame[7]) return;
+  lastDecodedTrainId = frame[3];
+  lastDecodedFlags = frame[4];
+  lastDecodedSpeed = (frame[4] & 0x01) ? -int16_t(frame[6]) : int16_t(frame[6]);
+  emitEvent();
+}
+
+void sampleFrame() {
+  while (decodingFrame && int32_t(micros() - nextSampleUs) >= 0) {
+    if (digitalRead(IR_SENSOR_PIN) == LOW)
+      frame[frameBit / 8] |= uint8_t(1u << (frameBit % 8));
+    ++frameBit;
+    nextSampleUs += IR_SYMBOL_US;
+    if (frameBit >= IR_FRAME_BYTES * 8) finishFrame();
+  }
 }
 
 void sampleSensor() {
@@ -137,15 +181,23 @@ void sampleSensor() {
       if (activeSince == 0) activeSince = now;
       if (now - activeSince >= BURST_START_MS) {
         burstActive = true;
-        emitEvent();
+        // The first carrier in the M5 preamble is bit 3 of 'H' (LSB first).
+        memset(frame, 0, sizeof(frame));
+        frame[0] = 0x08;
+        frameBit = 4;
+        decodingFrame = true;
+        nextSampleUs = micros() + IR_SYMBOL_US / 2;
       }
     }
   } else {
     activeSince = 0;
+    sampleFrame();
     if (burstActive && now - lastCarrierMs >= BURST_IDLE_MS) {
       burstActive = false;
+      decodingFrame = false;
     }
   }
+  sampleFrame();
 }
 
 void setup() {
