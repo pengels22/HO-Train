@@ -56,6 +56,7 @@ class Dispatcher:
     stop_reason: str | None = None
     stop_causes: dict[str, str] = field(default_factory=dict)
     simulation: bool = True
+    bench_mode: bool = False
     estop_controller: object | None = field(default=None, repr=False)
     physical_estop: Callable[[], bool] | None = field(default=None, repr=False)
     accessory_stops: dict[str, Callable[[], None]] = field(default_factory=dict, repr=False)
@@ -229,7 +230,7 @@ class Dispatcher:
             raise SafetyError("physical E-Stop remains engaged")
         if self.tipper_fault or self.accessory_errors:
             raise SafetyError("safety faults remain unresolved")
-        if self.controller_health and not self.controller_health.operating_ready():
+        if self.controller_health and not self.bench_mode and not self.controller_health.operating_ready():
             raise SafetyError("required controller health is not ready")
 
     def reconcile_controller(self, locomotive_id) -> None:
