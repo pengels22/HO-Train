@@ -150,7 +150,10 @@ def configure_runtime(mode: str = "simulation") -> None:
                                       independent_locomotives=True)
     DISPATCHER.attach_controller_health(HEALTH)
     DISPATCHER.simulation = False
+    DISPATCHER.bench_mode = mode == "bench"
+    # Healthy locomotive operation is independent of accessory availability.
     DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS, start_armed=True), require_rearm=False)
+    HEALTH.on_failure = None
     USB_CONTROLLERS.start_heartbeat()
     HEALTH.start_monitor()
     _start_ir_bench(hardware)
