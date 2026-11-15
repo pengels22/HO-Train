@@ -215,11 +215,14 @@ void handleCommand(const uint8_t *p, size_t length) {
   if (trainId != LOCOMOTIVE_ID_VALUE) return;
   lastAcceptedSequence = sequence;
   lastApplicableCommandMs = millis();
-  communicationFault = false;
-  if (state != ARMED) {
+  // Fresh, validated throttle recovers ordinary startup/communication faults.
+  // Explicit E-STOP remains latched until a separate authorized REARM.
+  if (state == ESTOP_LATCHED) {
     setMotorSpeed(0);
     return;
   }
+  communicationFault = false;
+  state = ARMED;
   setMotorSpeed(speed);
 }
 
@@ -288,7 +291,8 @@ void loop() {
   } else if (udpStarted) {
     udp.stop();
     udpStarted = false;
-    communicationFault = true; state = COMMUNICATION_FAULT;
+    communicationFault = true;
+    if (state != ESTOP_LATCHED) state = COMMUNICATION_FAULT;
     setMotorSpeed(0);
   }
   if (lastApplicableCommandMs == 0 || millis() - lastApplicableCommandMs > WATCHDOG_MS) {
