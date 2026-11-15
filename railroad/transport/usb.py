@@ -114,7 +114,7 @@ class RegisteredController:
 
     def command(self, command: str, *, expect: str | None = None, transaction_id: str | None = None) -> str:
         """Send one registered-controller command and verify its reply."""
-        if command not in {"STATUS", "REARM AUTH"}:
+        if command not in {"STATUS", "REARM AUTH", "REARM"}:
             raise ValueError("unsupported controller command")
         with self._write_lock:
             port = self.reconnect()
@@ -182,7 +182,10 @@ class ControllerRegistry:
         errors = []
         for controller in self.controllers:
             try:
-                reply = controller.command("REARM AUTH", expect="{", transaction_id=transaction_id)
+                # The turntable uses authenticated "REARM AUTH"; the tipper
+                # XIAO firmware uses transactional "REARM".
+                local_rearm = "REARM" if controller.controller_type == "tipper" or controller.controller_id == "tipper" else "REARM AUTH"
+                reply = controller.command(local_rearm, expect="{", transaction_id=transaction_id)
                 status = json.loads(reply)
                 if status.get("controller") not in {controller.controller_id, controller.controller_type}:
                     raise OSError(f"{controller.controller_id} identity acknowledgement mismatch")
