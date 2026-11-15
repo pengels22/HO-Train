@@ -3,7 +3,8 @@ i2c:
   bus: 1
   level_shifter_required: true
   boards: {motor_1: 0x40, motor_2: 0x41, servo: 0x42, sensors_1: 0x20, sensors_2: 0x21}
-gpio_safe_start: true
+# All sensor and accessory IO goes through MCP23017/PCA9685/ESP32 boards.
+# Pi GPIO is unassigned; I2C SDA/SCL are only bus communications.
 # No Raspberry Pi GPIO E-Stop is installed in this railroad configuration.
 # The serial controller registry remains the transport for controller-local
 # stop/watchdog handling and dispatcher stop propagation.
@@ -28,7 +29,6 @@ locomotive_controllers:
 # not locomotive controllers; exact device paths are deployment placeholders.
 # Declarative inventory used for validation and SETTINGS display. This list is
 # safe to load on macOS; it does not open a bus or write an output.
-reserved_bcm_pins: [2, 3, 14, 15]
 io_registry:
   - {board: mcp23017_0x20, address: 0x20, channel: GPA0, device_type: mcp23017, function: turnout_A_1, location: turnout A, direction: input, polarity: active_low}
   - {board: mcp23017_0x20, address: 0x20, channel: GPA1, device_type: mcp23017, function: turnout_A_2, location: turnout A, direction: input, polarity: active_low}
@@ -59,6 +59,6 @@ io_registry:
   - {board: mcp23017_0x21, address: 0x21, channel: GPB2, device_type: mcp23017, function: farm_station_ir, location: farm, direction: input, polarity: active_low}
   - {board: mcp23017_0x21, address: 0x21, channel: GPB3, device_type: mcp23017, function: town_station_ir, location: town, direction: input, polarity: active_low}
   - {board: mcp23017_0x21, address: 0x21, channel: GPB4, device_type: mcp23017, function: mine_station_ir, location: mine, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB5, device_type: mcp23017, function: spare_21_GPB5, location: spare, direction: input, polarity: active_low, spare: true}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB6, device_type: mcp23017, function: spare_21_GPB6, location: spare, direction: input, polarity: active_low, spare: true}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB7, device_type: mcp23017, function: spare_21_GPB7, location: spare, direction: input, polarity: active_low, spare: true}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB5, device_type: mcp23017, function: yard_track_1_relay, location: yard track 1 (stalls 1A/1B), direction: output, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB6, device_type: mcp23017, function: yard_track_2_relay, location: yard track 2, direction: output, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB7, device_type: mcp23017, function: yard_track_3_relay, location: yard track 3, direction: output, polarity: active_low}
