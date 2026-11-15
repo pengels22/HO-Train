@@ -6,4 +6,4 @@ motors:
   5: {channels: [8, 9], function: ski_lodge_road_loop}
   6: {channels: [10, 11], function: long_road_loop}
   7: {channels: [12, 13], function: town_road_loop}
-  8: {channels: [14, 15], function: rotary_tipper}
+# M8 rotary tipper uses dedicated XIAO ESP32-C6 (D6/D7); PCA9685 CH14/15 spare.
