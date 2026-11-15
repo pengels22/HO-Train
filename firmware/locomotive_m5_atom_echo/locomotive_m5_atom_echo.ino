@@ -51,8 +51,19 @@ constexpr unsigned long IR_ONE_GAP_US = 12000;
 
 // Credentials are intentionally supplied at build/deployment time, never
 // committed to the repository.
-const char *WIFI_SSID = "Lab 42";
-const char *WIFI_PASSWORD = "NerdsRock!";
+// Supply these through build flags or an untracked local header.
+// Blank defaults compile safely but never connect to a network.
+#if __has_include("wifi_credentials.h")
+#include "wifi_credentials.h"
+#endif
+#ifndef HO_WIFI_SSID
+#define HO_WIFI_SSID ""
+#endif
+#ifndef HO_WIFI_PASSWORD
+#define HO_WIFI_PASSWORD ""
+#endif
+const char *WIFI_SSID = HO_WIFI_SSID;
+const char *WIFI_PASSWORD = HO_WIFI_PASSWORD;
 
 uint16_t crc16(const uint8_t *data, size_t length) {
   uint16_t crc = 0xFFFF;
@@ -162,6 +173,12 @@ void connectWifi() {
   if (millis() - lastWifiAttemptMs < 5000) return;
   lastWifiAttemptMs = millis();
   Serial.println("WIFI_CONNECTING");
+  if (!WIFI_SSID[0] || !WIFI_PASSWORD[0]) {
+    // No credentials: remain offline with the motor stopped.
+    analogWrite(MOTOR_FORWARD_PIN, 0);
+    analogWrite(MOTOR_REVERSE_PIN, 0);
+    return;
+  }
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 }
