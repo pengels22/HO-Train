@@ -93,8 +93,9 @@ class Dispatcher:
     def attach_controller_health(self, registry) -> None:
         with self.lock:
             self.controller_health = registry
-            registry.on_failure = lambda controller, reason: self.stop_all(
-                f"controller {controller} communication failure: {reason}", cause="controller_fault")
+            # A disconnected accessory or locomotive is reported in telemetry,
+            # not treated as a stop command for every other train.
+            registry.on_failure = None
 
     def attach_motion_stop(self, callback: Callable[[], None]) -> None:
         """Register a local motion engine stop hook.
@@ -160,12 +161,8 @@ class Dispatcher:
 
     def clear_stop(self):
         with self.lock:
-            if self.tipper_fault:
-                raise SafetyError("tipper fault must be resolved first")
             if self.physical_estop and self.physical_estop():
                 raise SafetyError("physical E-Stop remains engaged")
-            if self.accessory_errors:
-                raise SafetyError("E-Stop accessory faults remain unresolved")
             if any(t.expected_checkpoint and t.checkpoint_deadline and
                    time.monotonic() > t.checkpoint_deadline for t in self.trains.values()):
                 raise SafetyError("unresolved checkpoint position fault")
@@ -192,8 +189,6 @@ class Dispatcher:
                 raise SafetyError("clear GLOBAL STOP before rearming")
             if self.physical_estop and self.physical_estop():
                 raise SafetyError("physical E-Stop remains engaged")
-            if self.tipper_fault or self.accessory_errors:
-                raise SafetyError("safety faults remain unresolved")
             transaction = f"rearm-{time.monotonic_ns()}"
             if self.controller_health:
                 self.controller_health.begin_rearm(transaction)
@@ -228,10 +223,6 @@ class Dispatcher:
             raise SafetyError("motion command blocked by E-Stop/disarmed state")
         if self.physical_estop and self.physical_estop():
             raise SafetyError("physical E-Stop remains engaged")
-        if self.tipper_fault or self.accessory_errors:
-            raise SafetyError("safety faults remain unresolved")
-        if self.controller_health and not self.bench_mode and not self.controller_health.operating_ready():
-            raise SafetyError("required controller health is not ready")
 
     def reconcile_controller(self, locomotive_id) -> None:
         """Operator-authorized reconciliation; never called by telemetry arrival."""
@@ -261,7 +252,7 @@ class Dispatcher:
                         t.cycle = []
                         t.cycle_step = 0
                         t.velocity = 0
-                self.stop_all("tipper fault: check mechanical safety before recovery")
+                # Record the tipper fault locally. Other trains/accessories run normally.
 
     def clear_tipper_fault(self, home: bool, restraints_released: bool, track_clear: bool):
         with self.lock:
@@ -276,8 +267,6 @@ class Dispatcher:
         if self.global_stop or self._rearm_required or train_id not in self.trains:
             return False
         if self.physical_estop and self.physical_estop():
-            return False
-        if self.tipper_fault or self.accessory_errors:
             return False
         if len(zones) != len(set(zones)) or any(z not in self.zones for z in zones):
             return False
@@ -355,7 +344,7 @@ class Dispatcher:
                 train.cycle=[]
                 train.velocity=0
                 if not safe_to_depart:
-                    self.stop_all("tipper failed and train unsafe to depart")
+                    self.set_tipper("FAULT", "tipper failed and train unsafe to depart")
                 return
             if train.cargo not in (Cargo.ORE,Cargo.CORN):
                 raise SafetyError("no confirmed cargo to unload")
