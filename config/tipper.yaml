@@ -16,9 +16,13 @@ speed_limit_mm_s: 25.4
 # Optical encoder is rotation feedback, not train-clearance sensing.
 encoder_slots: 40
 encoder_wheel_diameter_in: 1.125
-rotation_counts_per_120_degrees: null  # calibrate before motion
-decoupler_active_high: null  # confirm actual relay polarity
+rotation_counts_per_120_degrees: null  # recorded using MARK START / SET 120 on XIAO
+decoupler_active_high: false  # active-low D10 / GPIO18 relay
 decoupler_pulse_ms: 250
+calibration_jog_ms: 200
+calibration_jog_pwm: 80
+home_reference: operator_marked_encoder_zero
+lock_feedback: timed_motor_only_no_sensor
 pins:
   motor_in1: 16
   motor_in2: 17
