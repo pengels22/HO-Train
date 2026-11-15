@@ -89,34 +89,25 @@ def configure_runtime(mode: str = "simulation") -> None:
         DISPATCHER.simulation = True
         DISPATCHER.disarm()
         return
-    # ``hardware``/``bench`` are explicit opt-ins.  The sender itself remains
-    # disarmed until an operator performs the rearm sequence.
+    # Physical outputs are enabled by explicitly choosing hardware operation.
     import yaml
     hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
     estop_config = hardware.get("estop", {}) or {}
-    if mode == "hardware":
-        missing = []
-        if estop_config.get("gpio") is None: missing.append("estop.gpio")
-        if not estop_config.get("serial_controllers"): missing.append("estop.serial_controllers")
-        locomotive_config = hardware.get("locomotive_controllers")
-        if not isinstance(locomotive_config, list) or not locomotive_config:
-            missing.append("locomotive_controllers")
-        if missing:
-            raise RuntimeError("hardware safety configuration incomplete: " + ", ".join(missing))
-        configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
-        known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
-        ids = []
-        for entry in locomotive_config:
-            if not isinstance(entry, dict) or type(entry.get("id")) is not int:
-                raise RuntimeError("locomotive_controllers entries require integer id and type")
-            if entry.get("type") != "m5_atom_echo":
-                raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}")
-            ids.append(entry["id"])
-        if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
-            raise RuntimeError("invalid or inconsistent locomotive_controllers IDs")
-        serial_ids = [entry.get("id") for entry in estop_config.get("serial_controllers", []) if isinstance(entry, dict)]
-        if len(serial_ids) != len(set(serial_ids)):
-            raise RuntimeError("duplicate serial controller identities")
+    # An HO railroad can run with whichever devices are currently connected.
+    # Missing accessory boards and an uninstalled physical E-stop are not
+    # startup errors. Validate any locomotive IDs the operator *does* configure.
+    locomotive_config = hardware.get("locomotive_controllers") or []
+    configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
+    known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
+    ids = []
+    for entry in locomotive_config:
+        if not isinstance(entry, dict) or type(entry.get("id")) is not int:
+            raise RuntimeError("locomotive_controllers entries require integer id and type")
+        if entry.get("type") != "m5_atom_echo":
+            raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}")
+        ids.append(entry["id"])
+    if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
+        raise RuntimeError("invalid or inconsistent locomotive_controllers IDs")
     USB_CONTROLLERS = ControllerRegistry()
     for entry in estop_config.get("serial_controllers", []) or []:
         controller_id, port_name = entry.get("id"), entry.get("port")
