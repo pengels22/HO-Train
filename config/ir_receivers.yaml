@@ -1,4 +1,5 @@
-# Single Nano USB IR decoder; zone labels from track-zones proposal remain unverified.
+# Single Nano USB IR decoder; receiver locations are verified, while zone labels
+# remain configuration metadata for the dispatcher.
 controller: nano-1
 transport: usb_serial
 baud: 115200

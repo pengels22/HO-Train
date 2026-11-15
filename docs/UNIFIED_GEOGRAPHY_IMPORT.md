@@ -3,7 +3,7 @@
 Source: user-exported `HO_Train_Unified_Geography.json` from the standalone unified layout editor. The entire set of 89 centerline segments and their coordinate points is preserved exactly in `config/unified_geography.json`.
 
 - Coordinate system: original-mockup 739 × 593. Use the matching source image, not the previous 752 × 602 crop, and never reapply the offset.
-- 15 zone boundary pairs and 11 IR receivers are carried over from the user's exported JSON, retaining their per-item verification states.
+- 15 zone boundary pairs and 11 IR receivers are carried over from the user's exported JSON. The 11 mapped IR receiver locations are now marked verified; zone topology and boundary validation remain separate review items.
 - Existing 25 Hall sensors (H01–H25) are user-verified, including H01 whose checkbox was missed.
 - Original 89 geometry paths: **visually aligned/approved by the user**. This does **not** imply segment connectivity, turntable stopping, safe routes, or simulation paths are verified.
 - Eight powered turnouts A–H; G and H default **straight**.
