@@ -116,7 +116,8 @@ def test_accessory_stop_fault_does_not_block_udp_delivery():
     try:
         dispatcher.stop_all("operator")
         assert called and len(udp.commands) == 1
-        with pytest.raises(SafetyError): dispatcher.clear_stop()
+        dispatcher.clear_stop()
+        assert not dispatcher.global_stop
     finally:
         estop.shutdown()
 

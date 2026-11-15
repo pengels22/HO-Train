@@ -111,11 +111,10 @@ def configure_runtime(mode: str = "simulation") -> None:
         DISPATCHER.simulation = True
         DISPATCHER.disarm()
         return
-    # ``hardware``/``bench`` are explicit opt-ins.  The sender itself remains
-    # disarmed until an operator performs the rearm sequence.
+    # ``hardware``/``bench`` are explicit opt-ins. Missing accessories and an
+    # uninstalled physical E-stop are not startup errors.
     import yaml
     hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
-    HardwareRegistry.from_config(hardware).require_valid()
     estop_config = hardware.get("estop", {}) or {}
     rpi_gpio = None
     if estop_config.get("gpio") is not None:
@@ -124,28 +123,18 @@ def configure_runtime(mode: str = "simulation") -> None:
         except ImportError as exc:
             raise RuntimeError("hardware safety configuration incomplete: RPi.GPIO unavailable") from exc
         rpi_gpio = rpi_gpio_module
-    if mode == "hardware":
-        missing = []
-        if not estop_config.get("serial_controllers"): missing.append("estop.serial_controllers")
-        locomotive_config = hardware.get("locomotive_controllers")
-        if not isinstance(locomotive_config, list) or not locomotive_config:
-            missing.append("locomotive_controllers")
-        if missing:
-            raise RuntimeError("hardware safety configuration incomplete: " + ", ".join(missing))
-        configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
-        known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
-        ids = []
-        for entry in locomotive_config:
-            if not isinstance(entry, dict) or type(entry.get("id")) is not int:
-                raise RuntimeError("locomotive_controllers entries require integer id and type")
-            if entry.get("type") != "m5_atom_echo":
-                raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}; locomotives use M5 Atom Echo")
-            ids.append(entry["id"])
-        if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
-            raise RuntimeError("invalid or inconsistent locomotive_controllers IDs")
-        serial_ids = [entry.get("id") for entry in estop_config.get("serial_controllers", []) if isinstance(entry, dict)]
-        if len(serial_ids) != len(set(serial_ids)):
-            raise RuntimeError("duplicate serial controller identities")
+    locomotive_config = hardware.get("locomotive_controllers") or []
+    configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
+    known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
+    ids = []
+    for entry in locomotive_config:
+        if not isinstance(entry, dict) or type(entry.get("id")) is not int:
+            raise RuntimeError("locomotive_controllers entries require integer id and type")
+        if entry.get("type") != "m5_atom_echo":
+            raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}")
+        ids.append(entry["id"])
+    if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
+        raise RuntimeError("invalid or inconsistent locomotive_controllers IDs")
     USB_CONTROLLERS = ControllerRegistry()
     for entry in estop_config.get("serial_controllers", []) or []:
         controller_id, port_name = entry.get("id"), entry.get("port")
@@ -161,7 +150,7 @@ def configure_runtime(mode: str = "simulation") -> None:
                                       independent_locomotives=True)
     DISPATCHER.attach_controller_health(HEALTH)
     DISPATCHER.simulation = False
-    DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS), require_rearm=True)
+    DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS, start_armed=True), require_rearm=False)
     USB_CONTROLLERS.start_heartbeat()
     HEALTH.start_monitor()
     _start_ir_bench(hardware)

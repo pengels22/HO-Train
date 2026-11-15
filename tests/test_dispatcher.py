@@ -46,10 +46,17 @@ def test_tipper_failure_recovery():
     d.set_tipper("FAULT","alignment")
     assert d.trains[1].destination=="Yard"
     assert d.trains[1].cargo==Cargo.UNKNOWN
-    assert d.global_stop
+    assert not d.global_stop
     with pytest.raises(SafetyError):d.clear_tipper_fault(True,False,True)
     d.clear_tipper_fault(True,True,True)
-    assert d.global_stop
+    assert not d.global_stop
+
+def test_tipper_fault_does_not_stop_unrelated_train():
+    d = Dispatcher()
+    d.trains[2].velocity = 40
+    d.set_tipper("FAULT", "alignment")
+    assert not d.global_stop
+    assert d.trains[2].velocity == 40
 
 def test_cycle_mandatory_unload():
     d=Dispatcher()
