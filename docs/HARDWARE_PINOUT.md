@@ -30,9 +30,9 @@ does not enable any output:
 
 | Board | Input | Function |
 |---|---|---|
-| MCP23017 `0x20` | GPB7 | Mine station IR |
+| MCP23017 `0x21` | GPB4 | Mine station IR |
 | MCP23017 `0x21` | GPB2 | Farm station IR |
 | MCP23017 `0x21` | GPB3 | Town station IR |
 
-The remaining open inputs are `0x21` GPB4–GPB7. Turntable arrival remains
+The remaining open inputs are `0x20` GPB7 and `0x21` GPB5–GPB7. Turntable arrival remains
 validated by its dedicated C6 alignment/reed feedback.

@@ -8,7 +8,7 @@ Source document notes:
 - A–G is the agreed seven-powered-turnout plan; repository currently includes an unverified H/turntable spur and must reconcile that difference.
 - Reed magnetic track detectors replace the *track-location* Hall inputs once validated. Dedicated tipper Hall/IR GPIO sensors remain separate.
 - GPIO12/13/16 yard relay pins and MCP 0x21 destination inputs were added provisionally to the drawing; verify actual wiring.
-- Missing destination station IR inputs are assigned to MCP23017 `0x20` GPB7 (Mine), `0x21` GPB2 (Farm), and `0x21` GPB3 (Town). The remaining open inputs are `0x21` GPB4–GPB7.
+- Missing destination station IR inputs are assigned to MCP23017 `0x21` GPB4 (Mine), `0x21` GPB2 (Farm), and `0x21` GPB3 (Town). The remaining open inputs are `0x20` GPB7 and `0x21` GPB5–GPB7.
 - No Raspberry Pi GPIO is assigned to a physical E-Stop in the current controller architecture. Stop propagation uses the dispatcher and controller-local watchdog/E-Stop protocols.
 - The PDF is a design drawing, **not** a proof of functional or safe electrical commissioning.
 
