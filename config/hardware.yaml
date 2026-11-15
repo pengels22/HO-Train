@@ -59,6 +59,6 @@ io_registry:
   - {board: mcp23017_0x21, address: 0x21, channel: GPB2, device_type: mcp23017, function: farm_station_ir, location: farm, direction: input, polarity: active_low}
   - {board: mcp23017_0x21, address: 0x21, channel: GPB3, device_type: mcp23017, function: town_station_ir, location: town, direction: input, polarity: active_low}
   - {board: mcp23017_0x21, address: 0x21, channel: GPB4, device_type: mcp23017, function: mine_station_ir, location: mine, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB5, device_type: mcp23017, function: yard_track_1_relay, location: yard track 1 (stalls 1A/1B), direction: output, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB6, device_type: mcp23017, function: yard_track_2_relay, location: yard track 2, direction: output, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB7, device_type: mcp23017, function: yard_track_3_relay, location: yard track 3, direction: output, polarity: active_low}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB5, device_type: mcp23017, function: spare_21_GPB5, location: spare, direction: input, polarity: active_low, spare: true}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB6, device_type: mcp23017, function: spare_21_GPB6, location: spare, direction: input, polarity: active_low, spare: true}
+  - {board: mcp23017_0x21, address: 0x21, channel: GPB7, device_type: mcp23017, function: spare_21_GPB7, location: spare, direction: input, polarity: active_low, spare: true}
