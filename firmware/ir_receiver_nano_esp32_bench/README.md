@@ -21,6 +21,11 @@ supported endpoint IDs. A falling/active sensor edge emits one event such as:
 {"receiver":"Mine Station","endpoint_id":"mine_station","train_id":1,"speed":0,"source":"bench_nano_esp32"}
 ```
 
+The receiver detects an M5 carrier burst rather than waiting for a sustained
+LOW level: the M5 frame uses 1 ms symbols and the demodulated output returns
+HIGH between carrier symbols. A burst is accepted after 1 ms of carrier and
+closed after an 8 ms idle gap, with an 80 ms minimum event interval.
+
 This sketch does not drive motors, relays, track power, or locomotives. It is
 separate from the production 11-channel Nano diagnostic sketch.
 

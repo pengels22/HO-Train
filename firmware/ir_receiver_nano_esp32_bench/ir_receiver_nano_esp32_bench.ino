@@ -15,8 +15,13 @@
 
 constexpr uint8_t IR_SENSOR_PIN = D2;
 constexpr uint32_t SERIAL_BAUD = 115200;
-constexpr uint32_t DEBOUNCE_MS = 40;
-constexpr uint32_t MIN_EVENT_GAP_MS = 300;
+// The M5 transmitter sends 1 ms symbols.  A demodulated receiver is LOW
+// only while carrier is present, so a complete frame is not continuously
+// LOW for the 40 ms needed by a beam-break debounce.  Detect a carrier burst
+// instead and close it after the inter-symbol/frame idle gap.
+constexpr uint32_t BURST_START_MS = 1;
+constexpr uint32_t BURST_IDLE_MS = 8;
+constexpr uint32_t MIN_EVENT_GAP_MS = 80;
 constexpr size_t MAX_LINE = 96;
 
 struct Endpoint { const char *id; const char *name; };
@@ -43,10 +48,11 @@ char lineBuffer[MAX_LINE];
 size_t lineLength = 0;
 size_t endpointIndex = 0;
 uint8_t trainId = 1;
-bool stableActive = false;
-bool candidateActive = false;
-uint32_t candidateSince = 0;
+bool sensorActive = false;
+uint32_t activeSince = 0;
+uint32_t lastCarrierMs = 0;
 uint32_t lastEvent = 0;
+bool burstActive = false;
 
 void printStatus() {
   Serial.print(F("{\"controller\":\"ir_bench_nano_esp32\",\"pin\":\"D2\",\"endpoint_id\":\""));
@@ -56,7 +62,7 @@ void printStatus() {
   Serial.print(F("\",\"train_id\":"));
   Serial.print(trainId);
   Serial.print(F(",\"active\":"));
-  Serial.print(stableActive ? F("true") : F("false"));
+  Serial.print(sensorActive ? F("true") : F("false"));
   Serial.println(F(",\"outputs_disabled\":true}"));
 }
 
@@ -124,10 +130,21 @@ void emitEvent() {
 void sampleSensor() {
   const bool active = digitalRead(IR_SENSOR_PIN) == LOW;
   const uint32_t now = millis();
-  if (active != candidateActive) { candidateActive = active; candidateSince = now; }
-  if (candidateActive != stableActive && now - candidateSince >= DEBOUNCE_MS) {
-    stableActive = candidateActive;
-    if (stableActive) emitEvent();
+  sensorActive = active;
+  if (active) {
+    lastCarrierMs = now;
+    if (!burstActive) {
+      if (activeSince == 0) activeSince = now;
+      if (now - activeSince >= BURST_START_MS) {
+        burstActive = true;
+        emitEvent();
+      }
+    }
+  } else {
+    activeSince = 0;
+    if (burstActive && now - lastCarrierMs >= BURST_IDLE_MS) {
+      burstActive = false;
+    }
   }
 }
 
@@ -140,8 +157,8 @@ void setup() {
   if (savedEndpoint >= 0) endpointIndex = static_cast<size_t>(savedEndpoint);
   const uint8_t savedTrain = preferences.getUChar("train", 1);
   if (savedTrain >= 1 && savedTrain <= 4) trainId = savedTrain;
-  stableActive = digitalRead(IR_SENSOR_PIN) == LOW;
-  candidateActive = stableActive;
+  sensorActive = digitalRead(IR_SENSOR_PIN) == LOW;
+  if (sensorActive) { lastCarrierMs = millis(); activeSince = millis(); }
   Serial.println(F("{\"ready\":true,\"controller\":\"ir_bench_nano_esp32\",\"outputs_disabled\":true}"));
   printStatus();
 }
