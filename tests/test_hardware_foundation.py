@@ -11,12 +11,12 @@ from railroad.hardware.pca9685 import PCA9685
 ROOT = Path(__file__).parents[1]
 
 
-def test_confirmed_registry_has_25_inputs_and_seven_spares_without_duplicates():
+def test_confirmed_registry_has_28_inputs_and_four_spares_without_duplicates():
     config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
     registry = HardwareRegistry.from_config(config).require_valid()
     inputs = [e for e in registry.entries if e.device_type == "mcp23017"]
     assert len(inputs) == 32
-    assert sum(e.spare for e in inputs) == 7
+    assert sum(e.spare for e in inputs) == 4
     assert not any("turnout_H" in e.function for e in inputs)
 
 

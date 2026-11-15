@@ -21,3 +21,18 @@ Pi output may be wired in parallel with the C6 assignment. The gripper motor
 uses GPIO19/20 (IN3/IN4), forward unlock and reverse lock, with an 800 ms
 pulse. IR front/back inputs remain unassigned because they are not present in
 the supplied C6 table.
+
+### MCP23017 destination IR inputs
+
+The next available MCP inputs are assigned to the missing destination station
+receivers. All are active-low inputs; this changes input allocation only and
+does not enable any output:
+
+| Board | Input | Function |
+|---|---|---|
+| MCP23017 `0x20` | GPB7 | Mine station IR |
+| MCP23017 `0x21` | GPB2 | Farm station IR |
+| MCP23017 `0x21` | GPB3 | Town station IR |
+
+The remaining open inputs are `0x21` GPB4–GPB7. Turntable arrival remains
+validated by its dedicated C6 alignment/reed feedback.

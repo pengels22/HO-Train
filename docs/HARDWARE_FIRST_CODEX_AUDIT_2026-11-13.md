@@ -9,7 +9,7 @@ Implement the HO railroad as an actual Raspberry Pi 4B-controlled model railway,
 ## Verified repository findings
 - `railroad/main.py` defaults to `simulation`; `railroad/api/server.py` instantiates `SimulationEngine` globally and configures hardware only with substantial gating. The dashboard is heavily simulation-oriented.
 - `railroad/hardware/mcp23017.py`, `pca9685.py`, `drv8833.py`, and `i2c.py` are placeholders. Real sensor polling, output writes, and commissioning tools are not implemented.
-- `config/sensors.yaml` has global 250 ms debounce, twenty-four A-H turnout positions and four destination detectors: 28 populated inputs. The newer confirmed A-G layout requires 21 turnout detectors + 4 location detectors = 25 inputs, leaving 7 spares on two MCP23017 boards.
+- `config/sensors.yaml` has global 250 ms debounce, twenty-four A-H turnout positions and seven destination detectors: 28 populated inputs. The confirmed A-G layout plus Mine/Farm/Town station IR inputs uses 21 turnout detectors + 7 location detectors = 28 inputs, leaving 4 spares on two MCP23017 boards.
 - `railroad/dispatcher.py` and `railroad/routing/interlocking.py` still include turnout H. `config/track_layout.yaml` and `config/turntable.yaml` also reference H/UND-4; `tests/test_turntable_safety.py` tests H. This CONFLICTS with the latest 7-powered-turnout A-G wiring plan. Do not silently remove H or break turntable routing: isolate a decision/configuration switch and present topology reconciliation, defaulting current confirmed hardware to A-G while leaving turntable access unresolved until mapped to the real track.
 - `config/yard_power.yaml` declares three relays but all outputs `unassigned`; `railroad/yard.py` understands 1A and 1B share Track 1.
 - `config/motors.yaml` maps 8 pairs to PCA9685 0x40; `config/servos.yaml` maps A-G and the tipper lock to PCA9685 0x42, plus provisional H on channel 13. Board 0x41 is reserved/spare.
@@ -64,7 +64,7 @@ Implement the HO railroad as an actual Raspberry Pi 4B-controlled model railway,
 17. Maintain a concise deployment checklist: wiring/current/logic validation; one-sensor magnet test; no-car unloaded motor jog; zero-speed calibration; one train under 1 in/s approach; E-stop and lost-comms checks.
 
 ## Required automated tests
-- 25 track inputs, 7 spares, no duplicate pin mappings, no accidental 8th turnout in configured A-G hardware; H discrepancy reported rather than silently erased.
+- 28 track inputs, 4 spares, no duplicate pin mappings, no accidental 8th turnout in configured A-G hardware; H discrepancy reported rather than silently erased.
 - Two reed transitions in quick succession do not disappear due to 250 ms lockout; switch bounce does not double count; closure lasting >1 s is one pulse; no counting until an OPEN edge has been observed.
 - N magnet pulses count N vehicles using configured consist; N+1 faults; missing last-car evidence retains the reservation.
 - Turntable and tipper cap <=25.4 mm/s for automatic, manual, direct dispatch, and during target changes; unknown speed calibration cannot enable automatic 1 in/s positioning.
