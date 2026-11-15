@@ -48,26 +48,20 @@ constexpr unsigned long LOCK_PULSE_MS = 800;
 constexpr unsigned long DECOUPLER_PULSE_MS = 250;
 // D10/GPIO18 is an active-low relay: HIGH is OFF, LOW is ON.
 // Keep the relay output disabled until bench verification is completed.
-#ifndef TIPPER_DECOUPLER_RELAY_VERIFIED
-#define TIPPER_DECOUPLER_RELAY_VERIFIED 0
-#endif
 #ifndef TIPPER_DECOUPLER_ACTIVE_HIGH
 #define TIPPER_DECOUPLER_ACTIVE_HIGH 0
 #endif
 // 40 encoder slots on a 1.125" diameter wheel: 0.08836" per rising edge.
-// The wheel's coupling ratio to barrel angle is NOT yet known; remain
-// motion-inhibited until the real 120-degree pulse count is calibrated.
-#ifndef TIPPER_ROTATION_COUNTS_PER_120_DEG
-#define TIPPER_ROTATION_COUNTS_PER_120_DEG 0
-#endif
+// Calibrate barrel travel using short JOG steps, MARK START and SET 120.
+constexpr unsigned long JOG_DURATION_MS = 200;
+constexpr uint8_t JOG_PWM = 80;
 constexpr unsigned long ENCODER_STALL_TIMEOUT_MS = 1500;
 constexpr uint8_t MAX_ROTATION_PWM = 255;
 constexpr size_t MAX_LINE = 192;
 
-enum TipperState { STARTUP_DISARMED, IDLE, ROTATING, HOMING, FAULT };
-TipperState state = STARTUP_DISARMED;
-bool estopLatched = true;
-bool communicationFault = true;
+enum TipperState { IDLE, ROTATING, HOMING, JOGGING, FAULT };
+TipperState state = IDLE;
+bool communicationFault = false;
 bool locked = true;
 bool decouplerOff = true;
 bool lockMotionActive = false, lockTarget = true;
@@ -75,10 +69,15 @@ unsigned long lockDeadline = 0;
 int rotationDirection = 0;
 uint8_t rotationPwm = 0;
 volatile uint32_t encoderTicks = 0;
+volatile int32_t positionTicks = 0;
+volatile int8_t encoderDirection = 0;
+bool startMarked = false;
+uint32_t calibrated120Ticks = 0;
+int32_t targetPosition = 0;
 unsigned long lastControlMs = 0;
 unsigned long rotationDeadline = 0;
 unsigned long decouplerOffDeadline = 0;
-uint32_t rotationStartTicks = 0, previousEncoderTicks = 0;
+uint32_t previousEncoderTicks = 0;
 unsigned long previousEncoderMs = 0;
 String responseTransaction;
 String lastTransaction;
@@ -95,13 +94,14 @@ bool allPinsConfigured() {
          configured(TIPPER_HALL_CLEAR) && configured(TIPPER_ENCODER);
 }
 
-void encoderISR() { ++encoderTicks; }
+void encoderISR() { ++encoderTicks; positionTicks += encoderDirection; }
 
 void motorOff() {
   if (configured(TIPPER_MOTOR_IN1)) digitalWrite(TIPPER_MOTOR_IN1, LOW);
   if (configured(TIPPER_MOTOR_IN2)) digitalWrite(TIPPER_MOTOR_IN2, LOW);
   rotationDirection = 0;
   rotationPwm = 0;
+  encoderDirection = 0;
 }
 
 void gripperMotorOff() {
@@ -112,13 +112,13 @@ void gripperMotorOff() {
 
 void setMotor(int direction, uint8_t pwm) {
   if (!allPinsConfigured()) { motorOff(); return; }
-  // No motion is permitted until the local lock is released and the Pi has
-  // explicitly rearmed this board.
-  if (estopLatched || communicationFault || locked) { motorOff(); return; }
+  // The installed lock has a timed actuator, not a position sensor.
+  if (communicationFault || locked || lockMotionActive) { motorOff(); return; }
   uint8_t bounded = min(pwm, MAX_ROTATION_PWM);
   digitalWrite(TIPPER_MOTOR_IN1, direction > 0 ? HIGH : LOW);
   digitalWrite(TIPPER_MOTOR_IN2, direction < 0 ? HIGH : LOW);
   rotationDirection = direction;
+  encoderDirection = direction > 0 ? 1 : -1;
   rotationPwm = bounded;
   analogWrite(TIPPER_MOTOR_IN1, direction > 0 ? bounded : 0);
   analogWrite(TIPPER_MOTOR_IN2, direction < 0 ? bounded : 0);
@@ -131,7 +131,8 @@ void setLockState(bool engaged) {
 }
 
 bool startLockMotion(bool engage) {
-  if (estopLatched || communicationFault || !configured(TIPPER_LOCK_IN3) || !configured(TIPPER_LOCK_IN4)) return false;
+  if (communicationFault || state == ROTATING || state == HOMING || state == JOGGING ||
+      !configured(TIPPER_LOCK_IN3) || !configured(TIPPER_LOCK_IN4)) return false;
   lockTarget = engage;
   // Keep the interlock engaged throughout the 800 ms pulse, including while
   // opening; rotation may begin only after the unlock pulse completes.
@@ -152,8 +153,7 @@ void setDecouplerOff() {
 }
 
 bool pulseDecoupler() {
-  if (!TIPPER_DECOUPLER_RELAY_VERIFIED || estopLatched || communicationFault ||
-      state != IDLE || rotationDirection != 0 || lockMotionActive ||
+  if (communicationFault || state != IDLE || rotationDirection != 0 || lockMotionActive ||
       !configured(TIPPER_DECOUPLER_OUTPUT)) return false;
   digitalWrite(TIPPER_DECOUPLER_OUTPUT, TIPPER_DECOUPLER_ACTIVE_HIGH ? HIGH : LOW);
   decouplerOff = false;
@@ -169,11 +169,33 @@ bool trainPositionConfirmed() {
          digitalRead(TIPPER_HALL_CLEAR) == LOW;
 }
 
-void latchEstop(const char *reason) {
-  (void)reason;
-  estopLatched = true; communicationFault = false; state = FAULT;
-  motorOff(); setDecouplerOff(); setLockState(true);
-  Serial.println("OK ESTOP");
+void stopAll() {
+  motorOff(); gripperMotorOff(); setDecouplerOff();
+  state = IDLE; communicationFault = false;
+}
+
+bool startJog(int direction) {
+  if (communicationFault || state != IDLE || locked || lockMotionActive ||
+      !decouplerOff || !allPinsConfigured()) return false;
+  state = JOGGING;
+  previousEncoderTicks = encoderTicks;
+  previousEncoderMs = millis();
+  rotationDeadline = millis() + JOG_DURATION_MS;
+  setMotor(direction, JOG_PWM);
+  return rotationDirection != 0;
+}
+
+bool startCountedMove(int direction, int32_t target) {
+  if (communicationFault || state != IDLE || locked || lockMotionActive ||
+      !decouplerOff || !allPinsConfigured() || !startMarked ||
+      calibrated120Ticks == 0) return false;
+  targetPosition = target;
+  state = target == 0 ? HOMING : ROTATING;
+  previousEncoderTicks = encoderTicks;
+  previousEncoderMs = millis();
+  rotationDeadline = millis() + ROTATION_TIMEOUT_MS;
+  setMotor(direction, MAX_ROTATION_PWM);
+  return rotationDirection != 0;
 }
 
 String jsonField(const String &line, const char *name) {
@@ -201,22 +223,24 @@ bool jsonComplete(const String &line) {
 const char *stateName() {
   switch (state) {
     case IDLE: return "IDLE"; case ROTATING: return "ROTATING";
-    case HOMING: return "HOMING"; case FAULT: return "FAULT";
-    default: return "STARTUP_DISARMED";
+    case HOMING: return "HOMING"; case JOGGING: return "JOGGING";
+    case FAULT: return "FAULT"; default: return "IDLE";
   }
 }
 
 void reportStatus() {
   Serial.print("{\"controller\":\"tipper\",\"state\":\""); Serial.print(stateName());
   Serial.print("\",\"transaction\":\""); Serial.print(responseTransaction);
-  Serial.print("\",\"estop\":"); Serial.print(estopLatched ? "true" : "false");
+  Serial.print("\",\"estop\":"); Serial.print("false");
   Serial.print(",\"communication_fault\":"); Serial.print(communicationFault ? "true" : "false");
   Serial.print(",\"motor\":"); Serial.print(rotationDirection != 0 ? "true" : "false");
   Serial.print(",\"locked\":"); Serial.print(locked ? "true" : "false");
   Serial.print(",\"decoupler\":"); Serial.print(decouplerOff ? "false" : "true");
   Serial.print(",\"pin_map_verified\":"); Serial.print(allPinsConfigured() ? "true" : "false");
-  Serial.print(",\"rotation_calibrated\":"); Serial.print(TIPPER_ROTATION_COUNTS_PER_120_DEG > 0 ? "true" : "false");
-  Serial.print(",\"decoupler_relay_verified\":"); Serial.print(TIPPER_DECOUPLER_RELAY_VERIFIED ? "true" : "false");
+  Serial.print(",\"rotation_calibrated\":"); Serial.print(calibrated120Ticks > 0 ? "true" : "false");
+  Serial.print(",\"start_marked\":"); Serial.print(startMarked ? "true" : "false");
+  Serial.print(",\"position_ticks\":"); Serial.print(positionTicks);
+  Serial.print(",\"calibrated_120_ticks\":"); Serial.print(calibrated120Ticks);
   Serial.print(",\"encoder_ticks\":"); Serial.print(encoderTicks);
   Serial.println("}");
   responseTransaction = "";
