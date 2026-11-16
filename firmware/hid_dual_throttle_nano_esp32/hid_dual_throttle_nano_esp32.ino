@@ -60,6 +60,7 @@ Arduino_ST7796 lcd(&lcdBus, LCD_RST, 1, true);
 Adafruit_ADS1115 adc;
 bool adcPresent=false, lcdPresent=false, linkReady=false;
 unsigned long lastRxMs=0, lastHelloMs=0, lastProbeMs=0;
+bool touchWasDown=false;
 unsigned long lastPollMs=0, lastDisplayMs=0, lastStatusTxMs=0, lastTouchMs=0;
 uint32_t sequence=0;
 char rxBuf[380]; uint16_t rxLen=0; bool rxDiscard=false;
@@ -178,7 +179,10 @@ void pollButtons() {
   }
 }
 void readThrottleKnobs() {
-  if(!adcPresent)return;
+  if(!adcPresent) {
+    for(uint8_t side=0;side<2;side++)if(throttle[side].manual && strcmp(throttle[side].notice,"ADC UNAVAILABLE"))setNotice(side,"ADC UNAVAILABLE");
+    return;
+  }
   for(uint8_t side=0;side<2;side++) {
     int16_t raw=adc.readADC_SingleEnded(side);
     throttle[side].knob=rawToSpeed(raw);
@@ -317,7 +321,9 @@ bool readTouch(uint16_t &x,uint16_t &y) {
 }
 void pollTouch() {
   uint16_t x,y;
-  if(!readTouch(x,y))return;
+  if(!readTouch(x,y)) {touchWasDown=false;return;}
+  if(touchWasDown)return; // One UI action per press, not repeated on hold.
+  touchWasDown=true;
   unsigned long now=millis();
   if(now-lastTouchMs<TOUCH_DEBOUNCE_MS)return;
   lastTouchMs=now;
@@ -340,10 +346,13 @@ void setup() {
   if(adcPresent)adc.setGain(GAIN_ONE); // +/-4.096V for 0..3.3V wiper
 #if HID_LCD_ST7796
   lcdPresent=lcd.begin();
-  if(lcdPresent)renderUi();
+  // Initial UI is drawn after both panel assignments have been initialized.
 #endif
   throttle[1].assigned=2;
   throttle[0].pending=throttle[1].pending=true;
+#if HID_LCD_ST7796
+  if(lcdPresent)renderUi();
+#endif
   transmit("HELLO");
   lastHelloMs=millis();
 }
