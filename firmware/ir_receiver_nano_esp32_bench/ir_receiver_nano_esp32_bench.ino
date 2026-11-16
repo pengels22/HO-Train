@@ -6,7 +6,7 @@
  * Serial: USB CDC, 115200 baud
  *
  * This is a non-actuating bench instrument. It decodes the M5 beacon's
- * 1 ms OOK symbols and validates the HR preamble and CRC-8. SET ENDPOINT
+ * compact speed/locomotive-ID payload and validates its CRC-8. SET ENDPOINT
  * selects which logical layout receiver the one physical sensor represents.
  * Settings are retained in ESP32 NVS.
  */
@@ -23,7 +23,7 @@ constexpr uint32_t BURST_START_MS = 1;
 constexpr uint32_t BURST_IDLE_MS = 8;
 constexpr uint32_t MIN_EVENT_GAP_MS = 80;
 constexpr uint32_t IR_SYMBOL_US = 1000;
-constexpr uint8_t IR_FRAME_BYTES = 8;
+constexpr uint8_t IR_FRAME_BYTES = 3;
 constexpr uint32_t CAPTURE_SAMPLE_US = 100;
 constexpr uint32_t CAPTURE_LENGTH_US = 80000;
 constexpr uint32_t CAPTURE_WAIT_US = 250000;
@@ -60,6 +60,12 @@ uint32_t lastEvent = 0;
 bool burstActive = false;
 bool captureRequested = false;
 uint32_t lastPulseUs = 0;
+uint8_t flashCount = 0;
+bool countingFrame = false;
+uint32_t frameStartMs = 0;
+uint32_t lastEmptyReportMs = 0;
+uint8_t sampleIds[3] = {};
+uint8_t sampleCount = 0;
 uint8_t syncPulses = 0;
 bool dataStarted = false;
 uint8_t dataBit = 0;
@@ -142,12 +148,34 @@ void readCommands() {
 void emitEvent() {
   if (millis() - lastEvent < MIN_EVENT_GAP_MS) return;
   lastEvent = millis();
-  Serial.print(F("{\"receiver\":\"")); Serial.print(ENDPOINTS[endpointIndex].name);
-  Serial.print(F("\",\"endpoint_id\":\"")); Serial.print(ENDPOINTS[endpointIndex].id);
-  Serial.print(F("\",\"train_id\":")); Serial.print(lastDecodedTrainId ? lastDecodedTrainId : trainId);
-  Serial.print(F(",\"speed\":")); Serial.print(lastDecodedSpeed);
-  Serial.print(F(",\"direction\":")); Serial.print((lastDecodedFlags & 0x01) ? -1 : 1);
-  Serial.println(F(",\"source\":\"bench_nano_esp32_m5_decode\"}"));
+  Serial.print(F("{\"station_id\":\"")); Serial.print(ENDPOINTS[endpointIndex].id);
+  Serial.print(F("\",\"train_id\":")); Serial.print(lastDecodedTrainId ? String(lastDecodedTrainId) : String(trainId));
+  Serial.println(F("}"));
+}
+
+void emitEmpty() {
+  if (millis() - lastEmptyReportMs < 500) return;
+  lastEmptyReportMs = millis();
+  Serial.print(F("{\"station_id\":\"")); Serial.print(ENDPOINTS[endpointIndex].id);
+  Serial.println(F("\",\"train_id\":\"no_train\"}"));
+}
+
+void recordTrainSample(uint8_t id, int16_t speed = 0) {
+  if (id < 1 || id > 4) return;
+  sampleIds[sampleCount++] = id;
+  if (sampleCount < 3) return;
+  uint8_t bestId = sampleIds[0];
+  uint8_t bestVotes = 0;
+  for (uint8_t candidate = 1; candidate <= 4; ++candidate) {
+    uint8_t votes = 0;
+    for (uint8_t i = 0; i < 3; ++i) if (sampleIds[i] == candidate) ++votes;
+    if (votes > bestVotes) { bestVotes = votes; bestId = candidate; }
+  }
+  sampleCount = 0;
+  lastDecodedTrainId = bestId;
+  lastDecodedFlags = 0;
+  lastDecodedSpeed = speed;
+  emitEvent();
 }
 
 uint8_t crc8(const uint8_t *data, size_t length) {
@@ -162,12 +190,8 @@ uint8_t crc8(const uint8_t *data, size_t length) {
 
 void finishFrame() {
   decodingFrame = false;
-  if (frame[0] != 'H' || frame[1] != 'R' || frame[2] != 1 ||
-      frame[3] < 1 || frame[3] > 4 || crc8(frame + 2, 5) != frame[7]) return;
-  lastDecodedTrainId = frame[3];
-  lastDecodedFlags = frame[4];
-  lastDecodedSpeed = (frame[4] & 0x01) ? -int16_t(frame[6]) : int16_t(frame[6]);
-  emitEvent();
+  if (frame[1] < 1 || frame[1] > 4 || crc8(frame, 2) != frame[2]) return;
+  recordTrainSample(frame[1], frame[0]);
 }
 
 void sampleFrame() {
@@ -183,37 +207,21 @@ void sampleFrame() {
 void sampleSensor() {
   const bool active = digitalRead(IR_SENSOR_PIN) == LOW;
   sensorActive = active;
+  if (!countingFrame && millis() - lastEvent >= 500) emitEmpty();
+  if (countingFrame && millis() - frameStartMs >= 500) {
+    recordTrainSample(flashCount);
+    countingFrame = false; flashCount = 0; lastPulseUs = 0;
+  }
   static bool previousActive = false;
   if (!active || previousActive) { previousActive = active; return; }
   previousActive = true;
   const uint32_t now = micros();
   if (lastPulseUs == 0) {
-    memset(frame, 0, sizeof(frame));
-    syncPulses = 1; dataStarted = false; dataBit = 0;
-    lastPulseUs = now; return;
+    flashCount = 1; countingFrame = true; frameStartMs = millis(); lastCarrierMs = frameStartMs; lastPulseUs = now; return;
   }
   const uint32_t interval = now - lastPulseUs;
   lastPulseUs = now;
-  if (!dataStarted) {
-    if (syncPulses < 4 && interval >= 4500 && interval <= 7500) { ++syncPulses; return; }
-    if (syncPulses >= 4 && interval >= 24000 && interval <= 38000) {
-      const bool one = interval >= 31000;
-      if (one) frame[0] |= 1;
-      dataStarted = true; dataBit = 1; return;
-    }
-    syncPulses = 1; dataBit = 0; memset(frame, 0, sizeof(frame)); return;
-  }
-  if (dataBit >= IR_FRAME_BYTES * 8) return;
-  if (interval < 7000 || interval > 17000) {
-    dataStarted = false; syncPulses = 1; dataBit = 0; memset(frame, 0, sizeof(frame)); return;
-  }
-  if (interval >= 11000) frame[dataBit / 8] |= uint8_t(1u << (dataBit % 8));
-  ++dataBit;
-  if (dataBit >= IR_FRAME_BYTES * 8) {
-    lastDecodedTrainId = 0;
-    finishFrame();
-    lastPulseUs = 0;
-  }
+  if (interval <= 300000 && millis() - frameStartMs < 500) { ++flashCount; lastCarrierMs = millis(); }
 }
 
 void captureRawBurst() {

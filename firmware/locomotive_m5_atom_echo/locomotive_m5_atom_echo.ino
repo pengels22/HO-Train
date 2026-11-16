@@ -32,22 +32,14 @@ bool udpStarted = false, communicationFault = true;
 bool wifiConnectedAnnounced = false;
 int16_t commandedSpeed = 0;
 uint8_t commandedTarget = 0;
-uint8_t irFrame[8];
-uint8_t irByte = 0, irBit = 0;
-bool irSending = false;
-unsigned long irNextFrameMs = 0, irPhaseStartedUs = 0;
-uint8_t irSyncPulse = 0, irDataBit = 0;
-bool irInGap = false, irDataStarted = false;
-// The repository specifies the frame fields and 38 kHz carrier, but does not
-// specify receiver symbol width. Keep it configurable until receiver timing
-// is validated on the bench rather than silently choosing a new protocol.
-// Pulse-distance IR protocol for common demodulating 38 kHz receivers.
-// Carrier marks are short; bit values are represented by the following gap.
-constexpr unsigned long IR_MARK_US = 2000;
-constexpr unsigned long IR_SYNC_GAP_US = 4000;
-constexpr unsigned long IR_SEPARATOR_GAP_US = 20000;
-constexpr unsigned long IR_ZERO_GAP_US = 6000;
-constexpr unsigned long IR_ONE_GAP_US = 12000;
+// Compact bench beacon: speed, locomotive ID, CRC-8.
+uint8_t irFrame[3];
+uint8_t irFlashCount = 0, irFlashIndex = 0;
+bool irSending = false, irFlashOn = false;
+unsigned long irNextFrameMs = 0, irNextFlashMs = 0, irPhaseStartedUs = 0, irFrameStartMs = 0;
+constexpr unsigned long IR_FLASH_MARK_US = 2000;
+constexpr unsigned long IR_FRAME_SPAN_MS = 250;
+constexpr unsigned long IR_DEAD_ZONE_MS = 150;
 
 // Credentials are intentionally supplied at build/deployment time, never
 // committed to the repository.
@@ -115,14 +107,9 @@ uint8_t crc8(const uint8_t *data, size_t length) {
 }
 
 void beginIrFrame() {
-  // HR, version, locomotive ID, direction/status, destination, magnitude, CRC.
-  irFrame[0] = 'H'; irFrame[1] = 'R'; irFrame[2] = VERSION; irFrame[3] = LOCOMOTIVE_ID_VALUE;
-  irFrame[4] = commandedSpeed < 0 ? 0x01 : 0x00;
-  irFrame[5] = commandedTarget;
-  irFrame[6] = uint8_t(constrain(abs(int(commandedSpeed)), 0, 255));
-  irFrame[7] = crc8(irFrame + 2, 5);
-  irByte = irBit = 0; irSyncPulse = 1; irDataBit = 0;
-  irDataStarted = false; irInGap = false; irSending = true;
+  irFlashCount = LOCOMOTIVE_ID_VALUE; irFlashIndex = 0;
+  irFrameStartMs = millis(); irNextFlashMs = irFrameStartMs;
+  irSending = true; irFlashOn = true;
   irPhaseStartedUs = micros();
   irDuty(128);
 }
@@ -131,31 +118,13 @@ void serviceIrTransmission() {
   const unsigned long nowMs = millis();
   if (!irSending && nowMs >= irNextFrameMs) beginIrFrame();
   if (!irSending) return;
-  const unsigned long elapsed = micros() - irPhaseStartedUs;
-  if (!irInGap && elapsed >= IR_MARK_US) {
-    irDuty(0); irInGap = true; irPhaseStartedUs += IR_MARK_US; return;
-  }
-  if (irInGap) {
-    unsigned long gap = IR_SYNC_GAP_US;
-    if (irSyncPulse >= 4 && !irDataStarted) {
-      const bool one = (irFrame[0] & 1) != 0;
-      gap = IR_SEPARATOR_GAP_US + (one ? IR_ONE_GAP_US : IR_ZERO_GAP_US);
-    }
-    else if (irDataStarted) {
-      const bool one = (irFrame[irByte] & (uint8_t(1) << irBit)) != 0;
-      gap = one ? IR_ONE_GAP_US : IR_ZERO_GAP_US;
-    }
-    if (elapsed < gap) return;
-    if (irSyncPulse < 4) ++irSyncPulse;
-    else if (!irDataStarted) { irDataStarted = true; }
-    else {
-      ++irDataBit; ++irBit;
-      if (irBit >= 8) { irBit = 0; ++irByte; }
-      if (irDataBit >= sizeof(irFrame) * 8) {
-        irSending = false; irNextFrameMs = nowMs + 100; return;
-      }
-    }
-    irDuty(128); irInGap = false; irPhaseStartedUs += gap;
+  if (irFlashOn && micros() - irPhaseStartedUs >= IR_FLASH_MARK_US) {
+    irDuty(0); irFlashOn = false;
+    if (irFlashIndex + 1 >= irFlashCount) { irSending = false; irNextFrameMs = nowMs + IR_DEAD_ZONE_MS; return; }
+    ++irFlashIndex;
+    irNextFlashMs = irFrameStartMs + (IR_FRAME_SPAN_MS * irFlashIndex) / (irFlashCount - 1);
+  } else if (!irFlashOn && nowMs >= irNextFlashMs) {
+    irDuty(128); irFlashOn = true; irPhaseStartedUs = micros();
   }
 }
 

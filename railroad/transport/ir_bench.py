@@ -90,6 +90,9 @@ class BenchIRReader:
             event = parse_event(json.dumps(payload, separators=(",", ":")))
             receiver = event["receiver"]
             now = time.monotonic()
+            if event["train_id"] == "no_train":
+                self.last_event = {"receiver": receiver, "train_id": "no_train", "timestamp": now}
+                return
             self.on_event(ReceiverEvent(receiver, event["train_id"], now))
             self.events += 1
             self.last_event = {
