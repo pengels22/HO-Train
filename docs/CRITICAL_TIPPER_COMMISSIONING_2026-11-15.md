@@ -1,61 +1,50 @@
-# Critical tipper control changes (2026-11-15)
+# Tippler control corrections — 2026-11-15
 
-## Hardware authority
+## Architecture
+- Single tipper controller: Seeed XIAO ESP32-C6.
+- No Raspberry Pi GPIO connections or tipper train-clearance IR inputs.
+- Track Hall sensors: D2/GPIO2 Front, D3/GPIO21 Back, D4/GPIO22 Clear.
+- Optical encoder: D5/GPIO23; 40 slots, wheel diameter 1.125 inches.
+- Rotation motor: D6/GPIO16, D7/GPIO17.
+- Lock actuator: D8/GPIO19, D9/GPIO20; 800 ms timed action, no lock sensor.
+- Decoupler: **D10/GPIO18, active LOW**, timed 250 ms pulse.
+- PCA9685 motor CH14/15 and servo CH8 are spare (former tipper outputs).
 
-The dedicated Seeed XIAO ESP32-C6 exclusively controls the rotary tipper:
-- D2 / GPIO2: Hall Front, active low
-- D3 / GPIO21: Hall Back, active low
-- D4 / GPIO22: Hall Clear, active low
-- D5 / GPIO23: 40-slot optical encoder (wheel diameter 1.125 in)
-- D6 / GPIO16 and D7 / GPIO17: rotation motor
-- D8 / GPIO19 and D9 / GPIO20: gripper/lock motor
-- **D10 / GPIO18: magnetic decoupler relay**
-- D0/GPIO0 and D1/GPIO1 are unassigned.
+## Recovery and operator calibration
 
-No train-clearance IR inputs exist on this board. Locomotive destination IR is a
-separate tracking system. The encoder optical sensor is solely rotation feedback.
+There is **no local latched tipper E-stop**. STOP de-energizes active
+outputs and permits operator recovery, rather than preventing the jog
+needed to return the tipper to the start position. The existing upstream
+ESTOP/REARM serial vocabulary remains compatible but is non-latching
+within this tipper firmware.
 
-Pi PCA9685 CH14/15 (motor board 0x40) and CH8 (servo board 0x42) are now
-unassigned: do not connect these outputs to the tipper.
+After visual inspection of the stationary tipper, operate the timed UNLOCK,
+then issue individual 200 ms `JOG CW`/`JOG CCW` commands as needed.
+The operator aligns the start position and issues `MARK START`.
+Jog to a visually verified 120-degree endpoint and issue `SET 120`.
+A calibrated `HOME` then returns by encoder count to the marked start.
+Verify alignment visually afterward. No absolute home sensor is installed.
 
-## Fail-closed commissioning
+Calibration is held in volatile controller memory. Repeating calibration
+after reboot avoids assuming an absolute position from a relative encoder.
+The encoder slot size corresponds to about 0.08836 inches of peripheral
+wheel travel per rising edge; barrel angular motion requires mechanical
+calibration rather than assuming a wheel-to-drum ratio.
 
-**Not ready for physical tipper rotation.** `TIPPER_ROTATION_COUNTS_PER_120_DEG`
-defaults to zero. Verify how the 1.125-inch encoder wheel is mechanically coupled
-to the tipper, measure actual 120-degree travel, set the encoder pulse target,
-and validate encoder stall/timeout behavior without a train. One rising-edge
-count corresponds to one slot (40 ticks / encoder-wheel revolution).
+The 500 ms communications watchdog, short jog duration, encoder-stall
+timeout and stop motor commands remain implemented as motion safeguards.
+Firmware does **not** infer a lock sensor where none exists.
 
-**Not ready to energize the decoupler.** The firmware default
-`TIPPER_DECOUPLER_RELAY_VERIFIED=0` rejects `DECOUPLER ON`. Confirm relay
-module input polarity, its voltage/current drive and external suppression;
-then set `TIPPER_DECOUPLER_ACTIVE_HIGH` correctly and explicitly opt in.
-The coil must be supplied by a separate fused supply; GPIO18 is a *logic*
-signal, not a coil power source. ON is a fixed 250 ms pulse; OFF and ESTOP
-immediately de-energize it.
+## Yard and Pi IO
 
-**Angular HOME is inhibited.** The Hall Clear sensor detects railroad cars,
-not the barrel's angular home. Fit/verify a true mechanical angular reference
-or calibrate a protected encoder-based return before enabling HOME.
+No GPIO outputs are reserved on the Raspberry Pi. Sensor and motion-board
+I/O is on external controllers and expanders. No yard relay control signals
+are currently assigned; the yard retains a logical three-track model,
+with stalls 1A/1B sharing Track 1. MCP23017 GPB5/GPB6/GPB7 remain spare.
 
-Rotation checks Hall Front, Hall Back and Hall Clear active-low initially,
-the lock state, encoder calibration and decoupler OFF. Firmware state only
-reflects commanded lock movement; actual lock-engagement confirmation still
-needs commissioning. The dispatcher remains responsible for zone reservations
-and consist-count verification.
+## Verification status
 
-## Independent failure recovery
-
-Global locomotive rearm no longer calls `ControllerRegistry.rearm_all()`.
-A disconnected or locally faulted USB tipper/turntable must not immobilize
-healthy locomotives. Accessories retain their own independent safety latches;
-local rearm remains an explicit separate operation. Emergency STOP still
-fans out to both locomotives and registered accessories, best effort, and
-requires confirmation of each unit's actual state before its operation.
-
-## Deployment
-
-This branch is **source only**. No firmware was flashed, no Lab 1 service
-configuration was changed, and no physical outputs were energized. Run the
-unit tests, compile for Seeed XIAO ESP32-C6, reconcile branch drift from
-main, and bench-verify wiring before a planned Lab 1 deployment.
+Changes are source-level; the code has not been flashed or bench-tested
+in this chat. Compile/test and verify relay driver wiring before energizing
+any equipment. The logical yard configuration does not imply active relay
+control or installed signal hardware.
