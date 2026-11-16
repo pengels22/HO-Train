@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/ho-railroad-control
-ExecStart=/opt/ho-railroad-control/.venv/bin/python -m railroad.main --mode hardware --dashboard
+ExecStart=/opt/ho-railroad-control/.venv/bin/python -m railroad.main --mode hardware --dashboard --host 0.0.0.0 --port 8083
 Restart=on-failure
 Environment=RAILROAD_MODE=hardware
 
