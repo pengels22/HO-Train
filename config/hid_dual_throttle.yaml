@@ -1,11 +1,11 @@
 # HID_Dev accepted design baseline; not used by deployed hardware runtime.
-status: design_approved_not_commissioned
+status: prototype_source_added_uncompiled_uncommissioned
 controller:
   board: arduino_nano_esp32
   processor: esp32_s3
   transport: usb_serial
-  module_id: null # fixed in firmware at flash time; identifier not assigned yet
-  serial_protocol: pending_implementation
+  module_id: 17 # provisional fixed compile-time firmware ID; verify against registry before flashing
+  serial_protocol: prototype_stx_json_lf_module_17
 display:
   model: existing_hcm_laser_controller_3_5in_spi_touchscreen
   orientation: landscape
