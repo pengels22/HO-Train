@@ -1,6 +1,6 @@
 # HID_Dev — Dual-Throttle Human Interface Controller
 
-Status: **approved design baseline; implementation not started**
+Status: **approved design baseline; first-pass Nano firmware and GUI added (not compiled or flashed)**
 Branch: `HID_Dev`
 Recorded: 2026-11-15
 
@@ -100,4 +100,4 @@ This is an **approved proposed pinout**, not a tested or flashed Nano firmware m
 - H and UND-4 are valid parts of the layout topology.
 - Missing locomotive speed calibration must not crash unrelated operations; calibrated automatic slow approach remains unavailable until measured.
 
-This design document records the user-approved console architecture; it does **not** claim any source firmware, Pi runtime or physical hardware has been changed.
+First-pass source now exists at `firmware/hid_dual_throttle_nano_esp32/`; see its README for dependencies, provisional display/touch drivers, and serial protocol. This branch has not been compiled, flashed, integrated with the Pi dispatcher, or hardware-tested. `main` and deployed hardware are unchanged.
