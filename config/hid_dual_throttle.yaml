@@ -1,0 +1,63 @@
+# HID_Dev accepted design baseline; not used by deployed hardware runtime.
+status: design_approved_not_commissioned
+controller:
+  board: arduino_nano_esp32
+  processor: esp32_s3
+  transport: usb_serial
+  module_id: null # fixed in firmware at flash time; identifier not assigned yet
+  serial_protocol: pending_implementation
+display:
+  model: existing_hcm_laser_controller_3_5in_spi_touchscreen
+  orientation: landscape
+  design_resolution: [480, 320]
+  split_panels: [left, right]
+  input_power_v: 5
+  logic_v: 3.3
+  lcd_controller: null # verify from existing working harness
+  touch_controller: null # verify from existing working harness
+  touch_i2c_address: null
+  backlight_power_budget_verified: false
+adc:
+  model: ADS1115
+  bus: i2c
+  proposed_address: 0x48
+  supply_v: 3.3
+  throttle_a_channel: A0
+  throttle_b_channel: A1
+throttles:
+  count: 2
+  type: center_detent_potentiometer
+  direction: {ccw: reverse, center: stop, cw: forward}
+  signed_demand_range: [-255, 255]
+  center_deadband: null # measure during commissioning
+  assignment: exclusive_across_two_panels
+  automatic: dispatcher_controls_speed_direction_and_route
+  manual: operator_speed_direction_and_turnout_requests_dispatcher_enforces_interlocks
+  takeover: safe_no_jump_required
+turnout_buttons:
+  debounce_ms: null # tune during hardware testing
+  active_low: true
+  momentary: true
+  action: select_upcoming_turnout_path_relative_to_train_travel_direction
+  dispatcher_interlock_required: true
+pins:
+  D13: lcd_spi_sck
+  D11: lcd_spi_mosi
+  D12: lcd_spi_miso_optional
+  D10: lcd_chip_select
+  D9: lcd_data_command
+  D8: lcd_reset
+  D7: throttle_a_left
+  D6: throttle_a_right
+  D5: throttle_b_left
+  D4: throttle_b_right
+  A4: i2c_sda
+  A5: i2c_scl
+  usb_c: power_and_serial
+power:
+  nano: usb_5v
+  display: 5v_input_3v3_logic
+  ads1115: 3v3
+  potentiometers: 3v3
+  all_grounds_common: true
+  usb_current_budget_verified: false
