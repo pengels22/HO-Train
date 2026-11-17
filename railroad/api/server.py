@@ -430,7 +430,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._json_response({"ok": False, "error": str(exc)}, 400)
 
     def _control_command(self):
-        """Explicit hardware dispatcher controls; no motion command endpoint."""
+        """Explicit hardware dispatcher and connected-controller controls."""
         try:
             payload = self._json_body()
             action = payload.get("action")
@@ -447,9 +447,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 # a motion command to a locomotive or accessory.
                 DISPATCHER.assign_destination(train_id, destination)
             elif action == "stop_train":
-                # A zero-speed command is the only locomotive action exposed
-                # in this first hardware UI pass. It never starts movement.
                 DISPATCHER.stop_train(int(payload["train_id"]))
+            elif action == "command_motion":
+                DISPATCHER.command_motion(int(payload["train_id"]), int(payload["speed"]))
+            elif action == "controller_command":
+                controller_id = str(payload["controller_id"])
+                command = str(payload["command"])
+                fields = payload.get("fields", {})
+                if not isinstance(fields, dict):
+                    raise TypeError("controller fields must be an object")
+                USB_CONTROLLERS.command(controller_id, command, fields=fields)
             else:
                 raise ValueError("unknown control action")
             self._json_response({"ok": True, "action": action, "status": DISPATCHER.snapshot()})

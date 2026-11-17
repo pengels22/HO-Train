@@ -112,9 +112,19 @@ class RegisteredController:
             self._executor.shutdown(wait=False, cancel_futures=True)
             self._executor = None
 
-    def command(self, command: str, *, expect: str | None = None, transaction_id: str | None = None) -> str:
-        """Send one registered-controller command and verify its reply."""
-        if command not in {"STATUS", "REARM AUTH", "REARM"}:
+    def command(self, command: str, *, expect: str | None = None,
+                transaction_id: str | None = None, fields: dict | None = None) -> str:
+        """Send one allow-listed command and verify its reply."""
+        allowed = {"STATUS", "REARM AUTH", "REARM"}
+        if self.controller_id == "turntable":
+            allowed |= {"STOP", "ENTRY AUTH", "CLEARANCE", "TURN",
+                        "POLARITY NORMAL", "POLARITY REVERSED", "POWER ON",
+                        "EXIT COMPLETE"}
+        elif self.controller_id == "tipper":
+            allowed |= {"STOP", "LOCK", "UNLOCK", "DECOUPLER OFF",
+                        "DECOUPLER ON", "JOG CW", "JOG CCW", "MARK START",
+                        "SET 120", "ROTATE CW", "ROTATE CCW", "HOME"}
+        if command not in allowed:
             raise ValueError("unsupported controller command")
         with self._write_lock:
             port = self.reconnect()
@@ -122,7 +132,8 @@ class RegisteredController:
             if reset_input is not None:
                 reset_input()
             transaction = transaction_id or f"{self.controller_id}-{next(self._transactions)}"
-            port.write((json.dumps({"command": command, "transaction": transaction}, separators=(",", ":")) + "\n").encode("ascii"))
+            payload = {"command": command, "transaction": transaction, **(fields or {})}
+            port.write((json.dumps(payload, separators=(",", ":")) + "\n").encode("ascii"))
             reply = port.readline().decode("ascii", errors="replace").strip()
         if not reply or (expect and not reply.startswith(expect)):
             raise OSError(f"{self.controller_id} invalid controller reply: {reply!r}")
@@ -161,6 +172,13 @@ class ControllerRegistry:
 
     def set_estop_active(self, active: bool) -> None:
         self.estop_active = bool(active)
+
+    def command(self, controller_id: str, command: str, *, fields: dict | None = None) -> str:
+        """Send an explicitly allow-listed command to one USB controller."""
+        for controller in self.controllers:
+            if controller.controller_id == controller_id:
+                return controller.command(command, expect="{", fields=fields)
+        raise KeyError(controller_id)
 
     def send_estop(self) -> None:
         errors = []

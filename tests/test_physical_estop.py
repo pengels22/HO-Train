@@ -1,3 +1,4 @@
+import json
 import time
 from threading import Lock
 
@@ -153,3 +154,12 @@ def test_usb_rearm_requires_controller_acknowledgement():
     bad = ReplyPort(b"ERR REARM interlock\n")
     rejected = ControllerRegistry([RegisteredController("bad", "/dev/bad", lambda _: bad)])
     with pytest.raises(OSError): rejected.rearm_all()
+
+
+def test_connected_accessory_command_is_allowlisted_and_transactional():
+    port = ReplyPort(b'{"controller":"tipper","transaction":"tipper-1","state":"IDLE","motor":false,"decoupler":false}\n')
+    registry = ControllerRegistry([RegisteredController("tipper", "/dev/tipper", lambda _: port)])
+    reply = registry.command("tipper", "STATUS")
+    assert json.loads(reply)["controller"] == "tipper"
+    assert b'"command":"STATUS"' in port.writes[0]
+    with pytest.raises(ValueError): registry.command("tipper", "RAW GPIO 99 HIGH")
