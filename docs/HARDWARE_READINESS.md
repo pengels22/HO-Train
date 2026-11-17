@@ -2,8 +2,7 @@
 
 | Interface | Current status | Source / remaining requirement |
 |---|---|---|
-| Raspberry Pi physical E-Stop GPIO | Not installed or assigned | Stop propagation uses the dispatcher and controller-local watchdog/E-Stop protocols. |
-| UDP locomotive E-Stop | Implemented and tested | `railroad/transport/udp.py`, `railroad/transport/estop.py`; network delivery still requires the approved HO-Railroad Wi-Fi. |
+| UDP locomotive E-Stop | Implemented and tested | `railroad/transport/udp.py`, `railroad/transport/estop.py` (legacy implementation pending removal); network delivery still requires the approved HO-Railroad Wi-Fi. |
 | Registered USB E-Stop/rearm/heartbeat | Implemented boundary and mocked acknowledgements | `railroad/transport/usb.py`; configure stable serial paths and validate controller reply formats. |
 | Four M5 Atom locomotive controllers / IR transmitters | Firmware implementation present and preserved | `firmware/locomotive_m5_atom_echo/`; compile four configured IDs against the selected Arduino-ESP32 core and validate IR symbol timing. |
 | XIAO turntable DRV8833/relays/switches/reeds | Firmware state machine and pin assignments present | `firmware/turntable_esp32c6/turntable_esp32c6.ino`; compile and bench-test relay polarity, limit switches, and mechanical timeout. |
