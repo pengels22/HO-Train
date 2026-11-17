@@ -5,7 +5,7 @@ import struct
 from dataclasses import dataclass
 
 PORT=4210
-BROADCAST="10.77.0.255"
+BROADCAST="192.168.20.255"
 MAGIC=b"HC"
 VERSION=1
 

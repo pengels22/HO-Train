@@ -6,8 +6,8 @@ locomotives:
   - {id: 4, name: Train 4, type: passenger, speed_mm_s_at_255: null, braking_mm: null, calibration_status: unverified}
 wifi:
   ssid: HO-Railroad
-  controller_ip: 10.77.0.1
-  broadcast: 10.77.0.255
+  controller_ip: 192.168.20.36
+  broadcast: 192.168.20.255
   udp_port: 4210
   command_interval_ms: 100
   locomotive_watchdog_ms: 500

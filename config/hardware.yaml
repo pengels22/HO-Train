@@ -21,10 +21,10 @@ bench_ir_receiver:
 # placeholders. Each locomotive is an independent operating unit: a missing
 # or faulted M5 blocks only that locomotive, not the other three.
 locomotive_controllers:
-  - {id: 1, type: m5_atom_echo, transport: udp, address: 10.77.0.101}
-  - {id: 2, type: m5_atom_echo, transport: udp, address: 10.77.0.102}
-  - {id: 3, type: m5_atom_echo, transport: udp, address: 10.77.0.103}
-  - {id: 4, type: m5_atom_echo, transport: udp, address: 10.77.0.104}
+  - {id: 1, type: m5_atom_echo, transport: udp, address: 192.168.20.101}
+  - {id: 2, type: m5_atom_echo, transport: udp, address: 192.168.20.102}
+  - {id: 3, type: m5_atom_echo, transport: udp, address: 192.168.20.103}
+  - {id: 4, type: m5_atom_echo, transport: udp, address: 192.168.20.104}
 # The dedicated XIAO ESP32-C6 USB controllers above are accessory controllers,
 # not locomotive controllers; exact device paths are deployment placeholders.
 # Declarative inventory used for validation and SETTINGS display. This list is
