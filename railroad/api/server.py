@@ -446,6 +446,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 # Assignment changes dispatcher state only; it never issues
                 # a motion command to a locomotive or accessory.
                 DISPATCHER.assign_destination(train_id, destination)
+            elif action == "stop_train":
+                # A zero-speed command is the only locomotive action exposed
+                # in this first hardware UI pass. It never starts movement.
+                DISPATCHER.stop_train(int(payload["train_id"]))
             else:
                 raise ValueError("unknown control action")
             self._json_response({"ok": True, "action": action, "status": DISPATCHER.snapshot()})

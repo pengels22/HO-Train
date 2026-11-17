@@ -222,6 +222,15 @@ class Dispatcher:
                 self.estop_controller.send_motion(train_id, speed)
             self.trains[train_id].velocity = int(speed)
 
+    def stop_train(self, train_id: int) -> None:
+        """Issue a zero-speed command without requiring a movement arm gate."""
+        with self.lock:
+            if train_id not in self.trains:
+                raise KeyError(train_id)
+            if self.estop_controller:
+                self.estop_controller.send_motion(train_id, 0)
+            self.trains[train_id].velocity = 0
+
     def set_speed_calibration(self, train_id: int, mm_s_at_255: float | None) -> None:
         """Set measured full-command speed; null deliberately disables unknown hardware."""
         if mm_s_at_255 is not None and mm_s_at_255 <= 0:
