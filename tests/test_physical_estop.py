@@ -163,3 +163,7 @@ def test_connected_accessory_command_is_allowlisted_and_transactional():
     assert json.loads(reply)["controller"] == "tipper"
     assert b'"command":"STATUS"' in port.writes[0]
     with pytest.raises(ValueError): registry.command("tipper", "RAW GPIO 99 HIGH")
+
+    ok_port = ReplyPort(b"OK UNLOCK\n")
+    ok_registry = ControllerRegistry([RegisteredController("tipper", "/dev/tipper", lambda _: ok_port)])
+    assert ok_registry.command("tipper", "UNLOCK") == "OK UNLOCK"

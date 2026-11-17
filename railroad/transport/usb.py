@@ -177,7 +177,10 @@ class ControllerRegistry:
         """Send an explicitly allow-listed command to one USB controller."""
         for controller in self.controllers:
             if controller.controller_id == controller_id:
-                return controller.command(command, expect="{", fields=fields)
+                # STATUS is JSON; state-changing firmware commands acknowledge
+                # with plain ``OK ...`` lines.  The controller method still
+                # validates JSON transactions whenever the board returns JSON.
+                return controller.command(command, fields=fields)
         raise KeyError(controller_id)
 
     def send_estop(self) -> None:
