@@ -223,7 +223,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
             status = DISPATCHER.snapshot()
             status["simulation"] = SIMULATION.snapshot()
             status["estop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}
-            status["bench_ir_receiver"] = IR_BENCH.status() if IR_BENCH else {"enabled": False}
+            bench = IR_BENCH.status() if IR_BENCH else {"enabled": False, "connected": False}
+            status["bench_ir_receiver"] = bench
+            # The Nano is a real, read-only controller in hardware mode.  Keep
+            # it in the same inventory as the locomotive and accessory boards
+            # so the headline count reflects every connected controller.
+            status["controllers"].append({
+                "id": "nano-ir-bench",
+                "type": "arduino_nano_esp32_ir",
+                "required": False,
+                "connected": bool(bench.get("connected")),
+                "port": bench.get("port"),
+                "state": "RECEIVING" if bench.get("connected") else None,
+                "faults": (["receiver_unavailable"] if bench.get("last_error") else []),
+                "status": {
+                    "controller": "nano_ir_bench",
+                    "events": bench.get("events", 0),
+                    "last_event": bench.get("last_event"),
+                },
+            })
             body = json.dumps(status).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/simulation":
