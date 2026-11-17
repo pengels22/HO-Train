@@ -98,6 +98,74 @@ setTimeout(()=>{const page=$('settings-tab');if(!page)return;const inferPairs=()
 
 function renderControllerIoLayout(){const page=$('settings-tab');if(!page)return;const rows=knownHardwareIo.filter(r=>!/output|motor|relay|transmitter/i.test(`${r[2]} ${r[3]}`));const paired=['Mine ore lift','Ski chairlift','Grain auger','Farm road loop','Ski lodge road','Long road loop','Town road loop'];const motionRows=(items,spare)=>Array.from({length:16},(_,i)=>{const name=spare?'Unassigned':(items[Math.floor(i/2)]||'Unassigned');return `<div class="channel-row"><b>CH${i+1}</b><span>${name==='Unassigned'?'Unassigned':'⚙ Motor'}</span><span class="${name==='Unassigned'?'':'blue-tag'}">${name==='Unassigned'?'—':i%2?'B':'A'}</span><b class="${name==='Unassigned'?'subtle':'live-green'}">${name}</b></div>`}).join('');page.innerHTML=`<div class="io-controller-page"><div class="io-reference-heading"><h1>I/O Settings</h1><p>Motion controllers, input controls, and Nano ESP IR sensor assignments</p></div><nav class="io-controller-tabs"><button class="selected" data-io-view="motion1">Motion Controller 1</button><button data-io-view="motion2">Motion Controller 2</button><button data-io-view="inputs">Input Controls</button><button data-io-view="ir">IR Sensor Configuration</button></nav><section class="panel io-controller-panel" data-io-panel="motion1"><div class="io-panel-heading"><h2>Motion Controller 1</h2><span class="state-on">PCA9685 · configured</span></div><p class="io-panel-note">Sixteen output channels. Paired channels are reserved for H-bridge motor control.</p><div class="channel-table"><div class="channel-row channel-head"><span>Channel</span><span>Device Type</span><span>Tag(s)</span><span>Configuration / Status</span></div>${motionRows(paired,false)}</div></section><section class="panel io-controller-panel" data-io-panel="motion2" hidden><div class="io-panel-heading"><h2>Motion Controller 2</h2><span class="state-off">PCA9685 · spare</span></div><p class="io-panel-note">Sixteen output channels reserved for future motion hardware.</p><div class="channel-table">${motionRows([],true)}</div></section><section class="panel io-controller-panel" data-io-panel="inputs" hidden><div class="io-panel-heading"><h2>Input Controls</h2><span class="state-on">Configured inputs</span></div><p class="io-panel-note">Turnouts, sensors, and station inputs registered on the railroad dispatcher.</p><div class="channel-table"><div class="channel-row channel-head"><span>Input</span><span>Device Type</span><span>Assignment</span><span>Polarity / Status</span></div>${rows.map(r=>`<div class="channel-row"><b>${esc(r[1])}</b><span>${/IR/i.test(r[2])?'IR Sensor':/Hall/i.test(r[2])?'Hall Sensor':'Input Control'}</span><span>${esc(r[2])}</span><b>${esc(r[4].replace('_',' ').toUpperCase())} · ${esc(r[5])}</b></div>`).join('')}</div></section><section class="panel io-controller-panel" data-io-panel="ir" hidden><div class="io-panel-heading"><h2>IR Sensor Configuration</h2><span class="state-on">Nano ESP · USB serial</span></div><p class="io-panel-note">Logical endpoint assignments for Nano ESP channels 1–12. Only channel 1 is currently assigned.</p><div class="ir-channel-table"><div class="ir-channel-head"><span>Channel</span><span>Assignment</span><span>Status</span></div>${Array.from({length:12},(_,i)=>`<label class="ir-channel-row"><b>Channel ${i+1}</b><input data-ir-channel="${i+1}" placeholder="${i?'Unassigned':'Bench receiver / test track'}"><span class="${i?'state-off':'state-on'}">${i?'Unassigned':'Assigned'}</span></label>`).join('')}</div><div class="io-config-actions"><button class="primary-button" id="save-ir-assignments">Save IR Assignments</button><span id="ir-save-result" class="subtle">Assignments are stored locally until the Nano endpoint map is deployed.</span></div></section></div>`;page.querySelectorAll('[data-io-view]').forEach(button=>button.onclick=()=>{page.querySelectorAll('[data-io-view]').forEach(b=>b.classList.toggle('selected',b===button));page.querySelectorAll('[data-io-panel]').forEach(panel=>panel.hidden=panel.dataset.ioPanel!==button.dataset.ioView)});const saved=JSON.parse(localStorage.getItem('ho-ir-assignments')||'{}');page.querySelectorAll('[data-ir-channel]').forEach(input=>{if(saved[input.dataset.irChannel]!=null)input.value=saved[input.dataset.irChannel]});$('save-ir-assignments').onclick=()=>{const values={};page.querySelectorAll('[data-ir-channel]').forEach(input=>values[input.dataset.irChannel]=input.value.trim());localStorage.setItem('ho-ir-assignments',JSON.stringify(values));$('ir-save-result').textContent='IR assignments saved locally.';};}
 setTimeout(renderControllerIoLayout,50);
+
+// Hardware control pass: make every physical control explicit.  The mockup
+// contains controls for future I/O boards, so unsupported actions must report
+// their state instead of silently falling through to the simulation endpoint.
+function controlFeedback(message, error=false){
+  let node=document.getElementById('control-feedback');
+  if(!node){node=document.createElement('div');node.id='control-feedback';node.className='control-feedback';document.body.append(node);}
+  node.textContent=message;node.classList.toggle('error',error);clearTimeout(node._timer);node._timer=setTimeout(()=>node.remove(),5000);
+}
+async function sendHardwareControl(payload){
+  const response=await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data=await response.json();
+  if(!data.ok)throw Error(data.error||'hardware command rejected');
+  if(data.status){state.status=data.status;renderDashboard();}
+  controlFeedback(`${payload.controller_id||'Dispatcher'}: ${payload.command||payload.action} accepted`);
+}
+function unsupportedControl(label){controlFeedback(`${label}: no connected hardware endpoint is configured`,true);}
+function accessoryCommand(button){
+  const text=button.textContent.replace(/^[^A-Za-z]+/,'').trim().toUpperCase();
+  const card=button.closest('.detail-card,.accessory-reference-card,.accessory-cards article');
+  const name=(card?.textContent||'').toUpperCase();
+  if(name.includes('TIPPER')){
+    if(text.includes('STOP'))return {controller_id:'tipper',command:'STOP'};
+    if(text.includes('HOME')||text.includes('RESET'))return {controller_id:'tipper',command:'HOME'};
+    if(text.includes('LOAD'))return {controller_id:'tipper',command:'UNLOCK'};
+    if(text.includes('RIGHT'))return {controller_id:'tipper',command:'ROTATE CW'};
+    if(text.includes('LEFT')||text.includes('TIP'))return {controller_id:'tipper',command:'ROTATE CCW'};
+  }
+  if(name.includes('TURNTABLE')){
+    if(text.includes('STOP'))return {controller_id:'turntable',command:'STOP'};
+    if(text.includes('ROTATE'))return {controller_id:'turntable',command:'TURN'};
+  }
+  return null;
+}
+let hardwareButtonAuditInstalled=false;
+function installHardwareButtonAudit(){
+  if(hardwareButtonAuditInstalled)return;hardwareButtonAuditInstalled=true;
+  document.addEventListener('click',async event=>{
+    const button=event.target.closest?.('button');if(!button||button.dataset.hardwareWired)return;
+    const text=button.textContent.trim(),upper=text.toUpperCase();
+    if(button.closest('.detailed-train-card,.dashboard-train-card'))return;
+    if(button.id==='bench-rearm')return;
+    if(button.closest('.side-link,[data-tab],.io-controller-tabs,[data-io-view],.mode-switch'))return;
+    let payload=null;
+    const accessory=accessoryCommand(button);
+    if(accessory)payload=accessory;
+    else if(/STOP DISPATCHER|STOP ALL|GLOBAL STOP/.test(upper))payload={action:'global_stop',reason:'operator control'};
+    else if(/^START DISPATCHER|^START CYCLE|^CLEAR STOP/.test(upper))payload={action:'clear_stop'};
+    else if(/STOP SELECTED TRAIN/.test(upper)){
+      const card=button.closest('#trains-tab')?.querySelector('.detailed-train-card');
+      const index=card?[...button.closest('#trains-tab').querySelectorAll('.detailed-train-card')].indexOf(card):0;
+      const train=(state.status?.trains||[])[Math.max(0,index)];if(train)payload={action:'stop_train',train_id:train.id};
+    }
+    if(/HOME TIPPER|HOME \(LEVEL\)/.test(upper))payload={controller_id:'tipper',command:'HOME'};
+    if(/TIP LEFT/.test(upper))payload={controller_id:'tipper',command:'ROTATE CCW'};
+    if(/TIP RIGHT/.test(upper))payload={controller_id:'tipper',command:'ROTATE CW'};
+    if(/HOME TURNTABLE|HOME \(INDEX\)/.test(upper))unsupportedControl(text);
+    if(!payload && (/RUN CYCLE|PAUSE|TAKE MANUAL|RELEASE TO DISPATCHER|MOVE TO STALL|DEPART FROM YARD|CLEAR YARD|POWER (ON|OFF)|RAISE|LOWER|CHAIRLIFT|AUGER|START ALL|HOME ALL|RUN TIMED/.test(upper)))unsupportedControl(text);
+    if(!payload)return;
+    event.preventDefault();event.stopImmediatePropagation();button.dataset.hardwareWired='1';button.disabled=true;
+    try{await sendHardwareControl(payload);}catch(error){controlFeedback(error.message,true);button.title=error.message;}
+    finally{button.disabled=false;delete button.dataset.hardwareWired;}
+  },true);
+}
+const _renderDashboardForStatusLabels=renderDashboard;
+renderDashboard=function(){_renderDashboardForStatusLabels();document.querySelectorAll('.train-online').forEach(node=>{const card=node.closest('.detailed-train-card,.dashboard-train-card');if(!card)return;const i=[...document.querySelectorAll('.detailed-train-card,.dashboard-train-card')].indexOf(card),c=(state.status?.controllers||[]).filter(v=>v.type==='m5_atom_echo')[i];if(c?.state==='PARKED_OFFLINE'){node.textContent='● Parked';node.classList.add('parked');node.classList.remove('offline');}});installHardwareButtonAudit();};
+setTimeout(installHardwareButtonAudit,120);
+
 function ensureIoLegacyNodes(){const page=$('settings-tab');if(!page||page.querySelector('#calibration-list'))return;const legacy=document.createElement('div');legacy.className='legacy-settings';legacy.innerHTML='<div id="calibration-list"></div><div id="controller-config"></div><select id="editor-zone"></select><input id="start-x"><input id="start-y"><input id="end-x"><input id="end-y"><button id="save-boundary"></button><button id="cancel-boundary"></button><button id="reset-boundary"></button><button id="validate-boundary"></button><pre id="editor-result"></pre><textarea id="calibration-json"></textarea><button id="save-calibration"></button><button id="validate-calibration"></button><pre id="calibration-result"></pre>';page.append(legacy);}
 setTimeout(ensureIoLegacyNodes,5);
 const _renderSettingsForController=renderSettings;renderSettings=function(){ensureIoLegacyNodes();_renderSettingsForController();};
