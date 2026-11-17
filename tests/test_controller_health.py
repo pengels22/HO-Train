@@ -98,6 +98,16 @@ def test_parked_stale_telemetry_suppresses_only_communication_fault():
     assert status["state"] == "PARKED_OFFLINE"
 
 
+def test_parked_missing_telemetry_does_not_create_failure_log_entry():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1], independent_locomotives=False)
+    health.set_motion_provider(lambda: {1: False})
+    health.check_freshness(now=10.0)
+    assert not health.failures()
+    health.set_motion_provider(lambda: {1: True})
+    health.check_freshness(now=10.1)
+    assert "locomotive-1:telemetry stale or missing" in health.failures()
+
+
 def test_independent_locomotive_fault_does_not_global_stop_dispatcher():
     health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1, 2], independent_locomotives=True)
     dispatcher = Dispatcher()

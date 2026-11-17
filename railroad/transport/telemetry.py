@@ -83,7 +83,12 @@ class ControllerHealthRegistry:
         self._rearm_event, self._lock = Event(), RLock()
         self._monitor_thread = self._monitor_stop = None
         self.on_failure = None
+        self.motion_provider = None
         usb_registry.on_failure = self._usb_failure
+
+    def set_motion_provider(self, provider) -> None:
+        """Supply the dispatcher’s current commanded-motion state."""
+        self.motion_provider = provider
 
     def _fail(self, controller, reason):
         key = f"{controller}:{reason}"
@@ -93,6 +98,9 @@ class ControllerHealthRegistry:
 
     def _clear_failure(self, controller, *, preserve_restart=True):
         self._failures = {key for key in self._failures if not (key.startswith(f"{controller}:") and (not preserve_restart or "restart" not in key))}
+
+    def _clear_reason(self, controller, reason):
+        self._failures.discard(f"{controller}:{reason}")
 
     def _usb_failure(self, controller, reason): self._fail(str(controller), reason)
 
@@ -146,8 +154,15 @@ class ControllerHealthRegistry:
 
     def check_freshness(self, now=None):
         now = self.clock() if now is None else now
+        moving_locomotives = self.motion_provider() if self.motion_provider else {}
         for ident in self.required_locomotives:
             item = self.telemetry.get(ident)
+            # A parked/stopped locomotive may lose USB/UDP power with the
+            # yard track off. This is deliberately silent: it is neither a
+            # health failure nor an event-log condition.
+            if not moving_locomotives.get(ident, False):
+                self._clear_reason(f"locomotive-{ident}", "telemetry stale or missing")
+                continue
             if item is None and self.independent_locomotives:
                 continue
             if item is None or now - item[1] > self.freshness_s:

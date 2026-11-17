@@ -97,6 +97,10 @@ class Dispatcher:
     def attach_controller_health(self, registry) -> None:
         with self.lock:
             self.controller_health = registry
+            registry.set_motion_provider(lambda: {
+                train_id: abs(train.velocity) > 0
+                for train_id, train in self.trains.items()
+            })
             # A disconnected accessory or locomotive is reported in telemetry,
             # not treated as a stop command for every other train.
             registry.on_failure = None
