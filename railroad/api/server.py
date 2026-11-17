@@ -280,7 +280,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         elif self.path in ("/", "/track-map"):
             self._serve_dashboard_file("index.html", "text/html; charset=utf-8")
         elif self.path.startswith("/dashboard/"):
-            relative = self.path.removeprefix("/dashboard/")
+            relative = self.path.removeprefix("/dashboard/").split("?", 1)[0]
             types = {".css": "text/css", ".js": "application/javascript", ".png": "image/png", ".html": "text/html; charset=utf-8"}
             self._serve_dashboard_file(relative, types.get(Path(relative).suffix, "application/octet-stream"))
         elif self.path == "/zones":
