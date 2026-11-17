@@ -76,12 +76,24 @@ def _stop_ir_bench():
 
 def _start_ir_bench(hardware):
     global IR_BENCH
+    import yaml
     _stop_ir_bench()
     config = hardware.get("bench_ir_receiver", {}) or {}
     if not config.get("enabled") or not config.get("port"):
         return
+    ir_config = yaml.safe_load((ROOT / "config/ir_receivers.yaml").read_text()) or {}
+    receiver_map = {}
+    for receiver in ir_config.get("receivers", []) or []:
+        receiver_id = receiver.get("id")
+        if not receiver_id:
+            continue
+        if receiver.get("channel") is not None:
+            receiver_map[("channel", str(receiver["channel"]).upper())] = receiver_id
+        if receiver.get("pin"):
+            receiver_map[("pin", str(receiver["pin"]).upper())] = receiver_id
     IR_BENCH = BenchIRReader(config["port"], int(config.get("baudrate", 115200)),
-                             lambda event: DISPATCHER.process_ir_event(event))
+                             lambda event: DISPATCHER.process_ir_event(event),
+                             receiver_map=receiver_map)
     IR_BENCH.start()
 
 

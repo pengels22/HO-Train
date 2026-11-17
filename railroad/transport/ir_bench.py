@@ -13,10 +13,14 @@ from railroad.tracking.receivers import ReceiverEvent
 class BenchIRReader:
     """Consume validated bench events without sending commands to the board."""
 
-    def __init__(self, port: str, baudrate: int, on_event, *, retry_s: float = 2.0):
+    def __init__(self, port: str, baudrate: int, on_event, *, receiver_map=None, retry_s: float = 2.0):
         self.port = port
         self.baudrate = int(baudrate)
         self.on_event = on_event
+        # Keys are the Nano's physical input identity (for example
+        # ("channel", "1") or ("pin", "D2")); values are logical receiver
+        # IDs from config/ir_receivers.yaml.
+        self.receiver_map = dict(receiver_map or {})
         self.retry_s = float(retry_s)
         self.logger = logging.getLogger("ho-ir-bench")
         self._stop = Event()
@@ -55,6 +59,20 @@ class BenchIRReader:
                 "connected": self.connected, "events": self.events,
                 "last_event": self.last_event, "last_error": self.last_error}
 
+    def _resolve_configured_receiver(self, payload: dict) -> dict:
+        """Resolve a physical Nano channel/pin to the configured receiver ID."""
+        for field in ("channel", "pin"):
+            value = payload.get(field)
+            if value is None:
+                continue
+            receiver_id = self.receiver_map.get((field, str(value).upper()))
+            if receiver_id:
+                resolved = dict(payload)
+                resolved.pop("receiver", None)
+                resolved["station_id"] = receiver_id
+                return resolved
+        return payload
+
     def _run(self) -> None:
         while not self._stop.is_set():
             try:
@@ -87,6 +105,9 @@ class BenchIRReader:
     def _handle_line(self, line: bytes) -> None:
         try:
             payload = json.loads(line.decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("event must be object")
+            payload = self._resolve_configured_receiver(payload)
             event = parse_event(json.dumps(payload, separators=(",", ":")))
             receiver = event["receiver"]
             now = time.monotonic()

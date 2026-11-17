@@ -78,7 +78,7 @@ int16_t lastDecodedSpeed = 0;
 uint8_t lastDecodedFlags = 0;
 
 void printStatus() {
-  Serial.print(F("{\"controller\":\"ir_bench_nano_esp32\",\"pin\":\"D2\",\"endpoint_id\":\""));
+  Serial.print(F("{\"controller\":\"ir_bench_nano_esp32\",\"channel\":1,\"pin\":\"D2\",\"endpoint_id\":\""));
   Serial.print(ENDPOINTS[endpointIndex].id);
   Serial.print(F("\",\"receiver\":\""));
   Serial.print(ENDPOINTS[endpointIndex].name);
@@ -148,7 +148,7 @@ void readCommands() {
 void emitEvent() {
   if (millis() - lastEvent < MIN_EVENT_GAP_MS) return;
   lastEvent = millis();
-  Serial.print(F("{\"station_id\":\"")); Serial.print(ENDPOINTS[endpointIndex].id);
+  Serial.print(F("{\"channel\":1,\"pin\":\"D2\",\"station_id\":\"")); Serial.print(ENDPOINTS[endpointIndex].id);
   Serial.print(F("\",\"train_id\":")); Serial.print(lastDecodedTrainId ? String(lastDecodedTrainId) : String(trainId));
   Serial.println(F("}"));
 }
@@ -156,7 +156,7 @@ void emitEvent() {
 void emitEmpty() {
   if (millis() - lastEmptyReportMs < 500) return;
   lastEmptyReportMs = millis();
-  Serial.print(F("{\"station_id\":\"")); Serial.print(ENDPOINTS[endpointIndex].id);
+  Serial.print(F("{\"channel\":1,\"pin\":\"D2\",\"station_id\":\"")); Serial.print(ENDPOINTS[endpointIndex].id);
   Serial.println(F("\",\"train_id\":\"no_train\"}"));
 }
 

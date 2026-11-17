@@ -1,6 +1,7 @@
 import pytest
 
 from railroad.tracking.ir_serial import parse_event
+from railroad.transport.ir_bench import BenchIRReader
 
 
 def test_parse_event_accepts_bench_station_endpoints():
@@ -20,3 +21,11 @@ def test_parse_event_accepts_explicit_no_train():
     event = parse_event('{"station_id":"mine_station","train_id":"no_train"}')
     assert event["receiver"] == "Mine Station"
     assert event["train_id"] == "no_train"
+
+
+def test_bench_reader_resolves_physical_channel_from_config():
+    reader = BenchIRReader("/dev/null", 115200, lambda event: None,
+                           receiver_map={("channel", "1"): "mine_station", ("pin", "D2"): "mine_station"})
+    payload = reader._resolve_configured_receiver({"channel": 1, "pin": "D2", "train_id": 2})
+    assert payload["station_id"] == "mine_station"
+    assert "receiver" not in payload
