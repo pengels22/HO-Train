@@ -437,11 +437,14 @@ class Dispatcher:
 
     def snapshot(self):
         with self.lock:
+            moving_locomotives = {train_id: abs(train.velocity) > 0
+                                  for train_id, train in self.trains.items()}
             return {
                 "mode":"simulation" if self.simulation else "hardware",
                 "global_stop":self.global_stop,"stop_reason":self.stop_reason,
                 "stop_causes":self.stop_causes.copy(),
-                "controllers": self.controller_health.status() if self.controller_health else [],
+                "controllers": (self.controller_health.status(moving_locomotives=moving_locomotives)
+                                if self.controller_health else []),
                 "estop_active":self.estop_active,
                 "motion_armed":not self._rearm_required and not self.global_stop,
                 "accessory_stop_faults":self.accessory_errors.copy(),

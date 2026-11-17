@@ -80,6 +80,24 @@ def test_independent_locomotives_do_not_require_missing_fleet_members():
     assert status["locomotive-2"]["required"] is False
 
 
+def test_parked_missing_telemetry_is_not_a_fault_but_moving_is():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1, 2], independent_locomotives=True)
+    parked = {item["id"]: item for item in health.status(moving_locomotives={1: False, 2: True})}
+    assert parked["locomotive-1"]["state"] == "PARKED_OFFLINE"
+    assert parked["locomotive-1"]["faults"] == []
+    assert parked["locomotive-1"]["offline_reason"] == "parked"
+    assert parked["locomotive-2"]["faults"] == ["telemetry_missing"]
+
+
+def test_parked_stale_telemetry_suppresses_only_communication_fault():
+    health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1], independent_locomotives=True, freshness_s=0.1)
+    health.update(telemetry(sequence=1).encode(), now=1.0)
+    health.check_freshness(now=2.0)
+    status = health.status(moving_locomotives={1: False})[0]
+    assert status["faults"] == []
+    assert status["state"] == "PARKED_OFFLINE"
+
+
 def test_independent_locomotive_fault_does_not_global_stop_dispatcher():
     health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1, 2], independent_locomotives=True)
     dispatcher = Dispatcher()

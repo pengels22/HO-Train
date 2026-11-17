@@ -226,16 +226,20 @@ class ControllerHealthRegistry:
         with self._lock:
             return tuple(sorted(self._failures))
 
-    def status(self):
+    def status(self, *, moving_locomotives=None):
         result = list(self.usb_registry.status()); now = self.clock()
+        moving_locomotives = moving_locomotives or {}
         with self._lock:
             for ident in sorted(self.required_locomotives):
+                moving = bool(moving_locomotives.get(ident, False))
                 item = self.telemetry.get(ident)
                 if item is None:
-                    result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": not self.independent_locomotives, "connected": False, "state": None, "faults": ["telemetry_missing"], "unverified": True}); continue
+                    result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": not self.independent_locomotives, "connected": False, "state": "OFFLINE_MOVING" if moving else "PARKED_OFFLINE", "faults": ["telemetry_missing"] if moving else [], "unverified": True, "offline_reason": "moving" if moving else "parked"}); continue
                 telemetry, received = item
                 faults = [key.split(":", 1)[1] for key in self._failures if key.startswith(f"locomotive-{ident}:")]
                 if telemetry.communication_fault and "reported unsafe state" not in faults:
                     faults.append("reported unsafe state")
-                result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": not self.independent_locomotives, "connected": now - received <= self.freshness_s, "state": telemetry.state, "faults": faults, "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "last_command_sequence": telemetry.last_command_sequence, "session": telemetry.session, "last_success": received})
+                if not moving:
+                    faults = [fault for fault in faults if fault not in {"telemetry stale or missing", "telemetry_missing"}]
+                result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": not self.independent_locomotives, "connected": now - received <= self.freshness_s, "state": telemetry.state if moving or now - received <= self.freshness_s else "PARKED_OFFLINE", "faults": faults, "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "last_command_sequence": telemetry.last_command_sequence, "session": telemetry.session, "last_success": received, "offline_reason": "moving" if moving and now - received > self.freshness_s else ("parked" if not moving and now - received > self.freshness_s else None)})
         return result
