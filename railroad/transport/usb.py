@@ -118,6 +118,9 @@ class RegisteredController:
             raise ValueError("unsupported controller command")
         with self._write_lock:
             port = self.reconnect()
+            reset_input = getattr(port, "reset_input_buffer", None)
+            if reset_input is not None:
+                reset_input()
             transaction = transaction_id or f"{self.controller_id}-{next(self._transactions)}"
             port.write((json.dumps({"command": command, "transaction": transaction}, separators=(",", ":")) + "\n").encode("ascii"))
             reply = port.readline().decode("ascii", errors="replace").strip()
