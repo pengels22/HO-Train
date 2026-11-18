@@ -16,9 +16,7 @@ from railroad.transport.estop import create_bench_sender
 from railroad.transport.usb import ControllerRegistry, RegisteredController, pyserial_connector
 from railroad.transport.telemetry import ControllerHealthRegistry
 from railroad.transport.ir_bench import BenchIRReader
-from railroad.hardware.gpio import GPIO
 from railroad.hardware.registry import HardwareRegistry
-from railroad.safety.emergency_stop import EmergencyStop as PhysicalEmergencyStop
 
 DISPATCHER = Dispatcher()
 
@@ -30,6 +28,9 @@ def _load_paths():
     return yaml.safe_load(path.read_text()) or {"verified": False, "paths": {}}
 
 SIMULATION = SimulationEngine(DISPATCHER, _load_paths())
+# Retained as a compatibility observation field.  This project has no
+# physical E-stop input; dispatcher stop and controller watchdogs remain the
+# only stop mechanisms.
 PHYSICAL_ESTOP = None
 USB_CONTROLLERS = ControllerRegistry()
 HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
@@ -178,13 +179,6 @@ def configure_runtime(mode: str = "simulation") -> None:
     import yaml
     hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
     estop_config = hardware.get("estop", {}) or {}
-    rpi_gpio = None
-    if estop_config.get("gpio") is not None:
-        try:
-            import RPi.GPIO as rpi_gpio_module
-        except ImportError as exc:
-            raise RuntimeError("hardware safety configuration incomplete: RPi.GPIO unavailable") from exc
-        rpi_gpio = rpi_gpio_module
     locomotive_config = hardware.get("locomotive_controllers") or []
     configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
     known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
@@ -192,7 +186,7 @@ def configure_runtime(mode: str = "simulation") -> None:
     for entry in locomotive_config:
         if not isinstance(entry, dict) or type(entry.get("id")) is not int:
             raise RuntimeError("locomotive_controllers entries require integer id and type")
-        if entry.get("type") != "m5_atom_echo":
+        if entry.get("type") not in {"m5_atom_echo", "xiao_esp32_c6"}:
             raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}")
         ids.append(entry["id"])
     if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
@@ -208,8 +202,10 @@ def configure_runtime(mode: str = "simulation") -> None:
             controller_id, port_name, connector,
             controller_type=entry.get("type", "usb_controller")))
     locomotive_ids = [int(i["id"]) for i in hardware.get("locomotive_controllers", [])]
-    HEALTH = ControllerHealthRegistry(USB_CONTROLLERS, locomotive_ids=locomotive_ids,
-                                      independent_locomotives=True)
+    HEALTH = ControllerHealthRegistry(
+        USB_CONTROLLERS, locomotive_ids=locomotive_ids,
+        locomotive_types={int(item["id"]): item["type"] for item in locomotive_config},
+        independent_locomotives=True)
     DISPATCHER.attach_controller_health(HEALTH)
     DISPATCHER.simulation = False
     DISPATCHER.bench_mode = mode == "bench"
@@ -220,19 +216,6 @@ def configure_runtime(mode: str = "simulation") -> None:
     HEALTH.start_monitor()
     _start_ir_bench(hardware)
     _start_telemetry_listener()
-    pin = estop_config.get("gpio")
-    if pin is not None:
-        # The backend is intentionally imported only for an explicit hardware
-        # run with a configured pin; simulation never touches GPIO.
-        class _RPiBackend:
-            def setup_input(self, pin, *, pull_down):
-                rpi_gpio.setmode(rpi_gpio.BCM)
-                rpi_gpio.setup(pin, rpi_gpio.IN, pull_up_down=rpi_gpio.PUD_DOWN)
-            def read(self, pin): return rpi_gpio.input(pin)
-        gpio = GPIO(enabled=True, backend=_RPiBackend(), estop_pin=int(pin))
-        DISPATCHER.attach_physical_estop(lambda: gpio.estop_pressed)
-        PHYSICAL_ESTOP = PhysicalEmergencyStop(gpio, DISPATCHER)
-        PHYSICAL_ESTOP.start()
 
 class DashboardHandler(BaseHTTPRequestHandler):
 
@@ -347,7 +330,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 io.append({"device": device, "io": hex(address) if isinstance(address, int) else str(address), "location": "Raspberry Pi I2C", "function": board, "polarity": "n/a", "status": "configured"})
             for receiver in ir.get("receivers", []):
                 io.append({"device": "Arduino Nano", "io": receiver.get("pin", "unassigned"), "location": ", ".join(receiver.get("zones", [])) or "Yard", "function": receiver.get("description", "IR receiver"), "polarity": "active_high", "status": "configured"})
-            body = json.dumps({"io": io, "registry_errors": registry.validate(), "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": "3 physical sections (1A + 1B share Track 1)"}}).encode()
+            body = json.dumps({"io": io, "registry_errors": registry.validate(), "io_config": _read_io_config(), "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": hardware.get("yard_outputs", [])}}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/io-config":
             self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": _read_io_config()})

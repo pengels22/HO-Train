@@ -72,10 +72,12 @@ class LocomotiveTelemetry:
 class ControllerHealthRegistry:
     """Thread-safe health view; sequences are monotonic within each boot session."""
     def __init__(self, usb_registry, locomotive_ids=(), freshness_s: float = 0.75,
-                 clock=time.monotonic, *, independent_locomotives: bool = False):
+                 clock=time.monotonic, *, independent_locomotives: bool = False,
+                 locomotive_types=None):
         self.usb_registry = usb_registry
         self.required_locomotives = set(locomotive_ids)
         self.independent_locomotives = bool(independent_locomotives)
+        self.locomotive_types = {int(k): str(v) for k, v in (locomotive_types or {}).items()}
         self.freshness_s = float(freshness_s)
         self.clock = clock
         self.telemetry = {}
@@ -249,12 +251,12 @@ class ControllerHealthRegistry:
                 moving = bool(moving_locomotives.get(ident, False))
                 item = self.telemetry.get(ident)
                 if item is None:
-                    result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": not self.independent_locomotives, "connected": False, "state": "OFFLINE_MOVING" if moving else "PARKED_OFFLINE", "faults": ["telemetry_missing"] if moving else [], "unverified": True, "offline_reason": "moving" if moving else "parked"}); continue
+                    result.append({"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": not self.independent_locomotives, "connected": False, "state": "OFFLINE_MOVING" if moving else "PARKED_OFFLINE", "faults": ["telemetry_missing"] if moving else [], "unverified": True, "offline_reason": "moving" if moving else "parked"}); continue
                 telemetry, received = item
                 faults = [key.split(":", 1)[1] for key in self._failures if key.startswith(f"locomotive-{ident}:")]
                 if telemetry.communication_fault and "reported unsafe state" not in faults:
                     faults.append("reported unsafe state")
                 if not moving:
                     faults = [fault for fault in faults if fault not in {"telemetry stale or missing", "telemetry_missing"}]
-                result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": not self.independent_locomotives, "connected": now - received <= self.freshness_s, "state": telemetry.state if moving or now - received <= self.freshness_s else "PARKED_OFFLINE", "faults": faults, "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "last_command_sequence": telemetry.last_command_sequence, "session": telemetry.session, "last_success": received, "offline_reason": "moving" if moving and now - received > self.freshness_s else ("parked" if not moving and now - received > self.freshness_s else None)})
+                result.append({"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": not self.independent_locomotives, "connected": now - received <= self.freshness_s, "state": telemetry.state if moving or now - received <= self.freshness_s else "PARKED_OFFLINE", "faults": faults, "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "last_command_sequence": telemetry.last_command_sequence, "session": telemetry.session, "last_success": received, "offline_reason": "moving" if moving and now - received > self.freshness_s else ("parked" if not moving and now - received > self.freshness_s else None)})
         return result

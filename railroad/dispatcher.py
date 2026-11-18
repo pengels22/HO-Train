@@ -53,11 +53,13 @@ class Dispatcher:
     destinations: dict[str, int | None] = field(default_factory=dict)
     turnouts: dict[str,str] = field(default_factory=lambda: TURNOUT_DEFAULTS.copy())
     yard_power: dict[str,bool] = field(default_factory=lambda: {"1":False,"2":False,"3":False})
+    yard_power_verified: dict[str, bool] = field(default_factory=lambda: {"1":False,"2":False,"3":False})
     tipper: str = "IDLE"
     tipper_fault: str | None = None
     operator_mode: str = "dispatcher"
     dispatcher_running: bool = False
     cycle_requests: int = 0
+    last_cycle_plan: dict | None = field(default=None, repr=False)
     accessory_requests: dict[str, str] = field(default_factory=dict)
     global_stop: bool = False
     stop_reason: str | None = None
@@ -228,14 +230,23 @@ class Dispatcher:
             self.dispatcher_running = False
 
     def run_cycle_once(self) -> None:
-        """Record a dispatcher cycle request without bypassing route interlocks.
+        """Plan one eligible cycle without issuing a hardware motion command.
 
-        Route execution remains owned by the dispatcher implementation; this
-        endpoint is intentionally a request boundary and never writes a motor
-        output by itself.
+        Planning is deliberately separate from actuation: route reservations
+        and physical sensor verification must be supplied before a command
+        writer may move a locomotive.
         """
         with self.lock:
             self.cycle_requests += 1
+            eligible = next((t for t in self.trains.values()
+                             if t.control_mode == "automatic" and t.destination and not t.parked), None)
+            if eligible is None:
+                self.last_cycle_plan = {"state": "IDLE", "reason": "no eligible train"}
+                return
+            self.last_cycle_plan = {"state": "PLANNED", "train": eligible.train_id,
+                                    "origin": eligible.zone, "destination": eligible.destination,
+                                    "motion_issued": False,
+                                    "reason": "awaiting verified route, sensors, and controller health"}
 
     def set_train_mode(self, train_id: int, mode: str) -> None:
         mode = str(mode).lower()
@@ -510,6 +521,7 @@ class Dispatcher:
                 "operator_mode": self.operator_mode,
                 "dispatcher_running": self.dispatcher_running,
                 "cycle_requests": self.cycle_requests,
+                "last_cycle_plan": self.last_cycle_plan.copy() if self.last_cycle_plan else None,
                 "global_stop":self.global_stop,"stop_reason":self.stop_reason,
                 "stop_causes":self.stop_causes.copy(),
                 "controllers": (self.controller_health.status(moving_locomotives=moving_locomotives)
@@ -525,5 +537,7 @@ class Dispatcher:
                            "estimate_mm":t.estimate_mm,"cycle":t.cycle} for t in self.trains.values()],
                 "zones":self.zones.copy(),"reservations":self.reservations.copy(),
                 "turnouts":self.turnouts.copy(),"yard_power":self.yard_power.copy(),
+                "yard_power_requested": self.yard_power.copy(),
+                "yard_power_verified": self.yard_power_verified.copy(),
                 "accessory_requests":self.accessory_requests.copy()
             }
