@@ -40,6 +40,7 @@ class Train:
     checkpoint_deadline: float | None = None
     cycle: list[str] = field(default_factory=list)
     cycle_step: int = 0
+    control_mode: str = "automatic"
 
 @dataclass
 class Dispatcher:
@@ -54,6 +55,10 @@ class Dispatcher:
     yard_power: dict[str,bool] = field(default_factory=lambda: {"1":False,"2":False,"3":False})
     tipper: str = "IDLE"
     tipper_fault: str | None = None
+    operator_mode: str = "dispatcher"
+    dispatcher_running: bool = False
+    cycle_requests: int = 0
+    accessory_requests: dict[str, str] = field(default_factory=dict)
     global_stop: bool = False
     stop_reason: str | None = None
     stop_causes: dict[str, str] = field(default_factory=dict)
@@ -206,6 +211,54 @@ class Dispatcher:
                 except TypeError:
                     self.estop_controller.rearm()
             self._rearm_required = False
+
+    def set_operator_mode(self, mode: str) -> None:
+        mode = str(mode).lower()
+        if mode not in {"dispatcher", "manual"}:
+            raise SafetyError("operator mode must be dispatcher or manual")
+        with self.lock:
+            self.operator_mode = mode
+
+    def start_dispatcher(self) -> None:
+        with self.lock:
+            self.dispatcher_running = True
+
+    def stop_dispatcher(self) -> None:
+        with self.lock:
+            self.dispatcher_running = False
+
+    def run_cycle_once(self) -> None:
+        """Record a dispatcher cycle request without bypassing route interlocks.
+
+        Route execution remains owned by the dispatcher implementation; this
+        endpoint is intentionally a request boundary and never writes a motor
+        output by itself.
+        """
+        with self.lock:
+            self.cycle_requests += 1
+
+    def set_train_mode(self, train_id: int, mode: str) -> None:
+        mode = str(mode).lower()
+        if mode not in {"manual", "automatic"}:
+            raise SafetyError("train mode must be manual or automatic")
+        with self.lock:
+            self.trains[train_id].control_mode = mode
+
+    def set_yard_power(self, track: str, enabled: bool) -> None:
+        track = str(track)
+        if track not in self.yard_power:
+            raise SafetyError(f"unknown yard track: {track}")
+        with self.lock:
+            self.yard_power[track] = bool(enabled)
+
+    def clear_yard_assignments(self) -> None:
+        with self.lock:
+            for train in self.trains.values():
+                train.parked = None
+
+    def record_accessory_request(self, accessory: str, command: str) -> None:
+        with self.lock:
+            self.accessory_requests[str(accessory)] = str(command)
 
     def command_motion(self, train_id: int, speed: int) -> None:
         """Set a commanded speed through the E-Stop gate.
@@ -454,6 +507,9 @@ class Dispatcher:
                                   for train_id, train in self.trains.items()}
             return {
                 "mode":"simulation" if self.simulation else "hardware",
+                "operator_mode": self.operator_mode,
+                "dispatcher_running": self.dispatcher_running,
+                "cycle_requests": self.cycle_requests,
                 "global_stop":self.global_stop,"stop_reason":self.stop_reason,
                 "stop_causes":self.stop_causes.copy(),
                 "controllers": (self.controller_health.status(moving_locomotives=moving_locomotives)
@@ -464,8 +520,10 @@ class Dispatcher:
                 "tipper":{"state":self.tipper,"fault":self.tipper_fault,"protected_zones":sorted(TIPPER_LOCKED)},
                 "trains":[{"id":t.train_id,"name":t.name,"type":t.kind,"zone":t.zone,
                            "destination":t.destination,"cargo":t.cargo.value,"speed":t.velocity,
+                           "mode":t.control_mode,
                            "parked":t.parked,"checkpoint":t.last_checkpoint,
                            "estimate_mm":t.estimate_mm,"cycle":t.cycle} for t in self.trains.values()],
                 "zones":self.zones.copy(),"reservations":self.reservations.copy(),
-                "turnouts":self.turnouts.copy(),"yard_power":self.yard_power.copy()
+                "turnouts":self.turnouts.copy(),"yard_power":self.yard_power.copy(),
+                "accessory_requests":self.accessory_requests.copy()
             }

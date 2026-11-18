@@ -99,6 +99,54 @@ setTimeout(()=>{const page=$('settings-tab');if(!page)return;const inferPairs=()
 function renderControllerIoLayout(){const page=$('settings-tab');if(!page)return;const rows=knownHardwareIo.filter(r=>!/output|motor|relay|transmitter/i.test(`${r[2]} ${r[3]}`));const paired=['Mine ore lift','Ski chairlift','Grain auger','Farm road loop','Ski lodge road','Long road loop','Town road loop'];const motionRows=(items,spare)=>Array.from({length:16},(_,i)=>{const name=spare?'Unassigned':(items[Math.floor(i/2)]||'Unassigned');return `<div class="channel-row"><b>CH${i+1}</b><span>${name==='Unassigned'?'Unassigned':'⚙ Motor'}</span><span class="${name==='Unassigned'?'':'blue-tag'}">${name==='Unassigned'?'—':i%2?'B':'A'}</span><b class="${name==='Unassigned'?'subtle':'live-green'}">${name}</b></div>`}).join('');page.innerHTML=`<div class="io-controller-page"><div class="io-reference-heading"><h1>I/O Settings</h1><p>Motion controllers, input controls, and Nano ESP IR sensor assignments</p></div><nav class="io-controller-tabs"><button class="selected" data-io-view="motion1">Motion Controller 1</button><button data-io-view="motion2">Motion Controller 2</button><button data-io-view="inputs">Input Controls</button><button data-io-view="ir">IR Sensor Configuration</button></nav><section class="panel io-controller-panel" data-io-panel="motion1"><div class="io-panel-heading"><h2>Motion Controller 1</h2><span class="state-on">PCA9685 · configured</span></div><p class="io-panel-note">Sixteen output channels. Paired channels are reserved for H-bridge motor control.</p><div class="channel-table"><div class="channel-row channel-head"><span>Channel</span><span>Device Type</span><span>Tag(s)</span><span>Configuration / Status</span></div>${motionRows(paired,false)}</div></section><section class="panel io-controller-panel" data-io-panel="motion2" hidden><div class="io-panel-heading"><h2>Motion Controller 2</h2><span class="state-off">PCA9685 · spare</span></div><p class="io-panel-note">Sixteen output channels reserved for future motion hardware.</p><div class="channel-table">${motionRows([],true)}</div></section><section class="panel io-controller-panel" data-io-panel="inputs" hidden><div class="io-panel-heading"><h2>Input Controls</h2><span class="state-on">Configured inputs</span></div><p class="io-panel-note">Turnouts, sensors, and station inputs registered on the railroad dispatcher.</p><div class="channel-table"><div class="channel-row channel-head"><span>Input</span><span>Device Type</span><span>Assignment</span><span>Polarity / Status</span></div>${rows.map(r=>`<div class="channel-row"><b>${esc(r[1])}</b><span>${/IR/i.test(r[2])?'IR Sensor':/Hall/i.test(r[2])?'Hall Sensor':'Input Control'}</span><span>${esc(r[2])}</span><b>${esc(r[4].replace('_',' ').toUpperCase())} · ${esc(r[5])}</b></div>`).join('')}</div></section><section class="panel io-controller-panel" data-io-panel="ir" hidden><div class="io-panel-heading"><h2>IR Sensor Configuration</h2><span class="state-on">Nano ESP · USB serial</span></div><p class="io-panel-note">Logical endpoint assignments for Nano ESP channels 1–12. Only channel 1 is currently assigned.</p><div class="ir-channel-table"><div class="ir-channel-head"><span>Channel</span><span>Assignment</span><span>Status</span></div>${Array.from({length:12},(_,i)=>`<label class="ir-channel-row"><b>Channel ${i+1}</b><input data-ir-channel="${i+1}" placeholder="${i?'Unassigned':'Bench receiver / test track'}"><span class="${i?'state-off':'state-on'}">${i?'Unassigned':'Assigned'}</span></label>`).join('')}</div><div class="io-config-actions"><button class="primary-button" id="save-ir-assignments">Save IR Assignments</button><span id="ir-save-result" class="subtle">Assignments are stored locally until the Nano endpoint map is deployed.</span></div></section></div>`;page.querySelectorAll('[data-io-view]').forEach(button=>button.onclick=()=>{page.querySelectorAll('[data-io-view]').forEach(b=>b.classList.toggle('selected',b===button));page.querySelectorAll('[data-io-panel]').forEach(panel=>panel.hidden=panel.dataset.ioPanel!==button.dataset.ioView)});const saved=JSON.parse(localStorage.getItem('ho-ir-assignments')||'{}');page.querySelectorAll('[data-ir-channel]').forEach(input=>{if(saved[input.dataset.irChannel]!=null)input.value=saved[input.dataset.irChannel]});$('save-ir-assignments').onclick=()=>{const values={};page.querySelectorAll('[data-ir-channel]').forEach(input=>values[input.dataset.irChannel]=input.value.trim());localStorage.setItem('ho-ir-assignments',JSON.stringify(values));$('ir-save-result').textContent='IR assignments saved locally.';};}
 setTimeout(renderControllerIoLayout,50);
 
+// Final I/O persistence pass: the Pi is the source of truth for the editable
+// channel map.  Keep localStorage as a browser cache, but always send a
+// complete, normalized CSV row set to the dispatcher API.
+function ioRowsFromPage(){
+  const page=$('settings-tab'), rows=new Map();
+  page?.querySelectorAll('[data-io-field]').forEach(field=>{
+    const [key,name]=field.dataset.ioField.split(':');
+    const match=key.match(/^(motion1|motion2|inputs1|inputs2|ir)-(\d+)$/);
+    if(!match)return;
+    const row=rows.get(key)||{controller:match[1],channel:`CH${match[2]}`,device_type:'',tag:'',configuration_status:'',bias:''};
+    if(name==='device')row.device_type=field.value;
+    else if(name==='tag')row.tag=field.value.trim();
+    else if(name==='status')row.configuration_status=field.value.trim();
+    else if(name==='bias')row.bias=field.value;
+    rows.set(key,row);
+  });
+  return [...rows.values()];
+}
+async function loadIoConfigFromPi(){
+  try{
+    const response=await fetch('/api/io-config',{cache:'no-store'});if(!response.ok)return;
+    const payload=await response.json();if(!payload.rows?.length)return;
+    const page=$('settings-tab');if(!page)return;
+    payload.rows.forEach(row=>{
+      const n=String(row.channel||'').replace(/^CH/i,'');
+      const key=`${row.controller}-${n}`;
+      for(const [field,value] of [['device',row.device_type],['tag',row.tag],['status',row.configuration_status],['bias',row.bias]]){
+        const node=page.querySelector(`[data-io-field="${key}:${field}"]`);if(node&&value!=null&&value!=='')node.value=value;
+      }
+    });
+  }catch(error){console.warn('I/O configuration could not be loaded from Pi:',error);}
+}
+function installPiIoSave(){
+  const save=$('save-all-io');if(!save||save.dataset.piWired)return;save.dataset.piWired='1';
+  save.onclick=async()=>{
+    const result=$('io-save-result');save.disabled=true;
+    try{
+      const rows=ioRowsFromPage(),response=await fetch('/api/io-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows})});
+      const payload=await response.json();if(!response.ok||!payload.ok)throw new Error(payload.error||`I/O save failed (${response.status})`);
+      const cached={};$('settings-tab').querySelectorAll('[data-io-field]').forEach(field=>{const [key,name]=field.dataset.ioField.split(':');cached[key]??={};cached[key][name]=field.value});localStorage.setItem('ho-io-config',JSON.stringify(cached));
+      if(result)result.textContent=`Saved ${payload.rows.length} channels to ${payload.path}.`;
+    }catch(error){if(result)result.textContent=error.message;controlFeedback(error.message,true);}
+    finally{save.disabled=false;}
+  };
+  loadIoConfigFromPi();
+}
+setTimeout(installPiIoSave,360);
+
 // Hardware control pass: make every physical control explicit.  The mockup
 // contains controls for future I/O boards, so unsupported actions must report
 // their state instead of silently falling through to the simulation endpoint.
@@ -108,7 +156,8 @@ function controlFeedback(message, error=false){
   node.textContent=message;node.classList.toggle('error',error);clearTimeout(node._timer);node._timer=setTimeout(()=>node.remove(),5000);
 }
 async function sendHardwareControl(payload){
-  const response=await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const request=payload.controller_id?{action:'controller_command',...payload}:payload;
+  const response=await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
   const data=await response.json();
   if(!data.ok)throw Error(data.error||'hardware command rejected');
   if(data.status){state.status=data.status;renderDashboard();}
@@ -144,8 +193,11 @@ function installHardwareButtonAudit(){
     let payload=null;
     const accessory=accessoryCommand(button);
     if(accessory)payload=accessory;
-    else if(/STOP DISPATCHER|STOP ALL|GLOBAL STOP/.test(upper))payload={action:'global_stop',reason:'operator control'};
-    else if(/^START DISPATCHER|^START CYCLE|^CLEAR STOP/.test(upper))payload={action:'clear_stop'};
+    else if(/STOP DISPATCHER/.test(upper))payload={action:'stop_dispatcher'};
+    else if(/STOP ALL|GLOBAL STOP/.test(upper))payload={action:'global_stop',reason:'operator control'};
+    else if(/^START DISPATCHER/.test(upper))payload={action:'start_dispatcher'};
+    else if(/^START CYCLE|^RUN CYCLE/.test(upper))payload={action:'run_cycle_once'};
+    else if(/^CLEAR STOP/.test(upper))payload={action:'clear_stop'};
     else if(/STOP SELECTED TRAIN/.test(upper)){
       const card=button.closest('#trains-tab')?.querySelector('.detailed-train-card');
       const index=card?[...button.closest('#trains-tab').querySelectorAll('.detailed-train-card')].indexOf(card):0;
@@ -155,7 +207,15 @@ function installHardwareButtonAudit(){
     if(/TIP LEFT/.test(upper))payload={controller_id:'tipper',command:'ROTATE CCW'};
     if(/TIP RIGHT/.test(upper))payload={controller_id:'tipper',command:'ROTATE CW'};
     if(/HOME TURNTABLE|HOME \(INDEX\)/.test(upper))unsupportedControl(text);
-    if(!payload && (/RUN CYCLE|PAUSE|TAKE MANUAL|RELEASE TO DISPATCHER|MOVE TO STALL|DEPART FROM YARD|CLEAR YARD|POWER (ON|OFF)|RAISE|LOWER|CHAIRLIFT|AUGER|START ALL|HOME ALL|RUN TIMED/.test(upper)))unsupportedControl(text);
+    if(/TAKE MANUAL CONTROL/.test(upper))payload={action:'set_train_mode',train_id:state.status?.trains?.[0]?.id||1,mode:'manual'};
+    if(/RELEASE TO DISPATCHER/.test(upper))payload={action:'set_train_mode',train_id:state.status?.trains?.[0]?.id||1,mode:'automatic'};
+    if(/CLEAR YARD ASSIGNMENTS/.test(upper))payload={action:'clear_yard_assignments'};
+    if(!payload&&/^(POWER ON|POWER OFF)$/.test(upper)){const track=button.closest('.panel')?.textContent.match(/Track\s*([123])/i)?.[1];if(track)payload={action:'yard_power',track,enabled:upper==='POWER ON'};}
+    if(!payload&&/^(RAISE|LOWER|START|RUN TIMED)/.test(upper)){
+      const card=button.closest('.accessory-reference-card,.accessory-cards article,.panel'),title=card?.querySelector('h2')?.textContent?.trim();
+      if(title&&!/TURN(TABLE)?|TIPPER/i.test(title))payload={action:'accessory_request',accessory:title,command:text};
+    }
+    if(!payload && (/PAUSE|TAKE MANUAL|RELEASE TO DISPATCHER|MOVE TO STALL|DEPART FROM YARD|CLEAR YARD|POWER (ON|OFF)|RAISE|LOWER|CHAIRLIFT|AUGER|START ALL|HOME ALL|RUN TIMED/.test(upper)))unsupportedControl(text);
     if(!payload)return;
     event.preventDefault();event.stopImmediatePropagation();button.dataset.hardwareWired='1';button.disabled=true;
     try{await sendHardwareControl(payload);}catch(error){controlFeedback(error.message,true);button.title=error.message;}
@@ -187,7 +247,7 @@ function installOperatorModes(){
   const modeSwitch=document.querySelector('#dashboard-tab .mode-switch');if(!modeSwitch)return;
   const service=[...modeSwitch.querySelectorAll('button')].find(b=>b.textContent.trim()==='Service');if(service)service.remove();
   const buttons=[...modeSwitch.querySelectorAll('button')];if(modeSwitch.dataset.wired)return;modeSwitch.dataset.wired='1';
-  buttons.forEach(button=>button.onclick=()=>{buttons.forEach(b=>b.classList.toggle('selected',b===button));modeSwitch.dataset.mode=button.textContent.trim().toLowerCase();controlFeedback(`Operator mode: ${button.textContent.trim()}`);});
+  buttons.forEach(button=>button.onclick=async()=>{buttons.forEach(b=>b.classList.toggle('selected',b===button));const mode=button.textContent.trim().toLowerCase();modeSwitch.dataset.mode=mode;try{await sendHardwareControl({action:'set_operator_mode',mode});controlFeedback(`Operator mode: ${button.textContent.trim()}`);}catch(error){controlFeedback(error.message,true);}});
 }
 const _renderDashboardForAccessoryState=renderDashboard;
 renderDashboard=function(){_renderDashboardForAccessoryState();installOperatorModes();updateAccessoryHardwareState();};

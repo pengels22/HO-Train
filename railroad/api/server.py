@@ -1,4 +1,7 @@
 import json
+import csv
+import os
+import tempfile
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
@@ -33,6 +36,53 @@ HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
 TELEMETRY_STOP = None
 TELEMETRY_SOCKET = None
 IR_BENCH = None
+IO_CONFIG_PATH = ROOT / "config" / "io_config.csv"
+
+
+IO_CONFIG_COLUMNS = ("controller", "channel", "device_type", "tag", "configuration_status", "bias")
+IO_CONFIG_CONTROLLERS = {"motion1", "motion2", "inputs1", "inputs2", "ir"}
+
+
+def _read_io_config():
+    if not IO_CONFIG_PATH.exists():
+        return []
+    with IO_CONFIG_PATH.open(newline="", encoding="utf-8") as stream:
+        return list(csv.DictReader(stream))
+
+
+def _save_io_config(rows):
+    """Persist the UI's controller map atomically on the Pi filesystem."""
+    if not isinstance(rows, list) or len(rows) > 64:
+        raise ValueError("rows must be a list of at most 64 channels")
+    normalized = []
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("each I/O row must be an object")
+        controller = str(row.get("controller", ""))
+        channel = str(row.get("channel", ""))
+        if controller not in IO_CONFIG_CONTROLLERS:
+            raise ValueError(f"unknown I/O controller: {controller}")
+        if channel not in {f"CH{i}" for i in range(1, 17)}:
+            raise ValueError(f"invalid channel: {channel}")
+        values = {key: str(row.get(key, "")).strip() for key in IO_CONFIG_COLUMNS}
+        values["controller"], values["channel"] = controller, channel
+        if any(len(value) > 120 for value in values.values()):
+            raise ValueError("I/O fields must be 120 characters or less")
+        normalized.append(values)
+    IO_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix="io_config.", suffix=".csv", dir=IO_CONFIG_PATH.parent)
+    try:
+        with os.fdopen(fd, "w", newline="", encoding="utf-8") as stream:
+            writer = csv.DictWriter(stream, fieldnames=IO_CONFIG_COLUMNS)
+            writer.writeheader()
+            writer.writerows(normalized)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, IO_CONFIG_PATH)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return normalized
 
 
 def _stop_telemetry_listener():
@@ -190,6 +240,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if self.path == "/api/control":
             self._control_command()
             return
+        if self.path == "/api/io-config":
+            self._save_io_config()
+            return
         if self.path == "/api/simulation":
             self._simulation_command()
             return
@@ -296,6 +349,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 io.append({"device": "Arduino Nano", "io": receiver.get("pin", "unassigned"), "location": ", ".join(receiver.get("zones", [])) or "Yard", "function": receiver.get("description", "IR receiver"), "polarity": "active_high", "status": "configured"})
             body = json.dumps({"io": io, "registry_errors": registry.validate(), "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": "3 physical sections (1A + 1B share Track 1)"}}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        elif self.path == "/api/io-config":
+            self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": _read_io_config()})
         elif self.path == "/api/geography":
             body = json.dumps(load_geography(ROOT)).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
@@ -397,6 +452,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         body = json.dumps(payload).encode()
         self.send_response(status); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
 
+    def _save_io_config(self):
+        try:
+            rows = _save_io_config(self._json_body().get("rows"))
+            self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": rows})
+        except (AttributeError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            self._json_response({"ok": False, "error": str(exc)}, 400)
+
     def _simulation_command(self):
         try:
             if not DISPATCHER.simulation:
@@ -440,6 +502,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 DISPATCHER.clear_stop()
             elif action == "rearm":
                 DISPATCHER.rearm()
+            elif action == "set_operator_mode":
+                DISPATCHER.set_operator_mode(payload["mode"])
+            elif action == "start_dispatcher":
+                DISPATCHER.start_dispatcher()
+            elif action == "stop_dispatcher":
+                DISPATCHER.stop_dispatcher()
+            elif action == "run_cycle_once":
+                DISPATCHER.run_cycle_once()
+            elif action == "set_train_mode":
+                DISPATCHER.set_train_mode(int(payload["train_id"]), payload["mode"])
+            elif action == "yard_power":
+                DISPATCHER.set_yard_power(payload["track"], bool(payload["enabled"]))
+            elif action == "clear_yard_assignments":
+                DISPATCHER.clear_yard_assignments()
+            elif action == "accessory_request":
+                DISPATCHER.record_accessory_request(payload["accessory"], payload["command"])
             elif action == "assign_destination":
                 train_id = int(payload["train_id"])
                 destination = str(payload["destination"])

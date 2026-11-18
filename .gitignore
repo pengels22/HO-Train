@@ -5,6 +5,7 @@ __pycache__/
 *.egg-info/
 .env
 config/local*.yaml
+config/io_config.csv
 logs/
 dist/
 firmware/**/wifi_credentials.h
