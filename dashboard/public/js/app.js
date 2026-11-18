@@ -166,6 +166,33 @@ const _renderDashboardForStatusLabels=renderDashboard;
 renderDashboard=function(){_renderDashboardForStatusLabels();document.querySelectorAll('.train-online').forEach(node=>{const card=node.closest('.detailed-train-card,.dashboard-train-card');if(!card)return;const i=[...document.querySelectorAll('.detailed-train-card,.dashboard-train-card')].indexOf(card),c=(state.status?.controllers||[]).filter(v=>v.type==='m5_atom_echo')[i];if(c?.state==='PARKED_OFFLINE'){node.textContent='● Parked';node.classList.add('parked');node.classList.remove('offline');}});installHardwareButtonAudit();};
 setTimeout(installHardwareButtonAudit,120);
 
+function updateAccessoryHardwareState(){
+  const controllers=state.status?.controllers||[];
+  const byId=Object.fromEntries(controllers.map(c=>[c.id,c]));
+  document.querySelectorAll('.accessory-reference-card').forEach(card=>{
+    const title=card.querySelector('h2')?.textContent?.toUpperCase()||'';
+    const id=title.includes('TIPPER')?'tipper':title.includes('TURNTABLE')?'turntable':null;
+    if(!id)return;
+    const c=byId[id], connected=!!c?.connected, stateText=connected?(c.state==='FAULT'?'Connected · Fault':'Connected · Ready'):'Offline';
+    const badge=card.querySelector('.accessory-card-head .state-on');if(badge){badge.textContent=stateText;badge.className=connected&&c.state!=='FAULT'?'state-on':'warning-badge';}
+    const controllerRow=[...card.querySelectorAll('.accessory-status-box div')].find(row=>row.textContent.includes('Controller'));
+    if(controllerRow)controllerRow.querySelector('b').textContent=connected?(c.state==='FAULT'?'Fault':'Online'):'Offline';
+  });
+  document.querySelectorAll('#turntable-tab .detail-card').forEach(card=>{
+    const title=card.querySelector('h2')?.textContent?.toUpperCase()||'',id=title.includes('TIPPER')?'tipper':title.includes('TURNTABLE')?'turntable':null;if(!id)return;
+    const c=byId[id],line=[...card.querySelectorAll('.detail-lines div')].find(row=>row.textContent.includes('Controller'));if(line)line.querySelector('b').textContent=c?.connected?(c.state==='FAULT'?'Connected · Fault':'Connected · Ready'):'Disconnected';
+  });
+}
+function installOperatorModes(){
+  const modeSwitch=document.querySelector('#dashboard-tab .mode-switch');if(!modeSwitch)return;
+  const service=[...modeSwitch.querySelectorAll('button')].find(b=>b.textContent.trim()==='Service');if(service)service.remove();
+  const buttons=[...modeSwitch.querySelectorAll('button')];if(modeSwitch.dataset.wired)return;modeSwitch.dataset.wired='1';
+  buttons.forEach(button=>button.onclick=()=>{buttons.forEach(b=>b.classList.toggle('selected',b===button));modeSwitch.dataset.mode=button.textContent.trim().toLowerCase();controlFeedback(`Operator mode: ${button.textContent.trim()}`);});
+}
+const _renderDashboardForAccessoryState=renderDashboard;
+renderDashboard=function(){_renderDashboardForAccessoryState();installOperatorModes();updateAccessoryHardwareState();};
+setTimeout(()=>{installOperatorModes();updateAccessoryHardwareState();},160);
+
 function ensureIoLegacyNodes(){const page=$('settings-tab');if(!page||page.querySelector('#calibration-list'))return;const legacy=document.createElement('div');legacy.className='legacy-settings';legacy.innerHTML='<div id="calibration-list"></div><div id="controller-config"></div><select id="editor-zone"></select><input id="start-x"><input id="start-y"><input id="end-x"><input id="end-y"><button id="save-boundary"></button><button id="cancel-boundary"></button><button id="reset-boundary"></button><button id="validate-boundary"></button><pre id="editor-result"></pre><textarea id="calibration-json"></textarea><button id="save-calibration"></button><button id="validate-calibration"></button><pre id="calibration-result"></pre>';page.append(legacy);}
 setTimeout(ensureIoLegacyNodes,5);
 const _renderSettingsForController=renderSettings;renderSettings=function(){ensureIoLegacyNodes();_renderSettingsForController();};
