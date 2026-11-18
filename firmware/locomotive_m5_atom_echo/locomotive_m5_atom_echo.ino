@@ -16,9 +16,21 @@ constexpr uint8_t ALL_TRAINS = 0xFF;
 constexpr uint8_t ESTOP_FLAG = 0x80;
 constexpr uint8_t REARM_FLAG = 0x40;
 constexpr uint8_t VERSION = 1;
-constexpr int MOTOR_FORWARD_PIN = 19;
-constexpr int MOTOR_REVERSE_PIN = 22;
-constexpr int IR_TRANSMITTER_PIN = 23;
+#ifndef LOCO_MOTOR_FORWARD_PIN
+#define LOCO_MOTOR_FORWARD_PIN 19
+#endif
+#ifndef LOCO_MOTOR_REVERSE_PIN
+#define LOCO_MOTOR_REVERSE_PIN 22
+#endif
+#ifndef LOCO_IR_TRANSMITTER_PIN
+#define LOCO_IR_TRANSMITTER_PIN 23
+#endif
+#ifndef LOCOMOTIVE_READY_LABEL
+#define LOCOMOTIVE_READY_LABEL "M5_ATOM_READY ID="
+#endif
+constexpr int MOTOR_FORWARD_PIN = LOCO_MOTOR_FORWARD_PIN;
+constexpr int MOTOR_REVERSE_PIN = LOCO_MOTOR_REVERSE_PIN;
+constexpr int IR_TRANSMITTER_PIN = LOCO_IR_TRANSMITTER_PIN;
 constexpr int REARM_BUTTON_PIN = -1; // assign only after validating the build
 constexpr unsigned long WATCHDOG_MS = 500;
 constexpr uint16_t UDP_PORT = 4210;
@@ -240,7 +252,7 @@ void sendTelemetry() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.print("M5_ATOM_READY ID=");
+  Serial.print(LOCOMOTIVE_READY_LABEL);
   Serial.println(LOCOMOTIVE_ID_VALUE);
   pinMode(MOTOR_FORWARD_PIN, OUTPUT); pinMode(MOTOR_REVERSE_PIN, OUTPUT);
   configureIrTransmitter();

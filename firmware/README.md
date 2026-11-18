@@ -6,6 +6,7 @@
 |---|---|---|
 | Raspberry Pi 4B dispatcher | `railroad/` | Hardware-first control services with validated I/O registry, optional Pi I2C backends, edge-debounced reed events, and guarded yard outputs; bench commissioning remains required |
 | M5 Atom Echo locomotives 1-4 | `locomotive_m5_atom_echo/locomotive_m5_atom_echo.ino` | Primary locomotive controller firmware; preserve and validate the existing safety/watchdog/IR implementation for all four units |
+| Seeed XIAO ESP32-C6 locomotive bench variant | `locomotive_xiao_esp32c6/locomotive_xiao_esp32c6.ino` | Optional board-specific port of the M5 protocol; D7/GPIO17 and D8/GPIO19 motor PWM, D9/GPIO20 IR transmitter; not the dedicated tipper board |
 | Seeed XIAO ESP32-C6 turntable | `turntable_esp32c6/turntable_esp32c6.ino` | Dedicated USB turntable controller with per-consist count and stable reed edge debounce; compile and bench-test relay polarity, limit switches, and mechanical timeout |
 | Seeed XIAO ESP32-C6 rotary tipper | `tipper_esp32c6/tipper_esp32c6.ino` | Dedicated accessory controller using the supplied GPIO map: rotation 16/17, gripper 19/20, decoupler 18, Hall 2/21/22, encoder 23; verify polarity and mechanics |
 | Arduino Nano 11 IR sensors | `ir_receiver/ir_receiver_nano_diagnostics.ino` | **New** non-actuating 11-input wiring/timing diagnostic; NOT the final 4-byte locomotive beacon decoder |

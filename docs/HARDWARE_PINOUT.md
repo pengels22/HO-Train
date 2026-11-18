@@ -12,6 +12,7 @@ watchdogs and stop/E-Stop handling remain active.
 |---|---|---|
 | Raspberry Pi 4B | Central dispatcher and MCP/PCA railroad I/O; serial interface to the dedicated tipper controller | BCM assignments in `config/hardware.yaml`; verify harness before enabling |
 | M5 Atom Echo x4 | Locomotive motor driver, UDP command receiver, watchdog, telemetry, IR transmitter | Existing firmware assignments are preserved; compile/bench-verify each locomotive ID |
+| XIAO ESP32-C6 locomotive bench variant | Locomotive motor driver, UDP command receiver, watchdog, telemetry, IR transmitter | D7/GPIO17 motor IN1, D8/GPIO19 motor IN2, D9/GPIO20 IR; optional target only, never the tipper harness |
 | XIAO ESP32-C6 | Dedicated turntable controller | `D0-D7` assignments are in `config/turntable.yaml`; verify board variant/harness |
 | XIAO ESP32-C6 | Dedicated rotary tipper controller | GPIO2/21/22 Hall, GPIO23 encoder, GPIO16/17 rotation motor, GPIO19/20 gripper motor, GPIO18 decoupler; verify harness |
 
