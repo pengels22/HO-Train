@@ -5,10 +5,11 @@ from enum import Enum
 from threading import Event, RLock, Thread
 import time
 from typing import Callable
+from railroad.routing.planner import RoutePlan, RoutePlanner, RouteStatus
 
 ZONES = tuple(f"{line}-{n}" for line in ("SKI", "FARM", "UND", "MINE", "MAIN") for n in (1, 2, 3))
 STALLS = ("1A", "1B", "2", "3")
-TURNOUT_DEFAULTS = {"A":"diverging", "B":"straight", "C":"straight", "D":"straight", "E":"straight", "F":"straight", "G":"straight", "H":"straight"}
+TURNOUT_DEFAULTS = {"A":"diverging", "B":"straight", "C":"straight", "D":"straight", "E":"straight", "F":"straight", "G":"straight"}
 TIPPER_LOCKED = frozenset(("MAIN-3", "UND-1"))
 DESTINATIONS = ("Mine", "Farm", "Ski", "Town", "Tipper", "Turntable", "Yard")
 SLOW_DESTINATIONS = frozenset(("Tipper", "Turntable"))
@@ -52,6 +53,7 @@ class Dispatcher:
     reservations: dict[str, int | None] = field(default_factory=lambda: {z:None for z in ZONES})
     destinations: dict[str, int | None] = field(default_factory=dict)
     turnouts: dict[str,str] = field(default_factory=lambda: TURNOUT_DEFAULTS.copy())
+    turnout_feedback: dict[str, str | None] = field(default_factory=lambda: {name: None for name in TURNOUT_DEFAULTS})
     yard_power: dict[str,bool] = field(default_factory=lambda: {"1":False,"2":False,"3":False})
     yard_power_verified: dict[str, bool] = field(default_factory=lambda: {"1":False,"2":False,"3":False})
     tipper: str = "IDLE"
@@ -66,6 +68,8 @@ class Dispatcher:
     cycle_route: list[str] = field(default_factory=list)
     cycle_route_index: int = 0
     cycle_motion_command: Callable[[int, int], None] | None = field(default=None, repr=False)
+    route_planner: RoutePlanner = field(default_factory=RoutePlanner, repr=False)
+    pending_requests: list[dict] = field(default_factory=list)
     yard_adapter: object | None = field(default=None, repr=False)
     _cycle_stop: Event | None = field(default=None, repr=False)
     _cycle_thread: Thread | None = field(default=None, repr=False)
@@ -218,6 +222,63 @@ class Dispatcher:
         with self.lock:
             self.operator_mode = mode
 
+    def enable_automatic(self) -> None:
+        """Explicitly enable automatic scheduling; it never starts a cycle."""
+        with self.lock:
+            self.operator_mode = "dispatcher"
+            self.dispatcher_running = True
+
+    def disable_automatic(self) -> None:
+        with self.lock:
+            self.dispatcher_running = False
+
+    def manual_takeover(self, train_id: int) -> None:
+        """Suspend automatic control for one train and issue an individual STOP."""
+        with self.lock:
+            if train_id not in self.trains:
+                raise KeyError(train_id)
+            self.trains[train_id].control_mode = "manual"
+            self.trains[train_id].velocity = 0
+            self.stop_train(train_id)
+
+    def set_turnout_feedback(self, turnout: str, position: str | None) -> None:
+        """Record verified physical feedback, never a commanded servo angle."""
+        if turnout not in self.turnout_feedback:
+            raise KeyError(turnout)
+        if position not in {None, "straight", "diverging"}:
+            raise ValueError("turnout feedback must be straight, diverging, or None")
+        with self.lock:
+            self.turnout_feedback[turnout] = position
+
+    def plan_route(self, train_id: int, origin: str, destination: str) -> RoutePlan:
+        with self.lock:
+            controller_status = {}
+            if self.controller_health:
+                for item in self.controller_health.status(moving_locomotives={}):
+                    controller_status[str(item.get("id"))] = bool(item.get("connected"))
+            controller_status["tipper"] = bool(controller_status.get("tipper"))
+            controller_status["turntable"] = bool(controller_status.get("turntable"))
+            return self.route_planner.plan(train_id, origin, destination,
+                                           zones=self.zones, reservations=self.reservations,
+                                           controllers=controller_status,
+                                           turnouts=self.turnout_feedback,
+                                           destinations=self.destinations)
+
+    def submit_request(self, train_id: int, destination: str) -> dict:
+        with self.lock:
+            if train_id not in self.trains:
+                raise KeyError(train_id)
+            self.assign_destination(train_id, destination)
+            request = {"train_id": train_id, "destination": destination, "state": "PENDING"}
+            self.pending_requests.append(request)
+            return request.copy()
+
+    def cancel_request(self, train_id: int) -> bool:
+        with self.lock:
+            before = len(self.pending_requests)
+            self.pending_requests = [item for item in self.pending_requests if item["train_id"] != train_id]
+            return len(self.pending_requests) != before
+
     def start_dispatcher(self) -> None:
         with self.lock:
             self.dispatcher_running = True
@@ -268,7 +329,18 @@ class Dispatcher:
             self.cycle_train_id = eligible.train_id
             self.cycle_fault = None
             self.cycle_state = "PLANNING"
-            route = self._cycle_route_for(eligible)
+            if not self.simulation:
+                origin = eligible.zone or ("Yard" if eligible.parked else "")
+                plan = self.plan_route(eligible.train_id, origin, eligible.destination or "")
+                if plan.status is not RouteStatus.AVAILABLE:
+                    self.cycle_state = "BLOCKED"
+                    self.cycle_fault = plan.blocking_reason or plan.status.value
+                    self.last_cycle_plan = {"state": self.cycle_state, "train": eligible.train_id,
+                                            "reason": self.cycle_fault, "route_status": plan.status.value}
+                    return
+                route = list(plan.zones)
+            else:
+                route = self._cycle_route_for(eligible)
             if not route or not self.route_available(eligible.train_id, route):
                 self.cycle_state = "BLOCKED"
                 self.cycle_fault = "required route unavailable or protected"
@@ -615,6 +687,8 @@ class Dispatcher:
                            "estimate_mm":t.estimate_mm,"cycle":t.cycle} for t in self.trains.values()],
                 "zones":self.zones.copy(),"reservations":self.reservations.copy(),
                 "turnouts":self.turnouts.copy(),"yard_power":self.yard_power.copy(),
+                "turnout_feedback": self.turnout_feedback.copy(),
+                "pending_requests": [item.copy() for item in self.pending_requests],
                 "yard_power_requested": self.yard_power.copy(),
                 "yard_power_verified": self.yard_power_verified.copy(),
                 "yard_power_hardware": self.yard_adapter.status() if self.yard_adapter else None,

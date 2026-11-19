@@ -5,6 +5,7 @@ from railroad.transport.telemetry import ControllerHealthRegistry
 from railroad.transport.usb import ControllerRegistry
 from railroad.api import server
 from railroad.hardware.yard_power import YardOutput, YardPowerAdapter
+from railroad.routing.planner import RouteDefinition, RoutePlanner, RouteStatus
 
 
 def test_health_inventory_preserves_mixed_locomotive_controller_types():
@@ -80,3 +81,37 @@ def test_yard_adapter_defaults_off_and_rejects_unassigned_activation():
         assert "unassigned" in str(exc)
     else:
         raise AssertionError("unassigned yard output was activated")
+
+
+def test_route_planner_blocks_unverified_topology_without_hardware_success_claim():
+    planner = RoutePlanner([RouteDefinition("Yard", "Mine", ("MAIN-2",), verified=False)])
+    plan = planner.plan(1, "Yard", "Mine", zones={"MAIN-2": None}, reservations={"MAIN-2": None})
+    assert plan.status is RouteStatus.BLOCKED
+    assert "not physically verified" in plan.blocking_reason
+
+
+def test_route_planner_requires_verified_feedback_and_isolates_missing_tipper():
+    planner = RoutePlanner([RouteDefinition("Yard", "Tipper", ("MAIN-2",),
+                                             (("D", "diverging"),),
+                                             required_controllers=("tipper",), verified=True)])
+    kwargs = {"zones": {"MAIN-2": None}, "reservations": {"MAIN-2": None},
+              "controllers": {"tipper": False}, "turnouts": {"D": "diverging"}}
+    offline = planner.plan(1, "Yard", "Tipper", **kwargs)
+    assert offline.status is RouteStatus.OFFLINE
+    assert "tipper" in offline.blocking_reason
+    kwargs["controllers"]["tipper"] = True
+    kwargs["turnouts"]["D"] = None
+    blocked = planner.plan(1, "Yard", "Tipper", **kwargs)
+    assert blocked.status is RouteStatus.BLOCKED
+    assert "verified" in blocked.blocking_reason
+
+
+def test_dispatcher_request_queue_and_manual_takeover_are_explicit():
+    dispatcher = Dispatcher()
+    request = dispatcher.submit_request(1, "Yard")
+    assert request["state"] == "PENDING"
+    assert dispatcher.snapshot()["pending_requests"]
+    dispatcher.manual_takeover(1)
+    assert dispatcher.trains[1].control_mode == "manual"
+    assert dispatcher.trains[1].velocity == 0
+    assert dispatcher.cancel_request(1)

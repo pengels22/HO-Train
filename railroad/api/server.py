@@ -42,6 +42,9 @@ IO_CONFIG_STATE: list[dict] = []
 IO_HARDWARE_REGISTRY: HardwareRegistry | None = None
 I2C_BUS: I2CBus | None = None
 I2C_DEVICES: dict[str, object] = {}
+I2C_STATUS: dict[str, dict] = {}
+I2C_RETRY_STOP = None
+I2C_RETRY_THREAD = None
 IO_MIGRATION_WARNINGS: list[str] = []
 
 
@@ -272,7 +275,12 @@ def _stop_telemetry_listener():
 
 
 def _close_hardware_devices():
-    global I2C_BUS, I2C_DEVICES
+    global I2C_BUS, I2C_DEVICES, I2C_RETRY_STOP, I2C_RETRY_THREAD, I2C_STATUS
+    if I2C_RETRY_STOP:
+        I2C_RETRY_STOP.set()
+    if I2C_RETRY_THREAD:
+        I2C_RETRY_THREAD.join(timeout=1.0)
+    I2C_RETRY_STOP = I2C_RETRY_THREAD = None
     for device in I2C_DEVICES.values():
         safe_stop = getattr(device, "safe_stop", None)
         if safe_stop:
@@ -284,25 +292,64 @@ def _close_hardware_devices():
     if I2C_BUS:
         I2C_BUS.close()
     I2C_BUS = None
+    I2C_STATUS = {}
 
 
 def _start_hardware_devices(hardware):
-    """Open only declared I2C boards; construction leaves every output safe."""
-    global I2C_BUS, I2C_DEVICES
+    """Open declared I2C boards independently; absent boards stay unavailable."""
+    global I2C_BUS, I2C_DEVICES, I2C_STATUS, I2C_RETRY_STOP, I2C_RETRY_THREAD
     _close_hardware_devices()
+    boards = hardware.get("i2c", {}).get("boards", {}) or {}
+    I2C_STATUS = {name: {"address": int(address), "connected": False,
+                         "state": "UNAVAILABLE", "error": None,
+                         "reconcile_required": False}
+                  for name, address in boards.items()}
+    bus_number = int(hardware.get("i2c", {}).get("bus", 1))
     try:
-        I2C_BUS = I2CBus.open(int(hardware.get("i2c", {}).get("bus", 1)), enabled=True)
-        boards = hardware.get("i2c", {}).get("boards", {}) or {}
-        for name in ("sensors_1", "sensors_2"):
-            if name in boards:
-                I2C_DEVICES[name] = MCP23017(int(boards[name]), I2C_BUS, enabled=True)
-        for name in ("motor_1", "servo"):
-            if name in boards:
-                I2C_DEVICES[name] = PCA9685(int(boards[name]), I2C_BUS, enabled=True)
-        return None
+        I2C_BUS = I2CBus.open(bus_number, enabled=True)
     except Exception as exc:
-        _close_hardware_devices()
-        return str(exc)
+        for status in I2C_STATUS.values():
+            status.update(state="UNAVAILABLE", error=str(exc))
+
+    def probe(name):
+        address = int(boards[name])
+        try:
+            if name.startswith("sensors"):
+                device = MCP23017(address, I2C_BUS, enabled=True)
+            elif name in {"motor_1", "servo"}:
+                frequency = 50 if name == "servo" else 1000
+                device = PCA9685(address, I2C_BUS, enabled=True, frequency_hz=frequency)
+            else:
+                raise RuntimeError(f"unsupported I2C board {name}")
+            I2C_DEVICES[name] = device
+            I2C_STATUS[name].update(connected=True, state="SAFE_OFF" if name in {"motor_1", "servo"} else "ONLINE",
+                                    error=None, reconcile_required=name in {"motor_1", "servo"})
+        except Exception as exc:
+            I2C_STATUS[name].update(connected=False, state="UNAVAILABLE", error=str(exc))
+
+    if I2C_BUS is not None:
+        for name in boards:
+            probe(name)
+
+    # Reconnection is bounded and quiet. A newly-created PWM device is always
+    # initialized safe-off and remains marked for operator reconciliation.
+    I2C_RETRY_STOP = Event()
+    def retry_loop():
+        global I2C_BUS
+        while not I2C_RETRY_STOP.wait(5.0):
+            if I2C_BUS is None:
+                try:
+                    I2C_BUS = I2CBus.open(bus_number, enabled=True)
+                except Exception as exc:
+                    for status in I2C_STATUS.values():
+                        status.update(connected=False, state="UNAVAILABLE", error=str(exc))
+                    continue
+            for name in boards:
+                if not I2C_STATUS.get(name, {}).get("connected"):
+                    probe(name)
+    I2C_RETRY_THREAD = Thread(target=retry_loop, name="ho-i2c-retry", daemon=True)
+    I2C_RETRY_THREAD.start()
+    return None
 
 
 def _start_telemetry_listener():
@@ -500,6 +547,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             HEALTH.check_freshness()
             status = DISPATCHER.snapshot()
             status["simulation"] = SIMULATION.snapshot()
+            status["i2c"] = {name: dict(value) for name, value in I2C_STATUS.items()}
             status["stop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}
             bench = IR_BENCH.status() if IR_BENCH else {"enabled": False, "connected": False}
             status["bench_ir_receiver"] = bench
@@ -732,11 +780,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             elif action == "set_operator_mode":
                 DISPATCHER.set_operator_mode(payload["mode"])
             elif action == "start_dispatcher":
+                DISPATCHER.enable_automatic()
                 DISPATCHER.start_dispatcher()
             elif action == "stop_dispatcher":
+                DISPATCHER.disable_automatic()
                 DISPATCHER.stop_dispatcher()
             elif action == "run_cycle_once":
                 DISPATCHER.run_cycle_once()
+            elif action == "enable_automatic":
+                DISPATCHER.enable_automatic()
+            elif action == "disable_automatic":
+                DISPATCHER.disable_automatic()
             elif action == "set_train_mode":
                 DISPATCHER.set_train_mode(int(payload["train_id"]), payload["mode"])
             elif action == "yard_power":
@@ -751,6 +805,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 # Assignment changes dispatcher state only; it never issues
                 # a motion command to a locomotive or accessory.
                 DISPATCHER.assign_destination(train_id, destination)
+            elif action == "submit_request":
+                DISPATCHER.submit_request(int(payload["train_id"]), str(payload["destination"]))
+            elif action == "cancel_request":
+                DISPATCHER.cancel_request(int(payload["train_id"]))
+            elif action == "manual_takeover":
+                DISPATCHER.manual_takeover(int(payload["train_id"]))
+            elif action == "plan_route":
+                plan = DISPATCHER.plan_route(int(payload["train_id"]), str(payload["origin"]), str(payload["destination"]))
+                self._json_response({"ok": plan.status.value == "AVAILABLE",
+                                     "plan": plan.__dict__, "status": DISPATCHER.snapshot()})
+                return
             elif action == "stop_train":
                 DISPATCHER.stop_train(int(payload["train_id"]))
             elif action == "command_motion":

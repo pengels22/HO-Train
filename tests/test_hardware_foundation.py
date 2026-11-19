@@ -58,6 +58,27 @@ def test_hardware_startup_initializes_four_declared_i2c_boards_only(monkeypatch)
     server._close_hardware_devices()
 
 
+def test_hardware_startup_isolates_one_missing_i2c_board(monkeypatch):
+    import railroad.api.server as server
+    mock = MockI2CBus()
+    monkeypatch.setattr(server.I2CBus, "open", classmethod(lambda cls, bus=1, **kwargs: I2CBus(bus, True, mock)))
+    real_pca = server.PCA9685
+
+    def fail_servo(address, bus=None, enabled=False, **kwargs):
+        if address == 0x41:
+            raise OSError("servo board absent")
+        return real_pca(address, bus, enabled=enabled, **kwargs)
+
+    monkeypatch.setattr(server, "PCA9685", fail_servo)
+    config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
+    assert server._start_hardware_devices(config) is None
+    assert "motor_1" in server.I2C_DEVICES
+    assert "servo" not in server.I2C_DEVICES
+    assert server.I2C_STATUS["servo"]["state"] == "UNAVAILABLE"
+    assert server.I2C_STATUS["motor_1"]["connected"] is True
+    server._close_hardware_devices()
+
+
 def test_mock_i2c_drivers_configure_inputs_and_stop_pwm():
     mock = MockI2CBus()
     bus = I2CBus(enabled=True, backend=mock)
