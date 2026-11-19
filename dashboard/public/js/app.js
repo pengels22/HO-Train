@@ -253,6 +253,30 @@ const _renderDashboardForAccessoryState=renderDashboard;
 renderDashboard=function(){_renderDashboardForAccessoryState();installOperatorModes();updateAccessoryHardwareState();};
 setTimeout(()=>{installOperatorModes();updateAccessoryHardwareState();},160);
 
+// Hardware truth overlays: never present a commanded or configured output as
+// electrically verified, and identify mixed locomotive controller types.
+function renderHardwareTruth(){
+  const s=state.status||{}, hardware=hardwareMode();
+  if(hardware){
+    const h=s.yard_power_hardware||{}, requested=h.requested||{}, commanded=h.commanded||{}, verified=h.verified||{}, faults=h.faults||{};
+    const labels={'1':'Stalls 1A + 1B','2':'Stall 2','3':'Stall 3'};
+    const yard=$('yard-power');
+    if(yard)yard.innerHTML=Object.keys(labels).map(id=>{
+      const fault=faults[id], stateText=fault|| (verified[id]?'VERIFIED ON':commanded[id]?'COMMANDED ON · UNVERIFIED':requested[id]?'REQUESTED · UNASSIGNED':'OFF');
+      return `<div class="yard-row"><div>${labels[id]}<div class="yard-power-bar"><span style="width:${commanded[id]?'100':'0'}%"></span></div></div><div class="yard-meta">${esc(stateText)}<br><span class="sim-chip">${verified[id]?'feedback verified':'hardware state'}</span></div></div>`;
+    }).join('');
+  }
+  const locomotives=(s.controllers||[]).filter(c=>['m5_atom_echo','xiao_esp32_c6'].includes(c.type));
+  const cards=[...document.querySelectorAll('#controller-health .controller-card')];
+  locomotives.forEach((controller,index)=>{
+    const title=cards[index]?.querySelector('.controller-title strong');
+    if(title)title.textContent=`${controller.type==='xiao_esp32_c6'?'XIAO ESP32-C6':'M5 Atom'} locomotive ${String(controller.id).replace('locomotive-','')||index+1}`;
+  });
+}
+const _renderDashboardWithHardwareTruth=renderDashboard;
+renderDashboard=function(){_renderDashboardWithHardwareTruth();renderHardwareTruth();};
+setTimeout(renderHardwareTruth,250);
+
 function ensureIoLegacyNodes(){const page=$('settings-tab');if(!page||page.querySelector('#calibration-list'))return;const legacy=document.createElement('div');legacy.className='legacy-settings';legacy.innerHTML='<div id="calibration-list"></div><div id="controller-config"></div><select id="editor-zone"></select><input id="start-x"><input id="start-y"><input id="end-x"><input id="end-y"><button id="save-boundary"></button><button id="cancel-boundary"></button><button id="reset-boundary"></button><button id="validate-boundary"></button><pre id="editor-result"></pre><textarea id="calibration-json"></textarea><button id="save-calibration"></button><button id="validate-calibration"></button><pre id="calibration-result"></pre>';page.append(legacy);}
 setTimeout(ensureIoLegacyNodes,5);
 const _renderSettingsForController=renderSettings;renderSettings=function(){ensureIoLegacyNodes();_renderSettingsForController();};

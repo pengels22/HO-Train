@@ -36,6 +36,7 @@ TELEMETRY_SOCKET = None
 IR_BENCH = None
 IO_CONFIG_PATH = ROOT / "config" / "io_config.csv"
 IO_CONFIG_STATE: list[dict] = []
+IO_HARDWARE_REGISTRY: HardwareRegistry | None = None
 
 
 IO_CONFIG_COLUMNS = ("controller", "channel", "device_type", "tag", "configuration_status", "bias")
@@ -180,7 +181,7 @@ def load_locomotive_controller_config(hardware: dict, known_ids: set[int]) -> li
 
 def configure_runtime(mode: str = "simulation") -> None:
     """Configure the command gate; network transmission is never implicit."""
-    global USB_CONTROLLERS, HEALTH, IO_CONFIG_STATE
+    global USB_CONTROLLERS, HEALTH, IO_CONFIG_STATE, IO_HARDWARE_REGISTRY
     if mode not in {"simulation", "hardware", "bench"}:
         raise ValueError("mode must be simulation, hardware, or bench")
     if mode == "simulation":
@@ -198,6 +199,7 @@ def configure_runtime(mode: str = "simulation") -> None:
         DISPATCHER.attach_controller_health(HEALTH)
         DISPATCHER.yard_adapter = None
         IO_CONFIG_STATE = []
+        IO_HARDWARE_REGISTRY = None
         DISPATCHER.accessory_errors.clear()
         DISPATCHER.simulation = True
         DISPATCHER.disarm()
@@ -209,6 +211,7 @@ def configure_runtime(mode: str = "simulation") -> None:
     # POST. This is the authoritative runtime view; browser local storage is
     # never consulted by hardware adapters.
     IO_CONFIG_STATE = _save_io_config(_read_io_config()) if IO_CONFIG_PATH.exists() else []
+    IO_HARDWARE_REGISTRY = HardwareRegistry.from_config(hardware).require_valid()
     controller_transport_config = hardware.get("controller_transport", {}) or {}
     configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
     known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
@@ -344,7 +347,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             locomotives = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
             wifi = locomotives.get("wifi", {})
             io = [{"device": "Raspberry Pi GPIO", "io": "unassigned", "location": "Raspberry Pi", "function": "general-purpose I/O", "polarity": "n/a", "status": "reserved"}]
-            registry = HardwareRegistry.from_config(hardware)
+            registry = IO_HARDWARE_REGISTRY or HardwareRegistry.from_config(hardware).require_valid()
             io = [{"device": entry.device_type, "io": f"{entry.board}:{entry.channel}",
                    "address": entry.address, "location": entry.location,
                    "function": entry.function, "direction": entry.direction,
@@ -462,8 +465,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(status); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
 
     def _save_io_config(self):
+        global IO_CONFIG_STATE
         try:
             rows = _save_io_config(self._json_body().get("rows"))
+            IO_CONFIG_STATE = rows
             self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": rows})
         except (AttributeError, TypeError, ValueError, json.JSONDecodeError) as exc:
             self._json_response({"ok": False, "error": str(exc)}, 400)

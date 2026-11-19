@@ -1,3 +1,5 @@
+import pytest
+
 from railroad.dispatcher import Dispatcher
 from railroad.transport.telemetry import ControllerHealthRegistry
 from railroad.transport.usb import ControllerRegistry
@@ -52,6 +54,19 @@ def test_yard_power_keeps_requested_and_verified_state_separate():
     snapshot = dispatcher.snapshot()
     assert snapshot["yard_power_requested"]["1"] is True
     assert snapshot["yard_power_verified"]["1"] is False
+
+
+def test_unassigned_yard_outputs_report_unassigned_and_refuse_activation():
+    adapter = YardPowerAdapter.from_config({"yard_outputs": [
+        {"track": 1, "sections": ["1A", "1B"], "gpio": None},
+        {"track": 2, "sections": ["2"], "gpio": None},
+        {"track": 3, "sections": ["3"], "gpio": None},
+    ]})
+    assert all(value == "UNASSIGNED" for value in adapter.status()["faults"].values())
+    with pytest.raises(RuntimeError, match="unassigned"):
+        adapter.set_power("1", True)
+    adapter.set_power("1", False)
+    assert adapter.status()["commanded"]["1"] is False
 
 
 def test_yard_adapter_defaults_off_and_rejects_unassigned_activation():

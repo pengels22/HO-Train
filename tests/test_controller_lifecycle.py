@@ -47,15 +47,33 @@ def test_tipper_serial_requires_positive_motor_and_decoupler_ack():
         def write(self, value): self.writes.append(value)
         def readline(self): return next(self.replies)
     ok = Port([
-        b'{"transaction":"tipper-1","ok":true,"motor":false,"decoupler":false}\n',
+        b'OK STOP\n',
         b'{"transaction":"tipper-2","ok":true,"motor":false,"decoupler":false}\n',
     ])
     controller = TipperSerialController(ok)
     controller.stop_motor()
-    assert b'"command":"ESTOP"' in ok.writes[0]
+    assert b'"command":"STOP"' in ok.writes[0]
     class SlowPort(Port):
         def readline(self):
             time.sleep(0.02)
             return b""
     slow = SlowPort(b"")
     with pytest.raises(TimeoutError): TipperSerialController(slow, response_timeout_s=0.001).command("STATUS")
+
+
+def test_tipper_routine_stop_is_non_latching_and_confirms_outputs_off():
+    class Port:
+        def __init__(self):
+            self.writes = []
+            self.replies = iter((
+                b'OK STOP\n',
+                b'{"transaction":"tipper-2","controller":"tipper","motor":false,"decoupler":false}\n',
+            ))
+        def write(self, value): self.writes.append(value)
+        def readline(self): return next(self.replies)
+
+    port = Port()
+    controller = TipperSerialController(port)
+    controller.stop_motor()
+    assert b'"command":"STOP"' in port.writes[0]
+    assert b'"command":"STATUS"' in port.writes[1]

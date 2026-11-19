@@ -21,6 +21,9 @@ class YardPowerAdapter:
         self.verified = {str(i): False for i in (1, 2, 3)}
         self.faults: dict[str, str] = {}
         self._validate_inventory()
+        for track, output in self.outputs.items():
+            if output.pin is None:
+                self.faults[track] = "UNASSIGNED"
 
     @classmethod
     def from_config(cls, config, writer=None):
@@ -45,7 +48,10 @@ class YardPowerAdapter:
         self.requested[track] = enabled
         output = self.outputs[track]
         if output.pin is None:
-            self.faults[track] = "yard output is unassigned"
+            self.faults[track] = "UNASSIGNED"
+            self.commanded[track] = False
+            if not enabled:
+                return
             raise RuntimeError(f"yard track {track} output is unassigned")
         if self.writer is None:
             self.faults[track] = "yard output writer is unavailable"
@@ -60,4 +66,9 @@ class YardPowerAdapter:
 
     def status(self):
         return {"requested": self.requested.copy(), "commanded": self.commanded.copy(),
-                "verified": self.verified.copy(), "faults": self.faults.copy()}
+                "verified": self.verified.copy(), "faults": self.faults.copy(),
+                "outputs": {track: {"sections": list(output.sections),
+                                    "pin": output.pin,
+                                    "active_high": output.active_high,
+                                    "state": self.faults.get(track, "READY")}
+                            for track, output in self.outputs.items()}}

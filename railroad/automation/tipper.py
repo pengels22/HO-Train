@@ -32,7 +32,7 @@ class TipperSerialController:
                         "DECOUPLER OFF", "DECOUPLER ON", "JOG CW", "JOG CCW",
                         "MARK START", "SET 120", "ROTATE CW", "ROTATE CCW", "HOME"}:
             raise ValueError("unsupported tipper command")
-        if self.communication_fault and name != "ESTOP":
+        if self.communication_fault and name not in {"ESTOP", "STOP"}:
             raise RuntimeError("tipper communication fault requires reconnection")
         transaction = f"tipper-{next(self._transactions)}"
         future = self._executor.submit(self._exchange, name, transaction, fields)
@@ -62,12 +62,14 @@ class TipperSerialController:
         self._executor.shutdown(wait=False, cancel_futures=True)
 
     def stop_motor(self) -> None:
-        reply = self.command("ESTOP")
-        acknowledged = reply == "OK ESTOP" or (
+        # Routine operator STOP is non-latching. ESTOP remains accepted only
+        # as a compatibility command for older controller firmware.
+        reply = self.command("STOP")
+        acknowledged = reply == "OK STOP" or (
             reply.startswith("{") and self.last_status and self.last_status.get("ok") is True
         )
         if not acknowledged:
-            raise RuntimeError("tipper controller did not acknowledge ESTOP")
+            raise RuntimeError("tipper controller did not acknowledge STOP")
         status = self.command("STATUS")
         if not self.last_status or self.last_status.get("motor") is not False or self.last_status.get("decoupler") is not False:
             raise RuntimeError("tipper controller did not confirm motor and decoupler OFF")

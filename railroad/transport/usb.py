@@ -60,7 +60,7 @@ class RegisteredController:
             if reset_input is not None:
                 reset_input()
             port.write(b"STOP\n")
-            # Controller firmware acknowledges the plain ESTOP command. Read
+            # Controller firmware acknowledges the plain STOP command. Read
             # that line here so it cannot be mistaken for the next STATUS
             # response by the heartbeat thread. Older test/dummy ports may not
             # expose readline, so acknowledgement remains best-effort.
