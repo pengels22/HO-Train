@@ -1,8 +1,9 @@
-# Production Nano ESP32 USB IR decoder (repurposed from bench controller).
-# D2-D12 are owner-confirmed receiver inputs. Mine/Farm/Town station IR inputs
-# also belong to this Nano, never MCP23017; their additional physical pin
-# assignments are pending validation and are intentionally not invented.
-# The existing single-input bench decoder must be expanded before production.
+# Fourteen-channel USB IR decoder, common wiring for classic Arduino Nano (5 V)
+# and Arduino Nano ESP32 (3.3 V). The ATmega328P Nano is the reference board.
+# Firmware must be compiled for the selected board; physical receiver signal
+# voltage must match its input limits. All channels independently decode the
+# simplified ID flash sequence; send change-only detected/changed/cleared
+# events plus on-demand snapshots. The production decoder remains to be built.
 controller: nano-1
 transport: usb_serial
 baud: 115200
@@ -20,3 +21,6 @@ receivers:
   - {id: stall_1b, channel: 9, pin: D10, description: Stall 1B, zones: []}
   - {id: stall_2, channel: 10, pin: D11, description: Stall 2, zones: []}
   - {id: stall_3, channel: 11, pin: D12, description: Stall 3, zones: []}
+  - {id: mine_station, channel: 12, pin: A0, description: Mine Station, zones: []}
+  - {id: farm_station, channel: 13, pin: A1, description: Farm Station, zones: []}
+  - {id: town_station, channel: 14, pin: A2, description: Town Station, zones: []}
