@@ -108,7 +108,12 @@ function ioRowsFromPage(){
     const [key,name]=field.dataset.ioField.split(':');
     const match=key.match(/^(motion1|motion2|inputs1|inputs2|ir)-(\d+)$/);
     if(!match)return;
-    const row=rows.get(key)||{controller:match[1],channel:`CH${match[2]}`,device_type:'',tag:'',configuration_status:'',bias:''};
+    const controller=match[1], index=Number(match[2])-1;
+    const physical = controller==='motion1' ? {board:'motor_1',address:'0x40',physical_channel:String(index),direction:'output',polarity:'active_high'}
+      : controller==='motion2' ? {board:'motor_2',address:'0x41',physical_channel:String(index),direction:'output',polarity:'active_high'}
+      : controller==='inputs1' || controller==='inputs2' ? {board:controller==='inputs1'?'sensors_1':'sensors_2',address:controller==='inputs1'?'0x20':'0x21',physical_channel:(index<8?'GPA':'GPB')+(index%8),direction:'input',polarity:'active_low'}
+      : {board:'nano_ir',address:'',physical_channel:`CH${index+1}`,direction:'input',polarity:'active_high'};
+    const row=rows.get(key)||{controller,channel:`CH${match[2]}`,...physical,device_type:'',tag:'',configuration_status:'',bias:''};
     if(name==='device')row.device_type=field.value;
     else if(name==='tag')row.tag=field.value.trim();
     else if(name==='status')row.configuration_status=field.value.trim();

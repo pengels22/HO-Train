@@ -18,6 +18,9 @@ from railroad.transport.telemetry import ControllerHealthRegistry
 from railroad.transport.ir_bench import BenchIRReader
 from railroad.hardware.registry import HardwareRegistry
 from railroad.hardware.yard_power import YardPowerAdapter
+from railroad.hardware.i2c import I2CBus
+from railroad.hardware.mcp23017 import MCP23017
+from railroad.hardware.pca9685 import PCA9685
 
 DISPATCHER = Dispatcher()
 
@@ -37,9 +40,12 @@ IR_BENCH = None
 IO_CONFIG_PATH = ROOT / "config" / "io_config.csv"
 IO_CONFIG_STATE: list[dict] = []
 IO_HARDWARE_REGISTRY: HardwareRegistry | None = None
+I2C_BUS: I2CBus | None = None
+I2C_DEVICES: dict[str, object] = {}
 
 
-IO_CONFIG_COLUMNS = ("controller", "channel", "device_type", "tag", "configuration_status", "bias")
+IO_CONFIG_COLUMNS = ("controller", "channel", "board", "address", "physical_channel",
+                     "direction", "polarity", "device_type", "tag", "configuration_status", "bias")
 IO_CONFIG_CONTROLLERS = {"motion1", "motion2", "inputs1", "inputs2", "ir"}
 OUTPUT_TYPES = {"", "Motor", "Relay", "Servo", "Unassigned"}
 INPUT_BIASES = {"", "Pull-up (internal)", "No bias"}
@@ -52,10 +58,58 @@ def _read_io_config():
         return list(csv.DictReader(stream))
 
 
+def _default_io_config(hardware):
+    """Return the physical channel inventory used before the first save."""
+    boards = (hardware.get("i2c", {}) or {}).get("boards", {}) or {}
+    rows = []
+    for controller, board, address in (("motion1", "motor_1", boards.get("motor_1")),
+                                       ("motion2", "motor_2", boards.get("motor_2"))):
+        for channel in range(16):
+            paired_tag = {0: "1A", 1: "1B"}.get(channel, "") if controller == "motion1" else ""
+            rows.append({"controller": controller, "channel": f"CH{channel + 1}",
+                         "board": board, "address": hex(address) if address is not None else "",
+                         "physical_channel": str(channel), "direction": "output",
+                         "polarity": "active_high",
+                         "device_type": "Motor" if paired_tag else "Unassigned",
+                         "tag": paired_tag,
+                         "configuration_status": "H-Bridge Motor 1" if paired_tag else "Unassigned",
+                         "bias": ""})
+    input_functions = {}
+    for item in (hardware.get("io_registry", []) or []):
+        if item.get("address") in (0x20, 0x21):
+            input_functions[(int(item["address"]), str(item["channel"]))] = item.get("function", "")
+    for controller, board, address in (("inputs1", "sensors_1", boards.get("sensors_1")),
+                                       ("inputs2", "sensors_2", boards.get("sensors_2"))):
+        channels = [f"GPA{i}" for i in range(8)] + [f"GPB{i}" for i in range(8)]
+        for channel in channels:
+            tag = input_functions.get((int(address), channel), "") if address is not None else ""
+            rows.append({"controller": controller, "channel": f"CH{channels.index(channel) + 1}",
+                         "board": board, "address": hex(address) if address is not None else "",
+                         "physical_channel": channel, "direction": "input", "polarity": "active_low",
+                         "device_type": "Digital Input", "tag": tag,
+                         "configuration_status": "configured" if tag else "Unassigned",
+                         "bias": "Pull-up (internal)"})
+    receivers = {int(item.get("channel")): item.get("id", "")
+                 for item in (hardware.get("bench_ir_receiver", {}).get("receivers", []) or [])
+                 if str(item.get("channel", "")).isdigit()}
+    for channel in range(1, 13):
+        rows.append({"controller": "ir", "channel": f"CH{channel}", "board": "nano_ir",
+                     "address": "", "physical_channel": f"CH{channel}", "direction": "input",
+                     "polarity": "active_high", "device_type": "Digital Input",
+                     "tag": receivers.get(channel, ""),
+                     "configuration_status": "configured" if channel in receivers else "Unassigned",
+                     "bias": "No bias"})
+    return rows
+
+
+def _effective_io_config(hardware):
+    return _read_io_config() or _default_io_config(hardware)
+
+
 def _save_io_config(rows):
     """Persist the UI's controller map atomically on the Pi filesystem."""
-    if not isinstance(rows, list) or len(rows) > 64:
-        raise ValueError("rows must be a list of at most 64 channels")
+    if not isinstance(rows, list) or len(rows) > 76:
+        raise ValueError("rows must be a list of at most 76 channels")
     normalized = []
     seen = set()
     for row in rows:
@@ -73,6 +127,10 @@ def _save_io_config(rows):
         seen.add(key)
         values = {key: str(row.get(key, "")).strip() for key in IO_CONFIG_COLUMNS}
         values["controller"], values["channel"] = controller, channel
+        if values["direction"] and values["direction"] not in {"input", "output"}:
+            raise ValueError("direction must be input or output")
+        if values["polarity"] and values["polarity"] not in {"active_low", "active_high", "none"}:
+            raise ValueError("invalid polarity")
         device = values["device_type"]
         if controller.startswith("motion") and device not in OUTPUT_TYPES:
             raise ValueError("motion channels support only Motor, Relay, Servo, or Unassigned")
@@ -108,6 +166,40 @@ def _stop_telemetry_listener():
         try: TELEMETRY_SOCKET.close()
         except OSError: pass
     TELEMETRY_STOP = TELEMETRY_SOCKET = None
+
+
+def _close_hardware_devices():
+    global I2C_BUS, I2C_DEVICES
+    for device in I2C_DEVICES.values():
+        safe_stop = getattr(device, "safe_stop", None)
+        if safe_stop:
+            try:
+                safe_stop()
+            except Exception:
+                pass
+    I2C_DEVICES = {}
+    if I2C_BUS:
+        I2C_BUS.close()
+    I2C_BUS = None
+
+
+def _start_hardware_devices(hardware):
+    """Open only declared I2C boards; construction leaves every output safe."""
+    global I2C_BUS, I2C_DEVICES
+    _close_hardware_devices()
+    try:
+        I2C_BUS = I2CBus.open(int(hardware.get("i2c", {}).get("bus", 1)), enabled=True)
+        boards = hardware.get("i2c", {}).get("boards", {}) or {}
+        for name in ("sensors_1", "sensors_2"):
+            if name in boards:
+                I2C_DEVICES[name] = MCP23017(int(boards[name]), I2C_BUS, enabled=True)
+        for name in ("motor_1", "motor_2", "servo"):
+            if name in boards:
+                I2C_DEVICES[name] = PCA9685(int(boards[name]), I2C_BUS, enabled=True)
+        return None
+    except Exception as exc:
+        _close_hardware_devices()
+        return str(exc)
 
 
 def _start_telemetry_listener():
@@ -185,6 +277,7 @@ def configure_runtime(mode: str = "simulation") -> None:
     if mode not in {"simulation", "hardware", "bench"}:
         raise ValueError("mode must be simulation, hardware, or bench")
     if mode == "simulation":
+        _close_hardware_devices()
         _stop_telemetry_listener()
         _stop_ir_bench()
         if DISPATCHER.motion_transport:
@@ -210,8 +303,13 @@ def configure_runtime(mode: str = "simulation") -> None:
     # Re-load the Pi-persisted editor data through the same validator used by
     # POST. This is the authoritative runtime view; browser local storage is
     # never consulted by hardware adapters.
-    IO_CONFIG_STATE = _save_io_config(_read_io_config()) if IO_CONFIG_PATH.exists() else []
-    IO_HARDWARE_REGISTRY = HardwareRegistry.from_config(hardware).require_valid()
+    IO_CONFIG_STATE = _save_io_config(_read_io_config()) if IO_CONFIG_PATH.exists() else _effective_io_config(hardware)
+    IO_HARDWARE_REGISTRY = HardwareRegistry.from_config(hardware, IO_CONFIG_STATE).require_valid()
+    hardware_error = _start_hardware_devices(hardware)
+    if hardware_error:
+        DISPATCHER.accessory_errors["i2c"] = hardware_error
+    else:
+        DISPATCHER.accessory_errors.pop("i2c", None)
     controller_transport_config = hardware.get("controller_transport", {}) or {}
     configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
     known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
@@ -347,22 +445,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
             locomotives = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
             wifi = locomotives.get("wifi", {})
             io = [{"device": "Raspberry Pi GPIO", "io": "unassigned", "location": "Raspberry Pi", "function": "general-purpose I/O", "polarity": "n/a", "status": "reserved"}]
-            registry = IO_HARDWARE_REGISTRY or HardwareRegistry.from_config(hardware).require_valid()
+            registry = IO_HARDWARE_REGISTRY or HardwareRegistry.from_config(hardware, _effective_io_config(hardware)).require_valid()
             io = [{"device": entry.device_type, "io": f"{entry.board}:{entry.channel}",
                    "address": entry.address, "location": entry.location,
-                   "function": entry.function, "direction": entry.direction,
+                   "function": entry.tag or entry.function, "controller": entry.controller,
+                   "configuration_status": entry.configuration_status,
+                   "direction": entry.direction,
                    "polarity": entry.polarity,
-                   "status": "spare" if entry.spare else ("active" if entry.active else "reserved")}
+                   "status": entry.configuration_status or ("spare" if entry.spare else ("active" if entry.active else "reserved"))}
                   for entry in registry.entries]
             for board, address in (hardware.get("i2c", {}).get("boards", {}) or {}).items():
                 device = "MCP23017" if board.startswith("sensors") else ("PCA9685" if board in {"motor_1", "motor_2", "servo"} else "I2C / " + board)
                 io.append({"device": device, "io": hex(address) if isinstance(address, int) else str(address), "location": "Raspberry Pi I2C", "function": board, "polarity": "n/a", "status": "configured"})
             for receiver in ir.get("receivers", []):
                 io.append({"device": "Arduino Nano", "io": receiver.get("pin", "unassigned"), "location": ", ".join(receiver.get("zones", [])) or "Yard", "function": receiver.get("description", "IR receiver"), "polarity": "active_high", "status": "configured"})
-            body = json.dumps({"io": io, "registry_errors": registry.validate(), "io_config": _read_io_config(), "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": hardware.get("yard_outputs", [])}}).encode()
+            body = json.dumps({"io": io, "registry_errors": registry.validate(), "io_config": _effective_io_config(hardware), "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": hardware.get("yard_outputs", [])}}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/io-config":
-            self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": _read_io_config()})
+            import yaml
+            hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
+            self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": _effective_io_config(hardware)})
         elif self.path == "/api/geography":
             body = json.dumps(load_geography(ROOT)).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
@@ -465,10 +567,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(status); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
 
     def _save_io_config(self):
-        global IO_CONFIG_STATE
+        global IO_CONFIG_STATE, IO_HARDWARE_REGISTRY
         try:
             rows = _save_io_config(self._json_body().get("rows"))
             IO_CONFIG_STATE = rows
+            import yaml
+            hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
+            IO_HARDWARE_REGISTRY = HardwareRegistry.from_config(hardware, rows).require_valid()
             self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": rows})
         except (AttributeError, TypeError, ValueError, json.JSONDecodeError) as exc:
             self._json_response({"ok": False, "error": str(exc)}, 400)

@@ -30,6 +30,19 @@ def test_io_config_rejects_unknown_controller_or_channel(tmp_path, monkeypatch):
         server._save_io_config([{"controller": "motion1", "channel": "GPIO1"}])
 
 
+def test_default_io_inventory_is_physical_and_complete():
+    import yaml
+    hardware = yaml.safe_load((server.ROOT / "config/hardware.yaml").read_text())
+    rows = server._default_io_config(hardware)
+    assert len(rows) == 76
+    assert rows[0]["board"] == "motor_1"
+    assert rows[0]["physical_channel"] == "0"
+    assert rows[0]["tag"] == "1A"
+    assert rows[1]["tag"] == "1B"
+    assert rows[32]["physical_channel"] == "GPA0"
+    assert rows[-1]["controller"] == "ir"
+
+
 def test_dispatcher_operator_controls_are_stateful_without_motion_output():
     dispatcher = Dispatcher()
     dispatcher.set_operator_mode("manual")
