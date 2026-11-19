@@ -1,27 +1,7 @@
-# Wiring drawings
+# Wiring references
 
-The master wiring document is **HO_Railroad_Complete_Wiring_and_Pinout.pdf** (two landscape vector pages), generated from the HO layout electrical design.
+The master wiring PDF `HO_Railroad_Complete_Wiring_and_Pinout.pdf` is preserved as an archival design drawing. **Do not use its historical pin assignments for installation.** The active authoritative reference is [Hardware configurations](../HARDWARE_PINOUT.md), including the Raspberry Pi standard I2C header.
 
-**Current status:** The owner-supplied two-page PDF is checked in at `HO_Railroad_Complete_Wiring_and_Pinout.pdf`. It remains a design drawing, not proof of functional or safe electrical commissioning.
+The owner-confirmed controller design includes all turnouts A–H (H servo on PCA9685 0x42 CH13), all station IR inputs on the production Nano ESP32 (never MCP23017), and three yard track relays whose pins remain unassigned.
 
-Source document notes:
-- A–G is the agreed seven-powered-turnout plan; repository currently includes an unverified H/turntable spur and must reconcile that difference.
-- Reed magnetic track detectors replace the *track-location* Hall inputs once validated. Dedicated tipper Hall/IR GPIO sensors remain separate.
-- GPIO12/13/16 yard relay pins and MCP 0x21 destination inputs were added provisionally to the drawing; verify actual wiring.
-- Missing destination station IR inputs are assigned to MCP23017 `0x21` GPB4 (Mine), `0x21` GPB2 (Farm), and `0x21` GPB3 (Town). The remaining open inputs are `0x20` GPB7 and `0x21` GPB5–GPB7.
-- No Raspberry Pi GPIO is assigned to a physical E-Stop in the current controller architecture. Stop propagation uses the dispatcher and controller-local watchdog/E-Stop protocols.
-- The PDF is a design drawing, **not** a proof of functional or safe electrical commissioning.
-
-## Install the actual PDF
-
-From the repository root, after downloading the PDF from the chat attachment:
-
-```sh
-mkdir -p docs/wiring
-cp "/path/to/HO_Railroad_Complete_Wiring_and_Pinout.pdf" "docs/wiring/HO_Railroad_Complete_Wiring_and_Pinout.pdf"
-git add docs/wiring/HO_Railroad_Complete_Wiring_and_Pinout.pdf
-git commit -m "docs: add complete railroad wiring and pinout PDF"
-git push
-```
-
-Do not paste extracted PDF text or a similarly named substitute in place of this original two-page drawing.
+Any prior wiring illustration disagreeing with the current pinout must be revised before field wiring. Physical commissioning is distinct from confirmed design intent.
