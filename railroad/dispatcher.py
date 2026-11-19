@@ -2,7 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
-from threading import RLock
+from threading import Event, RLock, Thread
 import time
 from typing import Callable
 
@@ -60,6 +60,15 @@ class Dispatcher:
     dispatcher_running: bool = False
     cycle_requests: int = 0
     last_cycle_plan: dict | None = field(default=None, repr=False)
+    cycle_state: str = "IDLE"
+    cycle_fault: str | None = None
+    cycle_train_id: int | None = None
+    cycle_route: list[str] = field(default_factory=list)
+    cycle_route_index: int = 0
+    cycle_motion_command: Callable[[int, int], None] | None = field(default=None, repr=False)
+    yard_adapter: object | None = field(default=None, repr=False)
+    _cycle_stop: Event | None = field(default=None, repr=False)
+    _cycle_thread: Thread | None = field(default=None, repr=False)
     accessory_requests: dict[str, str] = field(default_factory=dict)
     global_stop: bool = False
     stop_reason: str | None = None
@@ -121,6 +130,11 @@ class Dispatcher:
         with self.lock:
             if callback not in self.motion_stops:
                 self.motion_stops.append(callback)
+
+    def attach_cycle_motion(self, callback: Callable[[int, int], None]) -> None:
+        """Attach the approved motion writer used by an automatic-cycle adapter."""
+        with self.lock:
+            self.cycle_motion_command = callback
 
     @property
     def estop_active(self) -> bool:
@@ -224,10 +238,34 @@ class Dispatcher:
     def start_dispatcher(self) -> None:
         with self.lock:
             self.dispatcher_running = True
+            if self._cycle_thread is None:
+                self._cycle_stop = Event()
+                self._cycle_thread = Thread(target=self._dispatcher_loop, name="ho-dispatcher", daemon=True)
+                self._cycle_thread.start()
 
     def stop_dispatcher(self) -> None:
         with self.lock:
             self.dispatcher_running = False
+            if self._cycle_stop is not None:
+                self._cycle_stop.set()
+            thread = self._cycle_thread
+            self._cycle_thread = None
+        if thread is not None:
+            thread.join(timeout=1.0)
+
+    def _dispatcher_loop(self):
+        while self._cycle_stop is not None and not self._cycle_stop.wait(0.1):
+            with self.lock:
+                active = self.dispatcher_running
+                if self.cycle_state == "COMPLETED":
+                    self.cycle_state = "IDLE"
+            if active and self.cycle_state == "IDLE":
+                try:
+                    self.run_cycle_once()
+                except Exception as exc:
+                    with self.lock:
+                        self.cycle_state = "FAULT"
+                        self.cycle_fault = str(exc)
 
     def run_cycle_once(self) -> None:
         """Plan one eligible cycle without issuing a hardware motion command.
@@ -241,12 +279,69 @@ class Dispatcher:
             eligible = next((t for t in self.trains.values()
                              if t.control_mode == "automatic" and t.destination and not t.parked), None)
             if eligible is None:
+                self.cycle_state = "IDLE"
                 self.last_cycle_plan = {"state": "IDLE", "reason": "no eligible train"}
                 return
-            self.last_cycle_plan = {"state": "PLANNED", "train": eligible.train_id,
+            self.cycle_train_id = eligible.train_id
+            self.cycle_fault = None
+            self.cycle_state = "PLANNING"
+            route = self._cycle_route_for(eligible)
+            if not route or not self.route_available(eligible.train_id, route):
+                self.cycle_state = "BLOCKED"
+                self.cycle_fault = "required route unavailable or protected"
+                self.last_cycle_plan = {"state": self.cycle_state, "train": eligible.train_id,
+                                        "reason": self.cycle_fault}
+                return
+            for zone in route:
+                self.reservations[zone] = eligible.train_id
+            self.cycle_route = route
+            self.cycle_route_index = 0
+            self.cycle_state = "READY"
+            eligible.expected_checkpoint = route[0]
+            eligible.checkpoint_deadline = time.monotonic() + 30.0
+            motion_issued = False
+            if self.simulation and self.cycle_motion_command is not None:
+                self.cycle_motion_command(eligible.train_id, 64)
+                eligible.velocity = 64
+                motion_issued = True
+            self.last_cycle_plan = {"state": self.cycle_state, "train": eligible.train_id,
                                     "origin": eligible.zone, "destination": eligible.destination,
-                                    "motion_issued": False,
-                                    "reason": "awaiting verified route, sensors, and controller health"}
+                                    "route": route,
+                                    "motion_issued": motion_issued,
+                                    "reason": "awaiting verified checkpoint and controller events"}
+
+    def _cycle_route_for(self, train: Train) -> list[str]:
+        routes = {"Mine": ["MAIN-2", "MINE-1"], "Farm": ["MAIN-2", "FARM-1"],
+                  "Ski": ["MAIN-1", "SKI-1"], "Town": ["MAIN-1", "MAIN-2"],
+                  "Tipper": ["MAIN-2", "MAIN-3"], "Turntable": ["MAIN-1"],
+                  "Yard": ["MAIN-1"]}
+        return list(routes.get(train.destination or "", ()))
+
+    def cycle_checkpoint(self, receiver: str, *, zone: str | None = None,
+                         last_car_confirmed: bool = False, now: float | None = None):
+        """Advance an active cycle from an actual receiver event."""
+        with self.lock:
+            if self.cycle_state not in {"READY", "MOVING", "ARRIVING"} or self.cycle_train_id is None:
+                raise SafetyError("no active automatic cycle")
+            train = self.trains[self.cycle_train_id]
+            self.cycle_state = "MOVING"
+            self.checkpoint(train.train_id, receiver, zone=zone, now=now)
+            if zone in self.cycle_route and last_car_confirmed:
+                self.zones[zone] = None
+                self.reservations[zone] = None
+            self.cycle_route_index += 1
+            if self.cycle_route_index < len(self.cycle_route):
+                train.expected_checkpoint = self.cycle_route[self.cycle_route_index]
+                train.checkpoint_deadline = (time.monotonic() if now is None else now) + 30.0
+            if self.cycle_route_index >= len(self.cycle_route):
+                self.cycle_state = "COMPLETED"
+                if self.cycle_motion_command is not None:
+                    self.cycle_motion_command(train.train_id, 0)
+                train.velocity = 0
+                self.cycle_train_id = None
+                self.cycle_route = []
+            else:
+                self.cycle_state = "ARRIVING"
 
     def set_train_mode(self, train_id: int, mode: str) -> None:
         mode = str(mode).lower()
@@ -260,6 +355,8 @@ class Dispatcher:
         if track not in self.yard_power:
             raise SafetyError(f"unknown yard track: {track}")
         with self.lock:
+            if self.yard_adapter is not None:
+                self.yard_adapter.set_power(track, enabled)
             self.yard_power[track] = bool(enabled)
 
     def clear_yard_assignments(self) -> None:
@@ -522,6 +619,8 @@ class Dispatcher:
                 "dispatcher_running": self.dispatcher_running,
                 "cycle_requests": self.cycle_requests,
                 "last_cycle_plan": self.last_cycle_plan.copy() if self.last_cycle_plan else None,
+                "cycle_state": self.cycle_state,
+                "cycle_fault": self.cycle_fault,
                 "global_stop":self.global_stop,"stop_reason":self.stop_reason,
                 "stop_causes":self.stop_causes.copy(),
                 "controllers": (self.controller_health.status(moving_locomotives=moving_locomotives)
@@ -539,5 +638,6 @@ class Dispatcher:
                 "turnouts":self.turnouts.copy(),"yard_power":self.yard_power.copy(),
                 "yard_power_requested": self.yard_power.copy(),
                 "yard_power_verified": self.yard_power_verified.copy(),
+                "yard_power_hardware": self.yard_adapter.status() if self.yard_adapter else None,
                 "accessory_requests":self.accessory_requests.copy()
             }

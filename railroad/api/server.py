@@ -12,11 +12,12 @@ from railroad.dispatcher import Dispatcher, SafetyError
 from railroad.simulator.engine import SimulationEngine, SpeedProfile, Consist, Car
 from railroad.geography import load_geography
 from railroad.track_geometry import load_centerlines
-from railroad.transport.estop import create_bench_sender
+from railroad.transport.locomotive import create_bench_sender
 from railroad.transport.usb import ControllerRegistry, RegisteredController, pyserial_connector
 from railroad.transport.telemetry import ControllerHealthRegistry
 from railroad.transport.ir_bench import BenchIRReader
 from railroad.hardware.registry import HardwareRegistry
+from railroad.hardware.yard_power import YardPowerAdapter
 
 DISPATCHER = Dispatcher()
 
@@ -38,10 +39,13 @@ TELEMETRY_STOP = None
 TELEMETRY_SOCKET = None
 IR_BENCH = None
 IO_CONFIG_PATH = ROOT / "config" / "io_config.csv"
+IO_CONFIG_STATE: list[dict] = []
 
 
 IO_CONFIG_COLUMNS = ("controller", "channel", "device_type", "tag", "configuration_status", "bias")
 IO_CONFIG_CONTROLLERS = {"motion1", "motion2", "inputs1", "inputs2", "ir"}
+OUTPUT_TYPES = {"", "Motor", "Relay", "Servo", "Unassigned"}
+INPUT_BIASES = {"", "Pull-up (internal)", "No bias"}
 
 
 def _read_io_config():
@@ -56,6 +60,7 @@ def _save_io_config(rows):
     if not isinstance(rows, list) or len(rows) > 64:
         raise ValueError("rows must be a list of at most 64 channels")
     normalized = []
+    seen = set()
     for row in rows:
         if not isinstance(row, dict):
             raise ValueError("each I/O row must be an object")
@@ -65,8 +70,21 @@ def _save_io_config(rows):
             raise ValueError(f"unknown I/O controller: {controller}")
         if channel not in {f"CH{i}" for i in range(1, 17)}:
             raise ValueError(f"invalid channel: {channel}")
+        key = (controller, channel)
+        if key in seen:
+            raise ValueError(f"duplicate I/O channel: {controller}/{channel}")
+        seen.add(key)
         values = {key: str(row.get(key, "")).strip() for key in IO_CONFIG_COLUMNS}
         values["controller"], values["channel"] = controller, channel
+        device = values["device_type"]
+        if controller.startswith("motion") and device not in OUTPUT_TYPES:
+            raise ValueError("motion channels support only Motor, Relay, Servo, or Unassigned")
+        if controller.startswith("inputs") and device not in {"", "Digital Input", "Unassigned"}:
+            raise ValueError("input channels support only Digital Input or Unassigned")
+        if controller.startswith("inputs") and values["bias"] not in INPUT_BIASES:
+            raise ValueError("input bias must be Pull-up (internal) or No bias")
+        if controller == "ir" and channel not in {f"CH{i}" for i in range(1, 13)}:
+            raise ValueError("IR receiver channels are CH1 through CH12")
         if any(len(value) > 120 for value in values.values()):
             raise ValueError("I/O fields must be 120 characters or less")
         normalized.append(values)
@@ -148,9 +166,25 @@ def _start_ir_bench(hardware):
     IR_BENCH.start()
 
 
+def load_locomotive_controller_config(hardware: dict, known_ids: set[int]) -> list[dict]:
+    """Validate the declarative four-locomotive controller inventory."""
+    entries = hardware.get("locomotive_controllers") or []
+    allowed = {"m5_atom_echo", "xiao_esp32_c6"}
+    ids = []
+    for entry in entries:
+        if not isinstance(entry, dict) or type(entry.get("id")) is not int:
+            raise RuntimeError("locomotive_controllers entries require integer id and type")
+        if entry.get("type") not in allowed:
+            raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}")
+        ids.append(entry["id"])
+    if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
+        raise RuntimeError("invalid or inconsistent locomotive_controllers IDs")
+    return [dict(entry) for entry in entries]
+
+
 def configure_runtime(mode: str = "simulation") -> None:
     """Configure the command gate; network transmission is never implicit."""
-    global PHYSICAL_ESTOP, USB_CONTROLLERS, HEALTH
+    global PHYSICAL_ESTOP, USB_CONTROLLERS, HEALTH, IO_CONFIG_STATE
     if mode not in {"simulation", "hardware", "bench"}:
         raise ValueError("mode must be simulation, hardware, or bench")
     if mode == "simulation":
@@ -170,6 +204,8 @@ def configure_runtime(mode: str = "simulation") -> None:
         HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
         DISPATCHER.attach_controller_health(HEALTH)
         DISPATCHER.physical_estop = None
+        DISPATCHER.yard_adapter = None
+        IO_CONFIG_STATE = []
         DISPATCHER.accessory_errors.clear()
         DISPATCHER.simulation = True
         DISPATCHER.disarm()
@@ -178,19 +214,14 @@ def configure_runtime(mode: str = "simulation") -> None:
     # uninstalled physical E-stop are not startup errors.
     import yaml
     hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
+    # Re-load the Pi-persisted editor data through the same validator used by
+    # POST. This is the authoritative runtime view; browser local storage is
+    # never consulted by hardware adapters.
+    IO_CONFIG_STATE = _save_io_config(_read_io_config()) if IO_CONFIG_PATH.exists() else []
     estop_config = hardware.get("estop", {}) or {}
-    locomotive_config = hardware.get("locomotive_controllers") or []
     configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
     known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
-    ids = []
-    for entry in locomotive_config:
-        if not isinstance(entry, dict) or type(entry.get("id")) is not int:
-            raise RuntimeError("locomotive_controllers entries require integer id and type")
-        if entry.get("type") not in {"m5_atom_echo", "xiao_esp32_c6"}:
-            raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}")
-        ids.append(entry["id"])
-    if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
-        raise RuntimeError("invalid or inconsistent locomotive_controllers IDs")
+    locomotive_config = load_locomotive_controller_config(hardware, known_ids)
     USB_CONTROLLERS = ControllerRegistry()
     for entry in estop_config.get("serial_controllers", []) or []:
         controller_id, port_name = entry.get("id"), entry.get("port")
@@ -207,6 +238,10 @@ def configure_runtime(mode: str = "simulation") -> None:
         locomotive_types={int(item["id"]): item["type"] for item in locomotive_config},
         independent_locomotives=True)
     DISPATCHER.attach_controller_health(HEALTH)
+    # Build the validated yard adapter without a writer until mappings are
+    # commissioned. This makes activation fail explicitly instead of guessing
+    # a Pi GPIO or claiming power is verified.
+    DISPATCHER.yard_adapter = YardPowerAdapter.from_config(hardware)
     DISPATCHER.simulation = False
     DISPATCHER.bench_mode = mode == "bench"
     # Healthy locomotive operation is independent of accessory availability.

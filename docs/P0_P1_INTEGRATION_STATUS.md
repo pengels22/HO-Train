@@ -19,11 +19,14 @@ watchdogs, and accessory interlocks remain active.
 
 ## Dispatcher and yard
 
-`run_cycle_once` creates a dispatcher plan only after selecting an eligible
-automatic train. It does not issue motion while route, sensor, and controller
-health verification are incomplete. Yard power exposes requested and verified
-states separately; all three physical sections remain unassigned and
-unverified, with defaults off.
+`run_cycle_once` selects an eligible automatic train, reserves a conservative
+route, arms the next checkpoint, and exposes the cycle state machine. Actual
+movement is delegated to an injected approved adapter; no hardware movement is
+issued without that adapter and physical/controller verification. Checkpoint
+events advance the route, and only confirmed last-car clearance releases a
+zone. Yard power exposes requested, commanded, and verified states separately;
+all three physical sections remain unassigned and unverified, with defaults
+off.
 
 ## Verification
 

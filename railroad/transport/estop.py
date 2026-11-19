@@ -1,8 +1,7 @@
-"""Fail-closed UDP emergency-stop sender for an explicitly enabled bench/hardware session.
+"""Compatibility implementation for locomotive command transport.
 
-This module is NOT started by the simulation dashboard. A hardware runtime must
-opt in, and each registered locomotive/accessory controller must implement the
-ESTOP flag and local watchdog.
+The historical module and wire fields remain available for existing callers
+and flashed firmware. New runtime code imports ``transport.locomotive``.
 """
 from __future__ import annotations
 
