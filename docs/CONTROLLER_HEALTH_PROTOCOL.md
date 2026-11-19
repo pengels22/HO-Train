@@ -12,7 +12,7 @@ telemetry uses a separate versioned `HT` packet whose payload is compact JSON:
 The dispatcher accepts telemetry only for configured locomotive IDs, tracks
 strictly increasing telemetry sequence/session/freshness, and has two distinct
 gates. Rearm requires fresh zero-speed telemetry and an exact transaction
-acknowledgement. Operating health requires an armed, non-faulted, E-Stop-clear
+acknowledgement. Operating health requires an armed, non-faulted, stop-latch-clear
 controller but does not require zero speed, so healthy movement can continue.
 Each M5 is evaluated independently: missing or stale telemetry blocks that
 locomotive only and does not create a fleet-wide presence requirement.
@@ -27,16 +27,16 @@ In explicit hardware mode the Pi listens for these `HT` telemetry datagrams on
 UDP port `4211`; simulation mode does not bind the telemetry socket.
 
 Registered USB controllers use newline commands. Routine accessory stops use
-`STOP\n`; `ESTOP\n` remains an immediate, acknowledgement-independent
-compatibility stop. Recovery uses `REARM AUTH\n`
-and requires a JSON response identifying the controller with `estop=false`,
+`STOP\n`; `ESTOP\n` remains a legacy on-wire compatibility command,
+not a physical emergency-stop interface. Recovery uses `REARM AUTH\n`
+and requires a JSON response identifying the controller with legacy `estop=false`,
 `motor=false`, `track_power=false`, and no reported fault. `STATUS\n` is the
 100 ms heartbeat; a heartbeat cannot clear a latch or authorize motion.
 
 Rearm uses a separate versioned `HR` JSON datagram with broadcast ID 255. The
 locomotive must echo
 the exact transaction in fresh `HT` telemetry with its current session, armed,
-fault-free, E-Stop-clear, zero-speed state. The 12-byte `HC` frame remains
+fault-free, stop-latch-clear, zero-speed state. The 12-byte `HC` frame remains
 unchanged and is never repurposed for this transaction identity.
 
 The Pi keeps retired boot-session IDs and rejects delayed packets from them.

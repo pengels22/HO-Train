@@ -1,7 +1,9 @@
 # HO-Train: hardware-first implementation audit and Codex work order
 Date: 2026-11-13
 Repository: pengels22/HO-Train, main (read-only audit)
-Status: action plan; NOT a claim that hardware is working or tests passed.
+Status: **historical audit, superseded by later confirmed design decisions**; NOT current agent instructions or a claim that hardware is working or tests passed.
+
+> **Superseded stop-system instructions:** This dated audit predates removal of the physical emergency-stop subsystem. The HO railroad has **no physical emergency-stop GPIO, pin, switch or prerequisite**. Follow `AGENTS.md` and `docs/DISPATCHER_STOP_PROTOCOL.md` instead. Retain only existing firmware wire compatibility (`0x80` and related legacy identifiers), dispatcher global STOP, local STOP, watchdogs and interlocks.
 
 ## Instruction to Codex
 Implement the HO railroad as an actual Raspberry Pi 4B-controlled model railway, NOT a simulation-first demonstration. Hardware mode is the primary product. Do not make running a simulator, having surveyed polygon geometry, or manually flagging every track segment as verified a prerequisite to bench control. Keep simulation/test doubles optional for automated testing and development on a Mac. Keep startup outputs OFF, controller-local watchdogs, current fuses, switch interlocks and global stop on lost checkpoints; do not substitute new bureaucratic approval gates for functionality. Do not enable live train motion just because this document exists. Build and test each physical interface in controlled bench mode, then explicitly arm it for use.
@@ -18,7 +20,7 @@ Implement the HO railroad as an actual Raspberry Pi 4B-controlled model railway,
 - `firmware/xiao_esp32c6_prototype/locomotive_esp32.ino` is an uncommissioned prototype and is not a locomotive assignment. The finalized architecture assigns `firmware/locomotive_m5_atom_echo/` to all four locomotives; dedicated XIAO ESP32-C6 boards are assigned to turntable and rotary tipper control.
 - `config/locomotives.yaml` speed calibration is null; `Dispatcher.command_motion` accepts a raw signed speed number and lacks destination-specific measured in/s caps.
 - `docs/PROJECT_STATUS.md`, `docs/CONTROLLER_DECISIONS.md`, `docs/CONFIGURATION_SOURCES.md` and README say simulation-first; rewrite truthfully after actual changes.
-- Network E-Stop, explicit rearm and telemetry mechanisms are real, valuable work; preserve them. Tests exist but have NOT been executed by this audit.
+- Dispatcher global STOP, explicit motion authorization/rearm and telemetry are important; preserve these while removing obsolete physical emergency-stop assumptions. Tests exist but have NOT been executed by this audit.
 
 ## Finalized hardware & physical facts
 - Raspberry Pi 4B is the central dispatcher. Main loop track feed 12 V DC, fused 7 A; rotary tipper isolated rail section with separate fused 2 A feed, same 12 V supply; 1/6-inch gaps at both ends. Auxiliary 5 V 18 A PSU for motors and servos, 5 A servo branch, 1 A per DRV8833 branch. Separate fused 16 V decoupler branch. Shared signal ground and properly routed power returns.
@@ -27,7 +29,7 @@ Implement the HO railroad as an actual Raspberry Pi 4B-controlled model railway,
 - PCA9685 0x42 CH0 farm gates, CH1 A, CH2 B, CH3 C, CH4 town gates, CH5 yard1, CH6 yard2, CH7 yard3, CH8 tipper spring-engaged wheel lock (servo pulls DOWN to release), CH9 D, CH10 E, CH11 F, CH12 G, CH13-15 spare unless H is physically verified. Mine ore lift has ONE motor; tipper restraint is passive.
 - 3 actual powered yard tracks: Track 1 stalls 1A and 1B share a SINGLE relay, Track 2 stall 2, Track 3 stall 3. Keep parked train identity while de-energized.
 - Tipper Pi BCM GPIO assignments from existing electrical design: 22 IR front clear HIGH; 23 IR back clear HIGH; 24 Hall back active LOW; 25 Hall front active LOW; 5 Hall clear active LOW; 17 tipper encoder; 6 decoupler relay control. These dedicated tipper Hall sensors may remain Hall type: do not indiscriminately replace them with the track reed sensor schema.
-- Yard relay proposed GPIO12, GPIO13, GPIO16 for tracks 1/2/3, but VERIFY they do not conflict with actual E-stop and other Pi wiring; keep configurable until physically confirmed. GPIO physical numbering and BCM distinction must be explicit.
+- Yard relay proposed GPIO12, GPIO13, GPIO16 for tracks 1/2/3, but VERIFY they do not conflict with other Pi wiring; keep configurable until physically confirmed. GPIO physical numbering and BCM distinction must be explicit.
 - At 0x20: GPA0/1/2 A common/straight/diverging; GPA3/4/5 B; GPA6/7 GPB0 C; GPB1/2/3 D; GPB4/5/6 E; GPB7 spare. At 0x21: GPA0/1/2 F; GPA3/4/5 G; GPA6 mine, GPA7 farm, GPB0 ski, GPB1 town; GPB2-7 spare. All are normally-open reed sensors with pullups, active-low, if bench tests validate the chosen magnet/tape.
 - Every locomotive and railcar has one flexible ferrite tape magnet, target cut ~1 x 0.5 x 0.063 inches, mounted BETWEEN AXLES on underside of a truck. Locomotive = front truck, cars = rear truck. Confirm fit and activation before adopting globally. Reed switches mounted across track parallel to ties, recessed in ballast gap between ties. Validate field orientation and one stable pulse per pass.
 - Reed timing: replace global 250 ms debounce with configurable edge debounce initially 10-20 ms (tune from bench trace); require verified CLOSED->OPEN cycle to count each car, with no fixed 250 ms pulse lockout. Do not equate 1-inch magnet length to guaranteed 1000 ms closed interval.
@@ -44,7 +46,7 @@ Implement the HO railroad as an actual Raspberry Pi 4B-controlled model railway,
 3. Implement reed input events with stable-edge debouncing, timestamped CLOSED/OPEN pulses, duration and per-sensor counters; retain separate tipper IR/Hall input types. Use MCP23017 interrupt-on-change or adequately fast polling, with diagnostic traces.
 4. Implement three yard DC relay outputs as configured, default OFF; require zero traction speed and track reservations for energization and ensure shared Track 1 behaves correctly.
 5. Implement GPIO tipper IO and motor/servo/decoupler interfaces, maintaining passive restraint logic, encoder/home alignment and a fail-safe motor-off state.
-6. Allow physical E-stop pin to be configured without colliding with the chosen tipper or yard pins. Keep the original E-stop behavior (NC switch, LOW active) and global latch. Avoid motor or relay writes when connections fail.
+6. No physical emergency-stop pin is used. Preserve dispatcher STOP, local watchdogs, output-OFF defaults and fail-closed behavior on connection failures.
 
 ### Phase 2: real locomotives and speed
 7. Preserve and validate the existing M5 Atom locomotive controller for all four locomotives: Wi-Fi UDP packet handling, IR 940 nm beacon, telemetry, watchdog, safe starts, explicit rearm, and motor drive. Use dedicated XIAO ESP32-C6 controllers for the turntable and rotary tipper; verify each board's memory, compile, and pin mapping without guessing.
@@ -70,7 +72,7 @@ Implement the HO railroad as an actual Raspberry Pi 4B-controlled model railway,
 - Turntable and tipper cap <=25.4 mm/s for automatic, manual, direct dispatch, and during target changes; unknown speed calibration cannot enable automatic 1 in/s positioning.
 - Tipper encoders/IR/Halls contradictory or missing -> stop; tipper ACTIVE/FAULT locks MAIN-3 and UND-1 but validated MAIN-2->Mine route remains possible.
 - Exactly three yard power outputs; Stalls 1A/1B always share relay 1; parked identities retained and other parked loco cannot unintentionally move when shared track powered.
-- E-stop local motor/relay shutdown, communication watchdog, global checkpoint stop, no automatic restart/rearm.
+- Local motor/relay STOP, communication watchdog, global checkpoint STOP, no automatic motion restart after a fault.
 - Default physical startup = OFF/DISARMED and no writes until explicitly selected hardware interface and arm.
 - Every existing regression test updated when specs legitimately change; don't delete tests to make suite green. Run `pytest`, report actual failures and firmware compile status separately.
 

@@ -14,9 +14,11 @@ python -m railroad.main --mode simulation --dashboard
 
 Open http://127.0.0.1:8080 for the local development server. The deployed hardware service listens on `0.0.0.0:8083`; the dashboard is reachable at `http://<lab1-address>:8083`. Simulation controls are unavailable when hardware mode is selected.
 
-On a Raspberry Pi, complete the wiring/current checks and fill the explicit E-Stop,
-controller, and relay configuration before using `--mode hardware`. Startup remains
-OFF/DISARMED; an operator must explicitly rearm after bench checks.
+On a Raspberry Pi, complete wiring, current, fuse and controller checks and fill the
+controller and relay configuration before using `--mode hardware`. There is no
+physical emergency-stop input or E-Stop configuration. Startup remains
+OFF/DISARMED; operator-authorized motion, global STOP, local STOP and watchdogs
+remain in force. See [dispatcher STOP protocol](docs/DISPATCHER_STOP_PROTOCOL.md).
 
 ## Status
 

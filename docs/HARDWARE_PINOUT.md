@@ -2,11 +2,12 @@
 
 See `config/` for the agreed provisional assignments. The controller split is:
 
-## Raspberry Pi E-Stop
+## Dispatcher and controller STOP
 
-No Raspberry Pi GPIO is assigned to a physical E-Stop. The Pi propagates
-dispatcher stop conditions to registered controllers; controller-local
-watchdogs and stop/E-Stop handling remain active.
+No dedicated physical emergency-stop input is part of the railroad. The Pi
+propagates dispatcher STOP to registered locomotive controllers. The USB accessory
+controllers provide independent local STOP and communications watchdogs. See
+`docs/DISPATCHER_STOP_PROTOCOL.md` for retained legacy wire fields.
 
 | Controller | Assignment | Pin status |
 |---|---|---|

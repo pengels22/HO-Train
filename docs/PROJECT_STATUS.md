@@ -3,7 +3,7 @@
 ## Implemented
 
 - Hardware-first Raspberry Pi 4B control package with simulation retained as the safe developer default.
-- Four-locomotive models, safe manual takeover, joystick normalization, IR framing/CRC, occupancy sections, route reservation, turnout interlocking, emergency stop, tipper safety skeleton, and local status dashboard.
+- Four-locomotive models, safe manual takeover, joystick normalization, IR framing/CRC, occupancy sections, route reservation, turnout interlocking, dispatcher global STOP and individual locomotive STOP, tipper safety skeleton, and local status dashboard.
 - Hardware assignment configuration for PCA9685, MCP23017, motors, servos, sensors, IR locations, and safety placeholders.
 - Validated 32-entry MCP23017 registry (25 proposed inputs plus 7 spares), corrected A-G mapping, optional Pi I2C/PCA/DRV backends, stable reed edge events, and guarded three-section yard output model.
 - Pass 2 branch: 15-zone model, configurable normalized boundary polygons, zone reservation/occupancy engine, locomotive zone fields, preserved layout image, and proposed SVG overlay/dashboard view.

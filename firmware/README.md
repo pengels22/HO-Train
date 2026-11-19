@@ -22,7 +22,7 @@ The M5 Atom Echo fleet carries the locomotive IR beacon and receives Pi dispatch
 1. Compile each sketch against its actual selected board and installed Arduino core; list core versions and dependencies when known.
 2. Confirm wiring/polarity, idle outputs, motor-driver and relay power rails, and GPIO/input electrical levels.
 3. First bench test the Nano diagnostic with one IR receiver; then implement/validate the decoder and actual optical packet format.
-4. Bench test locomotive driver at zero speed, controlled ramp, loss-of-link stop, E-stop, and IR beacon.
+4. Bench test locomotive driver at zero speed, controlled ramp, loss-of-link stop, dispatcher broadcast STOP (`0x80` legacy wire flag), and IR beacon.
 5. Bench test turntable reeds using variable configured consist count, and rotation with track power isolated.
 6. Implement/test Pi MCP/PCA/DRV drivers and the tipper C6 serial interface before running automatic routes.
 7. Hardware should startup stopped; an operator can arm after checks. Do not require simulator or geometry certification for individual motor/sensor bench tests.
