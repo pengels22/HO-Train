@@ -1,30 +1,19 @@
-# HO Railroad firmware and controller software inventory
+# HO Railroad controller firmware inventory
 
-**Hardware-first policy:** The Raspberry Pi 4B is the physical controller. Testing mocks are optional; running a railway simulator is not a prerequisite to controlling validated hardware.
+Firmware presence is not evidence of a commissioned device. Current owner-confirmed assignments are in [Hardware pinout](../docs/HARDWARE_PINOUT.md). Configured GPIO mappings remain editable through the web UI.
 
-| Device | Source | Current capability / limitation |
+| Controller | Firmware | Role |
 |---|---|---|
-| Raspberry Pi 4B dispatcher | `railroad/` | Hardware-first control services with validated I/O registry, optional Pi I2C backends, edge-debounced reed events, and guarded yard outputs; bench commissioning remains required |
-| M5 Atom Echo locomotives 1-4 | `locomotive_m5_atom_echo/locomotive_m5_atom_echo.ino` | Primary locomotive controller firmware; preserve and validate the existing safety/watchdog/IR implementation for all four units |
-| Seeed XIAO ESP32-C6 locomotive bench variant | `locomotive_xiao_esp32c6/locomotive_xiao_esp32c6.ino` | Optional board-specific port of the M5 protocol; D7/GPIO17 and D8/GPIO19 motor PWM, D9/GPIO20 IR transmitter; not the dedicated tipper board |
-| Seeed XIAO ESP32-C6 turntable | `turntable_esp32c6/turntable_esp32c6.ino` | Dedicated USB turntable controller with per-consist count and stable reed edge debounce; compile and bench-test relay polarity, limit switches, and mechanical timeout |
-| Seeed XIAO ESP32-C6 rotary tipper | `tipper_esp32c6/tipper_esp32c6.ino` | Dedicated accessory controller using the supplied GPIO map: rotation 16/17, gripper 19/20, decoupler 18, Hall 2/21/22, encoder 23; verify polarity and mechanics |
-| Arduino Nano 11 IR sensors | `ir_receiver/ir_receiver_nano_diagnostics.ino` | **New** non-actuating 11-input wiring/timing diagnostic; NOT the final 4-byte locomotive beacon decoder |
-| Arduino Nano ESP32 bench IR | `ir_receiver_nano_esp32_bench/ir_receiver_nano_esp32_bench.ino` | One D2 receiver with persistent logical endpoint and test train selection; non-actuating |
-| Rotary tipper | Dedicated XIAO ESP32-C6 over USB serial; Pi dispatcher interface in `railroad/automation/tipper.py` | Motor, lock, decoupler, sensors, and encoder are C6-owned; outputs start disabled and require explicit rearm |
+| Raspberry Pi 4B | `railroad/` | USB peripheral dispatcher, I2C outputs/inputs; standard 5-signal 3.3V/5V level-shifted I2C harness |
+| M5 Atom Echo | `locomotive_m5_atom_echo/` | Primary locomotive hardware option: GPIO19/22 motor, GPIO23 IR |
+| XIAO ESP32-C6 locomotive | `locomotive_xiao_esp32c6/` | Second supported locomotive hardware option: D7/D8 motor and D9 IR |
+| XIAO ESP32-C6 tipper | `tipper_esp32c6/` | Dedicated USB tipper including rotation, gripper, Hall, encoder and decoupler |
+| XIAO ESP32-C6 turntable | `turntable_esp32c6/` | Dedicated USB turntable, reeds, alignment, polarity and track power |
+| Nano ESP32 production IR | `ir_receiver_nano_esp32_bench/` | Existing single-receiver bench firmware to be expanded for production IR receiver system. Eleven location receiver inputs D2–D12 are owner confirmed; extra station inputs still need explicit pin assignment and firmware support |
+| Classic Nano dual-throttle | `dual_throttle_nano/` on HID_Dev | Owner-confirmed pinout; firmware integration not yet implemented by Codex |
 
-## Current confirmed wiring plan
-Raspberry Pi I2C: PCA9685 0x40 motor outputs, 0x41 spare, 0x42 servos; MCP23017 0x20 and 0x21 for 25 proposed NO reed sensors, seven spare inputs. The rotary tipper's motor, lock, decoupler, sensors, and encoder are owned by the dedicated C6 on the supplied GPIO map. Three proposed yard relay GPIO12/13/16 are *provisional* until harness checked. No direct relay-coil drive from Pi GPIO.
+The separate `ir_receiver/` 11-channel diagnostic and alternate `hid_dual_throttle_nano_esp32/` first-pass UI sketch are development artifacts, **not competing authoritative production pinouts**.
 
-The M5 Atom Echo fleet carries the locomotive IR beacon and receives Pi dispatcher commands. Flex ferrite magnet strips on locomotive front truck and cars' rear trucks, between wheelsets; reeds across ties. Turntable and tipper target speed cap is **1 inch/s (25.4 mm/s)** measured using locomotive speed calibration, not arbitrary PWM.
+PCA9685 0x40 controls the seven accessory motors (CH0–13), while CH14/15 are spare. PCA9685 0x42 CH13 controls turnout H. MCP23017 station IR assignments are not used. Yard relay output mappings are intentionally deferred.
 
-## Build and hardware commissioning
-1. Compile each sketch against its actual selected board and installed Arduino core; list core versions and dependencies when known.
-2. Confirm wiring/polarity, idle outputs, motor-driver and relay power rails, and GPIO/input electrical levels.
-3. First bench test the Nano diagnostic with one IR receiver; then implement/validate the decoder and actual optical packet format.
-4. Bench test locomotive driver at zero speed, controlled ramp, loss-of-link stop, dispatcher broadcast STOP (`0x80` legacy wire flag), and IR beacon.
-5. Bench test turntable reeds using variable configured consist count, and rotation with track power isolated.
-6. Implement/test Pi MCP/PCA/DRV drivers and the tipper C6 serial interface before running automatic routes.
-7. Hardware should startup stopped; an operator can arm after checks. Do not require simulator or geometry certification for individual motor/sensor bench tests.
-
-**Do not claim sketches are ready to flash based only on existence in Git.**
+Preserve no-power-on-start, local watchdogs, dispatcher STOP, motor limits and fault interlocks. Verify physical harness/polarity/IR decoding against the actual installed devices before operation.
