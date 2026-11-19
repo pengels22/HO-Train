@@ -29,10 +29,6 @@ def _load_paths():
     return yaml.safe_load(path.read_text()) or {"verified": False, "paths": {}}
 
 SIMULATION = SimulationEngine(DISPATCHER, _load_paths())
-# Retained as a compatibility observation field.  This project has no
-# physical E-stop input; dispatcher stop and controller watchdogs remain the
-# only stop mechanisms.
-PHYSICAL_ESTOP = None
 USB_CONTROLLERS = ControllerRegistry()
 HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
 TELEMETRY_STOP = None
@@ -184,50 +180,45 @@ def load_locomotive_controller_config(hardware: dict, known_ids: set[int]) -> li
 
 def configure_runtime(mode: str = "simulation") -> None:
     """Configure the command gate; network transmission is never implicit."""
-    global PHYSICAL_ESTOP, USB_CONTROLLERS, HEALTH, IO_CONFIG_STATE
+    global USB_CONTROLLERS, HEALTH, IO_CONFIG_STATE
     if mode not in {"simulation", "hardware", "bench"}:
         raise ValueError("mode must be simulation, hardware, or bench")
     if mode == "simulation":
         _stop_telemetry_listener()
         _stop_ir_bench()
-        if PHYSICAL_ESTOP:
-            PHYSICAL_ESTOP.stop()
-            PHYSICAL_ESTOP = None
-        if DISPATCHER.estop_controller:
-            shutdown = getattr(DISPATCHER.estop_controller, "shutdown", None)
+        if DISPATCHER.motion_transport:
+            shutdown = getattr(DISPATCHER.motion_transport, "shutdown", None)
             if shutdown:
                 shutdown()
-            DISPATCHER.estop_controller = None
+            DISPATCHER.motion_transport = None
         USB_CONTROLLERS.close()
         HEALTH.stop_monitor()
         USB_CONTROLLERS = ControllerRegistry()
         HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
         DISPATCHER.attach_controller_health(HEALTH)
-        DISPATCHER.physical_estop = None
         DISPATCHER.yard_adapter = None
         IO_CONFIG_STATE = []
         DISPATCHER.accessory_errors.clear()
         DISPATCHER.simulation = True
         DISPATCHER.disarm()
         return
-    # ``hardware``/``bench`` are explicit opt-ins. Missing accessories and an
-    # uninstalled physical E-stop are not startup errors.
+    # Hardware and bench modes are explicit opt-ins; no physical stop switch required.
     import yaml
     hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
     # Re-load the Pi-persisted editor data through the same validator used by
     # POST. This is the authoritative runtime view; browser local storage is
     # never consulted by hardware adapters.
     IO_CONFIG_STATE = _save_io_config(_read_io_config()) if IO_CONFIG_PATH.exists() else []
-    estop_config = hardware.get("estop", {}) or {}
+    controller_transport_config = hardware.get("controller_transport", {}) or {}
     configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
     known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
     locomotive_config = load_locomotive_controller_config(hardware, known_ids)
     USB_CONTROLLERS = ControllerRegistry()
-    for entry in estop_config.get("serial_controllers", []) or []:
+    for entry in controller_transport_config.get("serial_controllers", []) or []:
         controller_id, port_name = entry.get("id"), entry.get("port")
         if not controller_id or not port_name:
             continue
-        baudrate = int(entry.get("baudrate", estop_config.get("serial_baudrate", 115200)))
+        baudrate = int(entry.get("baudrate", controller_transport_config.get("serial_baudrate", 115200)))
         connector = lambda port, baudrate=baudrate: pyserial_connector(port, baudrate=baudrate)
         USB_CONTROLLERS.controllers.append(RegisteredController(
             controller_id, port_name, connector,
@@ -245,7 +236,7 @@ def configure_runtime(mode: str = "simulation") -> None:
     DISPATCHER.simulation = False
     DISPATCHER.bench_mode = mode == "bench"
     # Healthy locomotive operation is independent of accessory availability.
-    DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS, start_armed=True), require_rearm=False)
+    DISPATCHER.attach_motion_transport(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS, start_armed=True), require_rearm=False)
     HEALTH.on_failure = None
     USB_CONTROLLERS.start_heartbeat()
     HEALTH.start_monitor()
@@ -305,7 +296,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             HEALTH.check_freshness()
             status = DISPATCHER.snapshot()
             status["simulation"] = SIMULATION.snapshot()
-            status["estop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}
+            status["stop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}
             bench = IR_BENCH.status() if IR_BENCH else {"enabled": False, "connected": False}
             status["bench_ir_receiver"] = bench
             # The Nano is a real, read-only controller in hardware mode.  Keep

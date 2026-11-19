@@ -12,10 +12,7 @@ board was flashed and no motor, relay, servo, or decoupler output was enabled.
 - Turntable, rotary tipper, and Nano IR receiver remain separate USB
   controller entries.
 
-The `estop` YAML section is retained only as the serial registry for
-controller-local STOP/watchdog propagation. There is no Raspberry Pi physical
-E-stop GPIO requirement. Dispatcher global stop, individual STOP, rearm,
-watchdogs, and accessory interlocks remain active.
+USB accessory registration lives under `controller_transport`. The physical emergency-stop GPIO monitor has been removed. Dispatcher stop, individual STOP, motion rearm, watchdogs, and accessory interlocks remain active. The 0x80 wire flag remains for flashed locomotive protocol compatibility.
 
 ## Dispatcher and yard
 

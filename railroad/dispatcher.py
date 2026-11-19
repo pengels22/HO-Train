@@ -74,8 +74,7 @@ class Dispatcher:
     stop_reason: str | None = None
     stop_causes: dict[str, str] = field(default_factory=dict)
     simulation: bool = True
-    estop_controller: object | None = field(default=None, repr=False)
-    physical_estop: Callable[[], bool] | None = field(default=None, repr=False)
+    motion_transport: object | None = field(default=None, repr=False)
     accessory_stops: dict[str, Callable[[], None]] = field(default_factory=dict, repr=False)
     motion_stops: list[Callable[[], None]] = field(default_factory=list, repr=False)
     accessory_errors: dict[str, str] = field(default_factory=dict, repr=False)
@@ -86,24 +85,20 @@ class Dispatcher:
     _rearm_required: bool = field(default=False, repr=False)
     lock: RLock = field(default_factory=RLock, repr=False)
 
-    def attach_estop(self, controller, *, require_rearm: bool = True) -> None:
+    def attach_motion_transport(self, controller, *, require_rearm: bool = True) -> None:
         """Attach the sole hardware command gate.
 
         Simulation uses the dispatcher latch without a network sender. Hardware
-        and bench runtimes attach ``EmergencyStop`` explicitly at startup.
+        and bench runtimes attach ``LocomotiveCommandTransport`` explicitly at startup.
         """
         with self.lock:
-            self.estop_controller = controller
+            self.motion_transport = controller
             self._rearm_required = require_rearm
 
     def disarm(self) -> None:
         """Put the runtime behind the explicit rearm gate."""
         with self.lock:
             self._rearm_required = True
-
-    def attach_physical_estop(self, is_pressed: Callable[[], bool]) -> None:
-        with self.lock:
-            self.physical_estop = is_pressed
 
     def attach_accessory_stops(self, **stops: Callable[[], None]) -> None:
         """Register allow-listed tipper/turntable/accessory stop callbacks."""
@@ -137,8 +132,8 @@ class Dispatcher:
             self.cycle_motion_command = callback
 
     @property
-    def estop_active(self) -> bool:
-        return bool(self.estop_controller and self.estop_controller.active)
+    def stop_transport_active(self) -> bool:
+        return bool(self.motion_transport and self.motion_transport.active)
 
     @property
     def tipper_locked(self) -> bool:
@@ -146,12 +141,11 @@ class Dispatcher:
 
     def _cause_for_reason(self, reason: str) -> str:
         text = reason.lower()
-        if "physical" in text: return "physical_estop"
         if "tipper" in text: return "tipper_fault"
         if "turntable" in text: return "turntable_fault"
         if "checkpoint" in text or "missed" in text or "unexpected" in text: return "checkpoint_fault"
         if "controller" in text or "communication" in text: return "controller_fault"
-        if "operator" in text: return "operator_estop"
+        if "operator" in text: return "operator_stop"
         return "safety_fault"
 
     def stop_all(self, reason: str, *, cause: str | None = None):
@@ -167,11 +161,11 @@ class Dispatcher:
                     stop()
                 except Exception as exc:
                     self.accessory_errors["motion_engine"] = str(exc)
-            if self.estop_controller:
+            if self.motion_transport:
                 try:
-                    self.estop_controller.activate()
+                    self.motion_transport.activate()
                 except Exception as exc:
-                    self.accessory_errors["estop_transport"] = str(exc)
+                    self.accessory_errors["stop_transport"] = str(exc)
             for name, stop in self.accessory_stops.items():
                 try:
                     stop()
@@ -181,17 +175,8 @@ class Dispatcher:
                     # controller is disconnected.
                     self.accessory_errors[name] = str(exc)
 
-    def release_estop(self) -> None:
-        """Release only the physical cause; all other causes remain latched."""
-        with self.lock:
-            self.stop_causes.pop("physical_estop", None)
-            if self.estop_controller and not self.stop_causes:
-                self.estop_controller.clear()
-
     def clear_stop(self):
         with self.lock:
-            if self.physical_estop and self.physical_estop():
-                raise SafetyError("physical E-Stop remains engaged")
             if any(t.expected_checkpoint and t.checkpoint_deadline and
                    time.monotonic() > t.checkpoint_deadline for t in self.trains.values()):
                 raise SafetyError("unresolved checkpoint position fault")
@@ -200,7 +185,7 @@ class Dispatcher:
                 if unresolved:
                     raise SafetyError("unresolved checkpoint position fault")
                 self.stop_causes.pop("checkpoint_fault", None)
-            for cause in ("operator_estop", "safety_fault"):
+            for cause in ("operator_stop", "safety_fault"):
                 self.stop_causes.pop(cause, None)
             if self.stop_causes:
                 raise SafetyError("active stop causes remain: " + ", ".join(sorted(self.stop_causes)))
@@ -208,24 +193,22 @@ class Dispatcher:
             self.stop_reason = None
             # Clearing the broadcast is not permission to move.  The explicit
             # rearm step below is intentionally separate.
-            if self.estop_controller:
-                self.estop_controller.clear()
+            if self.motion_transport:
+                self.motion_transport.clear()
 
     def rearm(self):
         """Explicitly rearm after an operator has reconciled the layout."""
         with self.lock:
             if self.global_stop:
                 raise SafetyError("clear GLOBAL STOP before rearming")
-            if self.physical_estop and self.physical_estop():
-                raise SafetyError("physical E-Stop remains engaged")
             transaction = f"rearm-{time.monotonic_ns()}"
             if self.controller_health:
                 self.controller_health.begin_rearm(transaction)
-            if self.estop_controller:
+            if self.motion_transport:
                 try:
-                    self.estop_controller.rearm(transaction)
+                    self.motion_transport.rearm(transaction)
                 except TypeError:
-                    self.estop_controller.rearm()
+                    self.motion_transport.rearm()
             self._rearm_required = False
 
     def set_operator_mode(self, mode: str) -> None:
@@ -369,7 +352,7 @@ class Dispatcher:
             self.accessory_requests[str(accessory)] = str(command)
 
     def command_motion(self, train_id: int, speed: int) -> None:
-        """Set a commanded speed through the E-Stop gate.
+        """Set a commanded speed through the dispatcher stop gate.
 
         This is the dispatcher-facing path for hardware command writers; it
         cannot issue a nonzero command while stopped, latched, or disarmed.
@@ -379,8 +362,8 @@ class Dispatcher:
             if train_id not in self.trains:
                 raise KeyError(train_id)
             self._enforce_destination_speed(train_id, speed)
-            if self.estop_controller:
-                self.estop_controller.send_motion(train_id, speed)
+            if self.motion_transport:
+                self.motion_transport.send_motion(train_id, speed)
             self.trains[train_id].velocity = int(speed)
 
     def stop_train(self, train_id: int) -> None:
@@ -388,8 +371,8 @@ class Dispatcher:
         with self.lock:
             if train_id not in self.trains:
                 raise KeyError(train_id)
-            if self.estop_controller:
-                self.estop_controller.send_motion(train_id, 0)
+            if self.motion_transport:
+                self.motion_transport.send_motion(train_id, 0)
             self.trains[train_id].velocity = 0
 
     def set_speed_calibration(self, train_id: int, mm_s_at_255: float | None) -> None:
@@ -411,9 +394,7 @@ class Dispatcher:
 
     def assert_motion_allowed(self, train_id: int | None = None) -> None:
         if self.global_stop or self._rearm_required:
-            raise SafetyError("motion command blocked by E-Stop/disarmed state")
-        if self.physical_estop and self.physical_estop():
-            raise SafetyError("physical E-Stop remains engaged")
+            raise SafetyError("motion command blocked by dispatcher stop/disarmed state")
 
     def reconcile_controller(self, locomotive_id) -> None:
         """Operator-authorized reconciliation; never called by telemetry arrival."""
@@ -456,8 +437,6 @@ class Dispatcher:
 
     def route_available(self, train_id: int, zones: list[str], *, mine_transit=False) -> bool:
         if self.global_stop or self._rearm_required or train_id not in self.trains:
-            return False
-        if self.physical_estop and self.physical_estop():
             return False
         if len(zones) != len(set(zones)) or any(z not in self.zones for z in zones):
             return False
@@ -625,7 +604,7 @@ class Dispatcher:
                 "stop_causes":self.stop_causes.copy(),
                 "controllers": (self.controller_health.status(moving_locomotives=moving_locomotives)
                                 if self.controller_health else []),
-                "estop_active":self.estop_active,
+                "stop_transport_active":self.stop_transport_active,
                 "motion_armed":not self._rearm_required and not self.global_stop,
                 "accessory_stop_faults":self.accessory_errors.copy(),
                 "tipper":{"state":self.tipper,"fault":self.tipper_fault,"protected_zones":sorted(TIPPER_LOCKED)},

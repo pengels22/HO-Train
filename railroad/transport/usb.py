@@ -53,13 +53,13 @@ class RegisteredController:
         self.status_payload = {}
         self._transactions = count(1)
 
-    def _write_estop(self) -> None:
+    def _write_stop(self) -> None:
         with self._write_lock:
             port = self.reconnect()
             reset_input = getattr(port, "reset_input_buffer", None)
             if reset_input is not None:
                 reset_input()
-            port.write(b"ESTOP\n")
+            port.write(b"STOP\n")
             # Controller firmware acknowledges the plain ESTOP command. Read
             # that line here so it cannot be mistaken for the next STATUS
             # response by the heartbeat thread. Older test/dummy ports may not
@@ -77,23 +77,23 @@ class RegisteredController:
             self.connected = True
         return self.port
 
-    def send_estop(self) -> None:
+    def send_stop(self) -> None:
         # One bounded worker per registered controller prevents a slow port
-        # from delaying peers and prevents repeated E-Stop calls from queuing
+        # from delaying peers and prevents repeated dispatcher stop calls from queuing
         # stale packets without limit.
         with self._lock:
             if self._future is not None and not self._future.done():
                 return
             if self._executor is None:
                 self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"ho-usb-{self.controller_id}")
-            self._future = self._executor.submit(self._write_estop)
+            self._future = self._executor.submit(self._write_stop)
             future = self._future
         try:
             future.result(timeout=self.write_timeout_s)
             self.last_error = None
             self.connected = True
         except TimeoutError:
-            self.last_error = TimeoutError(f"{self.controller_id} E-Stop write exceeded deadline")
+            self.last_error = TimeoutError(f"{self.controller_id} dispatcher stop write exceeded deadline")
             raise self.last_error
         except Exception as exc:  # one controller must not stop the fan-out
             self.last_error = exc
@@ -165,13 +165,13 @@ class RegisteredController:
 class ControllerRegistry:
     def __init__(self, controllers: list[RegisteredController] | None = None):
         self.controllers = controllers or []
-        self.estop_active = False
+        self.stop_active = False
         self._heartbeat_thread = None
         self._heartbeat_stop = None
         self.on_failure: Callable[[str, str], None] | None = None
 
-    def set_estop_active(self, active: bool) -> None:
-        self.estop_active = bool(active)
+    def set_stop_active(self, active: bool) -> None:
+        self.stop_active = bool(active)
 
     def command(self, controller_id: str, command: str, *, fields: dict | None = None) -> str:
         """Send an explicitly allow-listed command to one USB controller."""
@@ -183,12 +183,12 @@ class ControllerRegistry:
                 return controller.command(command, fields=fields)
         raise KeyError(controller_id)
 
-    def send_estop(self) -> None:
+    def send_stop(self) -> None:
         errors = []
         if not self.controllers:
             return
-        with ThreadPoolExecutor(max_workers=len(self.controllers), thread_name_prefix="ho-estop-fanout") as pool:
-            futures = [(c, pool.submit(c.send_estop)) for c in self.controllers]
+        with ThreadPoolExecutor(max_workers=len(self.controllers), thread_name_prefix="ho-stop-fanout") as pool:
+            futures = [(c, pool.submit(c.send_stop)) for c in self.controllers]
             for controller, future in futures:
                 try:
                     future.result()
@@ -231,7 +231,7 @@ class ControllerRegistry:
         self._heartbeat_stop = Event()
         def loop():
             while not self._heartbeat_stop.wait(period_s):
-                if self.estop_active:
+                if self.stop_active:
                     continue
                 for controller in self.controllers:
                     try:
@@ -270,7 +270,7 @@ class ControllerRegistry:
 class ControllerDeliveryError(OSError):
     def __init__(self, errors):
         self.errors = tuple(errors)
-        super().__init__("USB E-Stop delivery failed: " + ", ".join(i for i, _ in self.errors))
+        super().__init__("USB dispatcher stop delivery failed: " + ", ".join(i for i, _ in self.errors))
 
 
 def pyserial_connector(port_name: str, *, baudrate: int = 115200) -> SerialPort:
