@@ -187,16 +187,18 @@ def _migrate_io_rows(rows, hardware):
     return migrated, warnings, changed
 
 
-def _save_io_config(rows, *, hardware=None, backup=False):
-    """Persist the UI's controller map atomically on the Pi filesystem."""
+def _save_io_config(rows, *, hardware=None, backup=False, with_registry=False):
+    """Validate a candidate registry before atomically replacing the Pi CSV.
+
+    With ``with_registry=True`` the caller receives the already-validated
+    registry alongside the saved rows; no second post-write validation occurs.
+    """
     if not isinstance(rows, list) or len(rows) > 76:
         raise ValueError("rows must be a list of at most 76 channels")
     if hardware is None:
         import yaml
         hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
     migrated, warnings, _ = _migrate_io_rows(rows, hardware)
-    global IO_MIGRATION_WARNINGS
-    IO_MIGRATION_WARNINGS = warnings
     rows = migrated
     normalized = []
     seen = set()
@@ -233,6 +235,10 @@ def _save_io_config(rows, *, hardware=None, backup=False):
         if any(len(value) > 120 for value in values.values()):
             raise ValueError("I/O fields must be 120 characters or less")
         normalized.append(values)
+    # Validate the full effective runtime registry BEFORE touching the filesystem.
+    # A rejected candidate cannot replace a working configuration or create a
+    # migration backup. The physical registry remains side-effect free.
+    candidate_registry = HardwareRegistry.from_config(hardware, normalized).require_valid()
     IO_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     if backup and IO_CONFIG_PATH.exists():
         backup_path = IO_CONFIG_PATH.with_suffix(IO_CONFIG_PATH.suffix + ".bak")
@@ -251,7 +257,9 @@ def _save_io_config(rows, *, hardware=None, backup=False):
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
-    return normalized
+    global IO_MIGRATION_WARNINGS
+    IO_MIGRATION_WARNINGS = warnings
+    return (normalized, candidate_registry) if with_registry else normalized
 
 
 def _stop_telemetry_listener():
@@ -665,11 +673,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _save_io_config(self):
         global IO_CONFIG_STATE, IO_HARDWARE_REGISTRY
         try:
-            rows = _save_io_config(self._json_body().get("rows"))
-            IO_CONFIG_STATE = rows
             import yaml
             hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
-            IO_HARDWARE_REGISTRY = HardwareRegistry.from_config(hardware, rows).require_valid()
+            rows, validated_registry = _save_io_config(
+                self._json_body().get("rows"), hardware=hardware, with_registry=True
+            )
+            # Publish both runtime views only after the validated CSV is committed.
+            IO_CONFIG_STATE = rows
+            IO_HARDWARE_REGISTRY = validated_registry
             self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": rows,
                                  "migration_warnings": IO_MIGRATION_WARNINGS})
         except (AttributeError, TypeError, ValueError, json.JSONDecodeError) as exc:

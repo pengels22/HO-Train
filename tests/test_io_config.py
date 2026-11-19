@@ -66,6 +66,84 @@ def test_servo_controller_rejects_motor_assignments(tmp_path, monkeypatch):
         server._save_io_config([{"controller": "servo", "channel": "CH1", "device_type": "Motor"}])
 
 
+def test_rejected_registry_does_not_overwrite_csv_or_create_backup(tmp_path, monkeypatch):
+    from railroad.hardware.registry import HardwareRegistry
+
+    target = tmp_path / "config" / "io_config.csv"
+    monkeypatch.setattr(server, "IO_CONFIG_PATH", target)
+    existing = server._save_io_config([
+        {"controller": "motion1", "channel": "CH1", "device_type": "Motor",
+         "tag": "approved", "configuration_status": "configured"}
+    ])
+    before = target.read_bytes()
+    warnings_before = list(server.IO_MIGRATION_WARNINGS)
+
+    def reject_candidate(cls, hardware, rows=None):
+        raise ValueError("candidate registry rejected")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(HardwareRegistry, "from_config", classmethod(reject_candidate))
+        with pytest.raises(ValueError, match="candidate registry rejected"):
+            server._save_io_config([
+                {"controller": "servo", "channel": "CH1", "device_type": "Servo",
+                 "tag": "unapproved"}
+            ], backup=True)
+    assert target.read_bytes() == before
+    assert server._read_io_config() == existing
+    assert server.IO_MIGRATION_WARNINGS == warnings_before
+    assert not target.with_suffix(target.suffix + ".bak").exists()
+
+
+def test_api_rejects_invalid_registry_without_replacing_runtime_state(tmp_path, monkeypatch):
+    from railroad.hardware.registry import HardwareRegistry
+
+    target = tmp_path / "config" / "io_config.csv"
+    monkeypatch.setattr(server, "IO_CONFIG_PATH", target)
+    approved_rows, approved_registry = server._save_io_config([
+        {"controller": "servo", "channel": "CH1", "device_type": "Servo",
+         "tag": "farm_gates"}
+    ], with_registry=True)
+    monkeypatch.setattr(server, "IO_CONFIG_STATE", approved_rows)
+    monkeypatch.setattr(server, "IO_HARDWARE_REGISTRY", approved_registry)
+    before = target.read_bytes()
+
+    class Request:
+        def _json_body(self):
+            return {"rows": [{"controller": "servo", "channel": "CH2",
+                              "device_type": "Servo", "tag": "candidate"}]}
+
+        def _json_response(self, payload, status=200):
+            self.payload, self.status = payload, status
+
+    request = Request()
+
+    def reject_candidate(cls, hardware, rows=None):
+        raise ValueError("candidate registry rejected")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(HardwareRegistry, "from_config", classmethod(reject_candidate))
+        server.DashboardHandler._save_io_config(request)
+
+    assert request.status == 400
+    assert "candidate registry rejected" in request.payload["error"]
+    assert target.read_bytes() == before
+    assert server.IO_CONFIG_STATE is approved_rows
+    assert server.IO_HARDWARE_REGISTRY is approved_registry
+
+
+def test_successful_save_returns_same_validated_registry_for_activation(tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "IO_CONFIG_PATH", tmp_path / "io_config.csv")
+    rows, registry = server._save_io_config([
+        {"controller": "servo", "channel": "CH1", "device_type": "Servo",
+         "tag": "farm_gates"}
+    ], with_registry=True)
+    assert server._read_io_config() == rows
+    assert registry.require_valid() is registry
+    first = next(entry for entry in registry.entries
+                 if entry.controller == "servo" and entry.channel == 0)
+    assert first.tag == "farm_gates"
+    assert first.address == 0x41
+
 def test_dispatcher_operator_controls_are_stateful_without_motion_output():
     dispatcher = Dispatcher()
     dispatcher.set_operator_mode("manual")
