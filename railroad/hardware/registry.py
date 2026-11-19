@@ -26,6 +26,10 @@ class IOEntry:
     controller: str = ""
     tag: str = ""
     configuration_status: str = ""
+    # User-facing assignment, kept separate from the physical driver type.
+    # For example, a PCA9685 channel may be assigned as Motor or Servo while
+    # its physical device_type remains pca9685 for commissioning and status.
+    assignment_type: str = ""
 
 
 class HardwareRegistry:
@@ -55,7 +59,7 @@ class HardwareRegistry:
         result: list[IOEntry] = []
         for controller, board_name, address in (
             ("motion1", "motor_1", boards.get("motor_1")),
-            ("motion2", "motor_2", boards.get("motor_2")),
+            ("servo", "servo", boards.get("servo")),
         ):
             if address is None or any(e.address == int(address) and e.device_type == "pca9685" for e in existing):
                 continue
@@ -100,7 +104,9 @@ class HardwareRegistry:
         for i, entry in enumerate(self.entries):
             if not entry.controller:
                 continue
-            logical = f"CH{int(entry.channel) + 1}" if entry.controller.startswith("motion") and isinstance(entry.channel, int) else None
+            logical = (f"CH{int(entry.channel) + 1}"
+                       if entry.controller in {"motion1", "servo"} and isinstance(entry.channel, int)
+                       else None)
             lookup[(entry.controller, str(entry.channel))] = i
             if logical:
                 lookup[(entry.controller, logical)] = i
@@ -116,16 +122,17 @@ class HardwareRegistry:
             if index is None:
                 continue
             current = self.entries[index]
-            device = str(row.get("device_type", "")) or current.device_type
+            assignment = str(row.get("device_type", "")) or current.assignment_type
             tag = str(row.get("tag", ""))
             status = str(row.get("configuration_status", ""))
             bias = str(row.get("bias", ""))
             polarity = "active_low" if bias == "Pull-up (internal)" else current.polarity
             self.entries = self.entries[:index] + (IOEntry(
-                **{**current.__dict__, "device_type": device, "tag": tag,
+                **{**current.__dict__, "tag": tag,
                    "configuration_status": status, "polarity": polarity,
-                   "active": device not in {"", "Unassigned"},
-                   "spare": device in {"", "Unassigned"}}
+                   "assignment_type": assignment,
+                   "active": assignment not in {"", "Unassigned"},
+                   "spare": assignment in {"", "Unassigned"}}
             ),) + self.entries[index + 1:]
         return self
 

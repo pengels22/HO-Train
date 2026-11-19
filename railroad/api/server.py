@@ -42,11 +42,14 @@ IO_CONFIG_STATE: list[dict] = []
 IO_HARDWARE_REGISTRY: HardwareRegistry | None = None
 I2C_BUS: I2CBus | None = None
 I2C_DEVICES: dict[str, object] = {}
+IO_MIGRATION_WARNINGS: list[str] = []
 
 
 IO_CONFIG_COLUMNS = ("controller", "channel", "board", "address", "physical_channel",
-                     "direction", "polarity", "device_type", "tag", "configuration_status", "bias")
-IO_CONFIG_CONTROLLERS = {"motion1", "motion2", "inputs1", "inputs2", "ir"}
+                     "direction", "polarity", "device_type", "tag", "configuration_status", "bias",
+                     "assignment_type")
+IO_CONFIG_CONTROLLERS = {"motion1", "servo", "inputs1", "inputs2", "ir"}
+LEGACY_IO_CONTROLLERS = {"motion2"}
 OUTPUT_TYPES = {"", "Motor", "Relay", "Servo", "Unassigned"}
 INPUT_BIASES = {"", "Pull-up (internal)", "No bias"}
 
@@ -62,17 +65,36 @@ def _default_io_config(hardware):
     """Return the physical channel inventory used before the first save."""
     boards = (hardware.get("i2c", {}) or {}).get("boards", {}) or {}
     rows = []
+    motor_config = {}
+    servo_config = {}
+    try:
+        import yaml
+        motor_config = yaml.safe_load((ROOT / "config/motors.yaml").read_text()).get("motors", {}) or {}
+        servo_config = yaml.safe_load((ROOT / "config/servos.yaml").read_text()).get("servos", {}) or {}
+    except (OSError, AttributeError):
+        pass
+    motor_channels = {channel: (str(number), item) for number, item in motor_config.items()
+                      for channel in item.get("channels", [])}
+    servo_channels = {int(item.get("channel")): name for name, item in servo_config.items()}
     for controller, board, address in (("motion1", "motor_1", boards.get("motor_1")),
-                                       ("motion2", "motor_2", boards.get("motor_2"))):
+                                       ("servo", "servo", boards.get("servo"))):
         for channel in range(16):
-            paired_tag = {0: "1A", 1: "1B"}.get(channel, "") if controller == "motion1" else ""
+            if controller == "motion1":
+                motor = motor_channels.get(channel)
+                paired_tag = f"{motor[0]}{'A' if channel % 2 == 0 else 'B'}" if motor else ""
+                device_type = "Motor" if motor else "Unassigned"
+                status = motor[1].get("function", "motor-driver pair") if motor else "Unassigned"
+            else:
+                paired_tag = servo_channels.get(channel, "")
+                device_type = "Servo" if paired_tag else "Unassigned"
+                status = "configured" if paired_tag else "Unassigned"
             rows.append({"controller": controller, "channel": f"CH{channel + 1}",
                          "board": board, "address": hex(address) if address is not None else "",
                          "physical_channel": str(channel), "direction": "output",
                          "polarity": "active_high",
-                         "device_type": "Motor" if paired_tag else "Unassigned",
+                         "device_type": device_type,
                          "tag": paired_tag,
-                         "configuration_status": "H-Bridge Motor 1" if paired_tag else "Unassigned",
+                         "configuration_status": status,
                          "bias": ""})
     input_functions = {}
     for item in (hardware.get("io_registry", []) or []):
@@ -103,13 +125,79 @@ def _default_io_config(hardware):
 
 
 def _effective_io_config(hardware):
-    return _read_io_config() or _default_io_config(hardware)
+    rows = _read_io_config()
+    if not rows:
+        return _default_io_config(hardware)
+    migrated, warnings, changed = _migrate_io_rows(rows, hardware)
+    if changed:
+        _save_io_config(migrated, hardware=hardware, backup=True)
+    global IO_MIGRATION_WARNINGS
+    IO_MIGRATION_WARNINGS = warnings
+    return migrated
 
 
-def _save_io_config(rows):
+def _physical_metadata(controller, channel, hardware):
+    """Return the declared physical identity for one logical editor row."""
+    try:
+        number = int(str(channel).upper().removeprefix("CH")) - 1
+    except ValueError:
+        return {}
+    boards = (hardware.get("i2c", {}) or {}).get("boards", {}) or {}
+    if controller == "motion1":
+        return {"board": "motor_1", "address": hex(boards.get("motor_1")) if boards.get("motor_1") is not None else "",
+                "physical_channel": str(number), "direction": "output", "polarity": "active_high"}
+    if controller == "servo":
+        return {"board": "servo", "address": hex(boards.get("servo")) if boards.get("servo") is not None else "",
+                "physical_channel": str(number), "direction": "output", "polarity": "active_high"}
+    if controller in {"inputs1", "inputs2"}:
+        board = "sensors_1" if controller == "inputs1" else "sensors_2"
+        address = boards.get(board)
+        physical = (f"GPA{number}" if number < 8 else f"GPB{number - 8}")
+        return {"board": board, "address": hex(address) if address is not None else "",
+                "physical_channel": physical, "direction": "input", "polarity": "active_low"}
+    if controller == "ir":
+        return {"board": "nano_ir", "address": "", "physical_channel": f"CH{number + 1}",
+                "direction": "input", "polarity": "active_high"}
+    return {}
+
+
+def _migrate_io_rows(rows, hardware):
+    """Migrate legacy motion2 rows without reinterpreting motors as servos."""
+    migrated, warnings, changed = [], [], False
+    for original in rows:
+        row = dict(original)
+        controller = str(row.get("controller", ""))
+        device = str(row.get("device_type", ""))
+        if controller == "motion2":
+            changed = True
+            row["controller"] = "servo"
+            controller = "servo"
+            if device not in {"", "Servo", "Unassigned"}:
+                warning = (f"{original.get('controller')}/{original.get('channel')}: "
+                           f"{device} is incompatible with the servo controller; assignment was unassigned")
+                warnings.append(warning)
+                row["device_type"] = "Unassigned"
+                row["configuration_status"] = f"MIGRATION REJECTED: {warning}"
+        metadata = _physical_metadata(controller, row.get("channel", ""), hardware)
+        for key, value in metadata.items():
+            if str(row.get(key, "")) != str(value):
+                row[key] = value
+                changed = True
+        migrated.append(row)
+    return migrated, warnings, changed
+
+
+def _save_io_config(rows, *, hardware=None, backup=False):
     """Persist the UI's controller map atomically on the Pi filesystem."""
     if not isinstance(rows, list) or len(rows) > 76:
         raise ValueError("rows must be a list of at most 76 channels")
+    if hardware is None:
+        import yaml
+        hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
+    migrated, warnings, _ = _migrate_io_rows(rows, hardware)
+    global IO_MIGRATION_WARNINGS
+    IO_MIGRATION_WARNINGS = warnings
+    rows = migrated
     normalized = []
     seen = set()
     for row in rows:
@@ -132,8 +220,10 @@ def _save_io_config(rows):
         if values["polarity"] and values["polarity"] not in {"active_low", "active_high", "none"}:
             raise ValueError("invalid polarity")
         device = values["device_type"]
-        if controller.startswith("motion") and device not in OUTPUT_TYPES:
-            raise ValueError("motion channels support only Motor, Relay, Servo, or Unassigned")
+        if controller == "motion1" and device not in {"", "Motor", "Unassigned"}:
+            raise ValueError("motor controller channels support only Motor or Unassigned")
+        if controller == "servo" and device not in {"", "Servo", "Unassigned"}:
+            raise ValueError("servo controller channels support only Servo or Unassigned")
         if controller.startswith("inputs") and device not in {"", "Digital Input", "Unassigned"}:
             raise ValueError("input channels support only Digital Input or Unassigned")
         if controller.startswith("inputs") and values["bias"] not in INPUT_BIASES:
@@ -144,6 +234,11 @@ def _save_io_config(rows):
             raise ValueError("I/O fields must be 120 characters or less")
         normalized.append(values)
     IO_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if backup and IO_CONFIG_PATH.exists():
+        backup_path = IO_CONFIG_PATH.with_suffix(IO_CONFIG_PATH.suffix + ".bak")
+        if not backup_path.exists():
+            import shutil
+            shutil.copy2(IO_CONFIG_PATH, backup_path)
     fd, temporary = tempfile.mkstemp(prefix="io_config.", suffix=".csv", dir=IO_CONFIG_PATH.parent)
     try:
         with os.fdopen(fd, "w", newline="", encoding="utf-8") as stream:
@@ -193,7 +288,7 @@ def _start_hardware_devices(hardware):
         for name in ("sensors_1", "sensors_2"):
             if name in boards:
                 I2C_DEVICES[name] = MCP23017(int(boards[name]), I2C_BUS, enabled=True)
-        for name in ("motor_1", "motor_2", "servo"):
+        for name in ("motor_1", "servo"):
             if name in boards:
                 I2C_DEVICES[name] = PCA9685(int(boards[name]), I2C_BUS, enabled=True)
         return None
@@ -303,7 +398,7 @@ def configure_runtime(mode: str = "simulation") -> None:
     # Re-load the Pi-persisted editor data through the same validator used by
     # POST. This is the authoritative runtime view; browser local storage is
     # never consulted by hardware adapters.
-    IO_CONFIG_STATE = _save_io_config(_read_io_config()) if IO_CONFIG_PATH.exists() else _effective_io_config(hardware)
+    IO_CONFIG_STATE = _effective_io_config(hardware)
     IO_HARDWARE_REGISTRY = HardwareRegistry.from_config(hardware, IO_CONFIG_STATE).require_valid()
     hardware_error = _start_hardware_devices(hardware)
     if hardware_error:
@@ -446,7 +541,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             wifi = locomotives.get("wifi", {})
             io = [{"device": "Raspberry Pi GPIO", "io": "unassigned", "location": "Raspberry Pi", "function": "general-purpose I/O", "polarity": "n/a", "status": "reserved"}]
             registry = IO_HARDWARE_REGISTRY or HardwareRegistry.from_config(hardware, _effective_io_config(hardware)).require_valid()
-            io = [{"device": entry.device_type, "io": f"{entry.board}:{entry.channel}",
+            io = [{"device": entry.device_type, "assignment": entry.assignment_type,
+                   "io": f"{entry.board}:{entry.channel}",
                    "address": entry.address, "location": entry.location,
                    "function": entry.tag or entry.function, "controller": entry.controller,
                    "configuration_status": entry.configuration_status,
@@ -455,7 +551,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                    "status": entry.configuration_status or ("spare" if entry.spare else ("active" if entry.active else "reserved"))}
                   for entry in registry.entries]
             for board, address in (hardware.get("i2c", {}).get("boards", {}) or {}).items():
-                device = "MCP23017" if board.startswith("sensors") else ("PCA9685" if board in {"motor_1", "motor_2", "servo"} else "I2C / " + board)
+                device = "MCP23017" if board.startswith("sensors") else ("PCA9685" if board in {"motor_1", "servo"} else "I2C / " + board)
                 io.append({"device": device, "io": hex(address) if isinstance(address, int) else str(address), "location": "Raspberry Pi I2C", "function": board, "polarity": "n/a", "status": "configured"})
             for receiver in ir.get("receivers", []):
                 io.append({"device": "Arduino Nano", "io": receiver.get("pin", "unassigned"), "location": ", ".join(receiver.get("zones", [])) or "Yard", "function": receiver.get("description", "IR receiver"), "polarity": "active_high", "status": "configured"})
@@ -574,7 +670,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             import yaml
             hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
             IO_HARDWARE_REGISTRY = HardwareRegistry.from_config(hardware, rows).require_valid()
-            self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": rows})
+            self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": rows,
+                                 "migration_warnings": IO_MIGRATION_WARNINGS})
         except (AttributeError, TypeError, ValueError, json.JSONDecodeError) as exc:
             self._json_response({"ok": False, "error": str(exc)}, 400)
 

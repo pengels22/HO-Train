@@ -43,6 +43,29 @@ def test_default_io_inventory_is_physical_and_complete():
     assert rows[-1]["controller"] == "ir"
 
 
+def test_motion2_csv_migration_is_safe_idempotent_and_recoverable(tmp_path, monkeypatch):
+    import yaml
+    target = tmp_path / "io_config.csv"
+    monkeypatch.setattr(server, "IO_CONFIG_PATH", target)
+    old = [{"controller": "motion2", "channel": "CH1", "device_type": "Motor",
+            "tag": "legacy motor", "configuration_status": "old", "bias": ""}]
+    server._save_io_config(old)
+    migrated = server._read_io_config()
+    assert migrated[0]["controller"] == "servo"
+    assert migrated[0]["device_type"] == "Unassigned"
+    # Saving an already migrated row does not create another backup or change it.
+    first = server._read_io_config()
+    server._save_io_config(first, hardware=yaml.safe_load((server.ROOT / "config/hardware.yaml").read_text()), backup=True)
+    assert server._read_io_config() == first
+    assert target.with_suffix(target.suffix + ".bak").exists()
+
+
+def test_servo_controller_rejects_motor_assignments(tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "IO_CONFIG_PATH", tmp_path / "io.csv")
+    with pytest.raises(ValueError, match="servo controller"):
+        server._save_io_config([{"controller": "servo", "channel": "CH1", "device_type": "Motor"}])
+
+
 def test_dispatcher_operator_controls_are_stateful_without_motion_output():
     dispatcher = Dispatcher()
     dispatcher.set_operator_mode("manual")

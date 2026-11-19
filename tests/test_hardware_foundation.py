@@ -30,6 +30,34 @@ def test_final_controller_assignments_keep_m5_fleet_and_xiao_accessories_distinc
     }
 
 
+def test_two_pca9685_architecture_has_seven_motors_twelve_servos_and_six_spares():
+    config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
+    boards = config["i2c"]["boards"]
+    assert boards == {"motor_1": 0x40, "servo": 0x41, "sensors_1": 0x20, "sensors_2": 0x21}
+    motors = yaml.safe_load((ROOT / "config/motors.yaml").read_text())["motors"]
+    servos = yaml.safe_load((ROOT / "config/servos.yaml").read_text())["servos"]
+    motor_channels = [channel for item in motors.values() for channel in item["channels"]]
+    servo_channels = [item["channel"] for item in servos.values()]
+    assert len(motors) == 7 and len(motor_channels) == 14 and len(set(motor_channels)) == 14
+    assert len(servos) == 12 and len(set(servo_channels)) == 12
+    assert set(range(16)) - set(motor_channels) == {14, 15}
+    assert set(range(16)) - set(servo_channels) == {8, 13, 14, 15}
+    assert "turnout_H" not in servos
+
+
+def test_hardware_startup_initializes_four_declared_i2c_boards_only(monkeypatch):
+    import railroad.api.server as server
+    mock = MockI2CBus()
+    monkeypatch.setattr(server.I2CBus, "open", classmethod(lambda cls, bus=1, **kwargs: I2CBus(bus, True, mock)))
+    config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
+    assert server._start_hardware_devices(config) is None
+    assert set(server.I2C_DEVICES) == {"sensors_1", "sensors_2", "motor_1", "servo"}
+    assert (0x40, 0x06) in mock.registers and mock.registers[(0x40, 0x08)] == 0
+    assert (0x41, 0x06) in mock.registers and mock.registers[(0x41, 0x08)] == 0
+    assert 0x42 not in {int(address) for address in config["i2c"]["boards"].values()}
+    server._close_hardware_devices()
+
+
 def test_mock_i2c_drivers_configure_inputs_and_stop_pwm():
     mock = MockI2CBus()
     bus = I2CBus(enabled=True, backend=mock)
@@ -67,6 +95,16 @@ def test_registry_expands_physical_pca_and_nano_channels_and_applies_saved_metad
     assert sum(entry.controller == "motion1" for entry in registry.entries) == 16
     assert sum(entry.controller == "inputs1" for entry in registry.entries) == 16
     assert sum(entry.controller == "ir" for entry in registry.entries) == 12
+    pca = [entry for entry in registry.entries if entry.device_type == "pca9685"]
+    assert len(pca) == 32
+    assert {entry.address for entry in pca} == {0x40, 0x41}
+    assert sum(entry.assignment_type == "Motor" for entry in pca) == 1
+
+    from railroad.api import server
+    default_registry = HardwareRegistry.from_config(config, server._default_io_config(config))
+    default_pca = [entry for entry in default_registry.entries if entry.device_type == "pca9685"]
+    assert sum(entry.assignment_type == "Motor" for entry in default_pca) == 14
+    assert sum(entry.assignment_type == "Servo" for entry in default_pca) == 12
 
 
 def test_reed_requires_stable_open_close_cycle_and_counts_long_contact_once():

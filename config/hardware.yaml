@@ -2,7 +2,7 @@ mode: simulation
 i2c:
   bus: 1
   level_shifter_required: true
-  boards: {motor_1: 0x40, motor_2: 0x41, servo: 0x42, sensors_1: 0x20, sensors_2: 0x21}
+  boards: {motor_1: 0x40, servo: 0x41, sensors_1: 0x20, sensors_2: 0x21}
 # All sensor and accessory IO goes through MCP23017/PCA9685/ESP32 boards.
 # Pi GPIO is unassigned; I2C SDA/SCL are only bus communications.
 # USB accessory controller registration and local STOP/watchdog propagation.
