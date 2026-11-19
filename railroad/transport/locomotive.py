@@ -58,7 +58,7 @@ class LocomotiveStopFanout:
             self.udp_sender.send(Command(ALL_TRAINS, self._next_sequence(), 0, flags=REARM_FLAG))
         # Accessory faults remain local. A disconnected/faulted tipper or
         # turntable must not prevent independent locomotive rearm.
-        # Accessories keep their own E-stop latch until explicitly rearmed
+        # Accessories keep their own stop latch until explicitly rearmed
         # through their validated local workflow.
         self.controllers.set_stop_active(False)
 
@@ -171,7 +171,9 @@ class LocomotiveCommandTransport:
     def send_motion(self, train_id: int, speed: int, target: int = 0, flags: int = 0) -> None:
         """Sole path for motion packets in the hardware command runtime."""
         with self._lock:
-            if self._closed or self._stopped or not self._armed:
+            # A zero-speed command is the individual locomotive STOP path and
+            # remains available while the dispatcher is disarmed.
+            if speed != 0 and (self._closed or self._stopped or not self._armed):
                 raise RuntimeError("motion command blocked: dispatcher stop or disarmed")
             if flags & GLOBAL_STOP_FLAG or train_id == ALL_TRAINS:
                 raise ValueError("reserved dispatcher stop flag or broadcast train ID")

@@ -23,7 +23,7 @@ def test_confirmed_registry_has_28_inputs_and_four_spares_without_duplicates():
 def test_final_controller_assignments_keep_m5_fleet_and_xiao_accessories_distinct():
     config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
     assert [item["type"] for item in config["locomotive_controllers"]] == ["m5_atom_echo"] * 4
-    accessories = {item["id"]: item["type"] for item in config["estop"]["serial_controllers"]}
+    accessories = {item["id"]: item["type"] for item in config["controller_transport"]["serial_controllers"]}
     assert accessories == {
         "turntable": "xiao_esp32_c6_turntable",
         "tipper": "xiao_esp32_c6_tipper",

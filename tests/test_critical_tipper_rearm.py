@@ -4,7 +4,7 @@ These tests perform no serial, GPIO, network, or physical motion.
 """
 from pathlib import Path
 
-from railroad.transport.estop import EStopFanout
+from railroad.transport.locomotive import LocomotiveStopFanout
 from railroad.transport.udp import Command
 from railroad.transport.usb import ControllerRegistry, RegisteredController
 
@@ -26,14 +26,14 @@ def test_locomotive_rearm_not_blocked_by_disconnected_accessory():
 
     tipper = RegisteredController("tipper", "/dev/not-connected", disconnected)
     registry = ControllerRegistry([tipper])
-    registry.set_estop_active(True)
+    registry.set_stop_active(True)
     sender = RecordingSender()
-    fanout = EStopFanout(sender, registry)
+    fanout = LocomotiveStopFanout(sender, registry)
 
     # Locomotive rearm must not open/rearm a faulted USB accessory.
     fanout.rearm("train-rearm-001")
     assert sender.transactions == ["train-rearm-001"]
-    assert registry.estop_active is False
+    assert registry.stop_active is False
     assert tipper.port is None
     assert tipper.connected is False
 

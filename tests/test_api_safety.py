@@ -1,11 +1,11 @@
 from railroad.api import server
 
 
-def test_hardware_mode_does_not_require_pi_gpio_estop():
+def test_hardware_mode_does_not_require_pi_gpio_stop_input():
     server.configure_runtime("hardware")
     try:
         assert not server.DISPATCHER.simulation
-        assert server.DISPATCHER.physical_estop is None
+        assert not any(name.endswith("estop") for name in vars(server.DISPATCHER))
     finally:
         # The test process remains explicitly simulation-safe.
         server.configure_runtime("simulation")

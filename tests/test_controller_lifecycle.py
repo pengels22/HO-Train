@@ -31,10 +31,10 @@ def test_complete_loaded_turntable_lifecycle():
     assert not table.track_power
 
 
-def test_turntable_estop_interruption_never_resumes_automatically():
+def test_turntable_stop_interruption_never_resumes_automatically():
     table = TurntableController("ROTATED")
     table.authorize_entry(track_power=True, train_stopped=True, consist_count=4)
-    table.emergency_stop()
+    table.stop()
     assert table.state == TurntableState.FAULT and not table.track_power
     with pytest.raises(RuntimeError): table.begin_rotation()
     table.rearm(authorized=True, alignment="ROTATED", faults_clear=True)

@@ -2,7 +2,7 @@
 
 The dispatcher must set all requested locomotive speeds to **zero immediately**
 when E-Stop is activated. The hardware command runtime must call
-`EmergencyStop.activate()` and stop submitting all queued movement commands.
+`LocomotiveCommandTransport.activate()` and stop submitting all queued movement commands.
 
 The sender broadcasts the existing 12-byte `Command` frame to
 `10.77.0.255:4210`, using:

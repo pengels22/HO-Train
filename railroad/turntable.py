@@ -168,7 +168,7 @@ class TurntableController:
         self.stationary_confirmed = True
         self.gap_clearance_verified = True
         self.communication_ok = True
-        self.estop = False
+        self.stop_latched = False
         self.fault: str | None = None
         self.counter = TurntablePulseCounter()
 
@@ -200,7 +200,7 @@ class TurntableController:
         self.track_power = False; self.state = TurntableState.TRAIN_LOADED
 
     def begin_rotation(self):
-        if self.state != TurntableState.TRAIN_LOADED or self.estop or not self.communication_ok:
+        if self.state != TurntableState.TRAIN_LOADED or self.stop_latched or not self.communication_ok:
             self._fail("rotation interlock")
         if not self.train_stopped or not self.clearance_verified:
             self._fail("train clearance not verified")
@@ -223,7 +223,7 @@ class TurntableController:
     def authorize_exit(self, *, track_power: bool, train_stopped: bool):
         if self.state != TurntableState.ALIGNED_LOADED or not track_power or not train_stopped:
             self._fail("exit authorization interlock")
-        if self.estop or not self.communication_ok or self.polarity is None:
+        if self.stop_latched or not self.communication_ok or self.polarity is None:
             self._fail("bridge power interlock")
         self.power_authorized = True; self.train_stopped = True
         self.counter.reset()
@@ -244,8 +244,8 @@ class TurntableController:
         self.track_power = False; self.state = TurntableState.EMPTY_READY
         self.counter.reset(); self.power_authorized = False; self.clearance_verified = False
 
-    def emergency_stop(self, reason: str = "E-Stop"):
-        self.estop = True; self.motor_on = False; self.track_power = False
+    def stop(self, reason: str = "stop"):
+        self.stop_latched = True; self.motor_on = False; self.track_power = False
         self.state = TurntableState.FAULT; self.fault = reason
 
     def communication_lost(self):
@@ -256,6 +256,6 @@ class TurntableController:
             raise RuntimeError("turntable rearm interlock")
         if self.motor_on or self.track_power:
             raise RuntimeError("turntable outputs must be off before rearm")
-        self.alignment = alignment; self.estop = False; self.communication_ok = True
+        self.alignment = alignment; self.stop_latched = False; self.communication_ok = True
         self.fault = None; self.counter.reset(); self.target_alignment = None
         self.state = TurntableState.EMPTY_READY

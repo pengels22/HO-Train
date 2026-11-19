@@ -3,7 +3,7 @@ import time
 import json
 
 from railroad.dispatcher import Dispatcher
-from railroad.transport.estop import EStopFanout, EmergencyStop
+from railroad.transport.locomotive import LocomotiveStopFanout, LocomotiveCommandTransport
 from railroad.transport.telemetry import ControllerHealthRegistry, LocomotiveTelemetry
 from railroad.transport.usb import ControllerRegistry, RegisteredController
 
@@ -182,8 +182,8 @@ def test_dispatcher_rearm_requires_usb_safe_state_ack():
     port = Port()
     usb = ControllerRegistry([RegisteredController("turntable", "/dev/tt", lambda _: port)])
     health = ControllerHealthRegistry(usb)
-    stop = EmergencyStop(EStopFanout(UDP(), usb), period_s=0.02)
-    dispatcher = Dispatcher(); dispatcher.attach_estop(stop, require_rearm=True); dispatcher.attach_controller_health(health)
+    stop = LocomotiveCommandTransport(LocomotiveStopFanout(UDP(), usb), period_s=0.02)
+    dispatcher = Dispatcher(); dispatcher.attach_motion_transport(stop, require_rearm=True); dispatcher.attach_controller_health(health)
     try:
         dispatcher.rearm()
         dispatcher.command_motion(1, 10)
