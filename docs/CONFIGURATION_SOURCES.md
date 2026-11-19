@@ -1,22 +1,7 @@
 # Configuration sources
 
-The imported unified layout is authoritative for geography and marker
-coordinates. `config/unified_geography.json` is loaded by the geography API;
-the imported track graph remains unverified until the physical review gate is
-completed.
+Hardware design defaults are documented in `docs/HARDWARE_PINOUT.md`, with allocations declared in `config/hardware.yaml`, `config/servos.yaml`, `config/motors.yaml`, `config/ir_receivers.yaml`, `config/tipper.yaml` and `config/turntable.yaml`.
 
-`config/simulation_paths.yaml` is the simulation adapter. It may contain only
-surveyed paths marked `verified: true`; an empty or unverified file prevents
-simulation motion. `config/track_topology.yaml` is a legacy topology note and
-is not used to generate or replace the imported geometry.
+The user-editable I/O settings are the effective runtime mapping after validation and persistence; nominal defaults must not prevent valid reassignments. Hardware verification is separate from configuration. The Nano ESP32 owns station IR inputs; MCP23017 GPB2–GPB4 at address 0x21 are currently spare. Turnouts A–H are all part of the design; turnout H uses PCA9685 0x42 CH13. Yard power relay pins are not allocated.
 
-Turnout interlocking uses the active set A–H from
-`railroad/routing/interlocking.py`; the physical layout's passive splitters
-are not commandable turnouts. Turntable hardware assignments and pulse timing
-are documented in `config/turntable.yaml`. Simulation remains the default and
-all hardware output configuration is disabled unless explicitly supplied by a
-validated deployment.
-
-The I/O documentation's “passive splitters” (`P1`–`P3`) are physical track
-branches from the imported JMRI layout, not electrical I/O points and not
-powered turnouts. They therefore do not appear as GPIO or relay assignments.
+The imported unified geography is the current geography reference; simulation/test data must not override real hardware configuration. Passive splitters are not commanded turnout I/O.
