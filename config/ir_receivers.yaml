@@ -1,5 +1,8 @@
-# Single Nano USB IR decoder; receiver locations are verified, while zone labels
-# remain configuration metadata for the dispatcher.
+# Production Nano ESP32 USB IR decoder (repurposed from bench controller).
+# D2-D12 are owner-confirmed receiver inputs. Mine/Farm/Town station IR inputs
+# also belong to this Nano, never MCP23017; their additional physical pin
+# assignments are pending validation and are intentionally not invented.
+# The existing single-input bench decoder must be expanded before production.
 controller: nano-1
 transport: usb_serial
 baud: 115200
