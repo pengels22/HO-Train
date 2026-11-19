@@ -18,6 +18,7 @@ from railroad.transport.telemetry import ControllerHealthRegistry
 from railroad.transport.ir_bench import BenchIRReader
 from railroad.hardware.registry import HardwareRegistry
 from railroad.hardware.yard_power import YardPowerAdapter
+from railroad.routing.planner import RoutePlanner
 from railroad.hardware.i2c import I2CBus
 from railroad.hardware.mcp23017 import MCP23017
 from railroad.hardware.pca9685 import PCA9685
@@ -300,16 +301,19 @@ def _start_hardware_devices(hardware):
     global I2C_BUS, I2C_DEVICES, I2C_STATUS, I2C_RETRY_STOP, I2C_RETRY_THREAD
     _close_hardware_devices()
     boards = hardware.get("i2c", {}).get("boards", {}) or {}
+    now = time.monotonic()
     I2C_STATUS = {name: {"address": int(address), "connected": False,
                          "state": "UNAVAILABLE", "error": None,
-                         "reconcile_required": False}
+                         "last_success": None, "last_fault": None,
+                         "state_changed": now, "reconcile_required": False,
+                         "feedback_verified": False}
                   for name, address in boards.items()}
     bus_number = int(hardware.get("i2c", {}).get("bus", 1))
     try:
         I2C_BUS = I2CBus.open(bus_number, enabled=True)
     except Exception as exc:
         for status in I2C_STATUS.values():
-            status.update(state="UNAVAILABLE", error=str(exc))
+            status.update(state="UNAVAILABLE", error=str(exc), last_fault=str(exc), state_changed=now)
 
     def probe(name):
         address = int(boards[name])
@@ -321,11 +325,47 @@ def _start_hardware_devices(hardware):
                 device = PCA9685(address, I2C_BUS, enabled=True, frequency_hz=frequency)
             else:
                 raise RuntimeError(f"unsupported I2C board {name}")
+            previous = I2C_STATUS[name].get("state")
+            state = "SAFE_OFF" if name in {"motor_1", "servo"} else "ONLINE"
             I2C_DEVICES[name] = device
-            I2C_STATUS[name].update(connected=True, state="SAFE_OFF" if name in {"motor_1", "servo"} else "ONLINE",
-                                    error=None, reconcile_required=name in {"motor_1", "servo"})
+            I2C_STATUS[name].update(connected=True, state=state, error=None,
+                                    last_success=time.monotonic(),
+                                    state_changed=time.monotonic() if previous != state else I2C_STATUS[name].get("state_changed"),
+                                    reconcile_required=name in {"motor_1", "servo"},
+                                    feedback_verified=False)
         except Exception as exc:
-            I2C_STATUS[name].update(connected=False, state="UNAVAILABLE", error=str(exc))
+            message = str(exc)
+            previous = I2C_STATUS[name].get("state")
+            I2C_STATUS[name].update(connected=False, state="UNAVAILABLE", error=message,
+                                    last_fault=message,
+                                    state_changed=time.monotonic() if previous != "UNAVAILABLE" else I2C_STATUS[name].get("state_changed"))
+
+    def check(name):
+        device = I2C_DEVICES.get(name)
+        try:
+            if device is None or I2C_BUS is None:
+                raise RuntimeError("I2C device is not initialized")
+            address = int(boards[name])
+            if name.startswith("sensors"):
+                device.read_inputs()
+            else:
+                I2C_BUS.read_byte_data(address, 0x00)
+            I2C_STATUS[name].update(connected=True, error=None, last_success=time.monotonic(),
+                                    feedback_verified=name.startswith("sensors"))
+        except Exception as exc:
+            message = str(exc)
+            previous = I2C_STATUS[name].get("state")
+            safe_stop = getattr(device, "safe_stop", None)
+            if safe_stop and name in {"motor_1", "servo"}:
+                try:
+                    safe_stop()
+                except Exception:
+                    pass
+            I2C_DEVICES.pop(name, None)
+            I2C_STATUS[name].update(connected=False, state="UNAVAILABLE", error=message,
+                                    last_fault=message,
+                                    state_changed=time.monotonic() if previous != "UNAVAILABLE" else I2C_STATUS[name].get("state_changed"),
+                                    reconcile_required=False, feedback_verified=False)
 
     if I2C_BUS is not None:
         for name in boards:
@@ -342,10 +382,13 @@ def _start_hardware_devices(hardware):
                     I2C_BUS = I2CBus.open(bus_number, enabled=True)
                 except Exception as exc:
                     for status in I2C_STATUS.values():
-                        status.update(connected=False, state="UNAVAILABLE", error=str(exc))
+                        status.update(connected=False, state="UNAVAILABLE", error=str(exc),
+                                      last_fault=str(exc), feedback_verified=False)
                     continue
             for name in boards:
-                if not I2C_STATUS.get(name, {}).get("connected"):
+                if I2C_STATUS.get(name, {}).get("connected"):
+                    check(name)
+                else:
                     probe(name)
     I2C_RETRY_THREAD = Thread(target=retry_loop, name="ho-i2c-retry", daemon=True)
     I2C_RETRY_THREAD.start()
@@ -450,6 +493,8 @@ def configure_runtime(mode: str = "simulation") -> None:
     # Hardware and bench modes are explicit opt-ins; no physical stop switch required.
     import yaml
     hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
+    topology = yaml.safe_load((ROOT / "config/track_topology.yaml").read_text()) or {}
+    DISPATCHER.route_planner = RoutePlanner.from_topology(topology)
     # Re-load the Pi-persisted editor data through the same validator used by
     # POST. This is the authoritative runtime view; browser local storage is
     # never consulted by hardware adapters.
@@ -806,7 +851,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 # a motion command to a locomotive or accessory.
                 DISPATCHER.assign_destination(train_id, destination)
             elif action == "submit_request":
-                DISPATCHER.submit_request(int(payload["train_id"]), str(payload["destination"]))
+                DISPATCHER.submit_request(
+                    int(payload["train_id"]), str(payload["destination"]),
+                    origin=payload.get("origin"), priority=int(payload.get("priority", 0)))
             elif action == "cancel_request":
                 DISPATCHER.cancel_request(int(payload["train_id"]))
             elif action == "manual_takeover":

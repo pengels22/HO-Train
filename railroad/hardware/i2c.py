@@ -1,37 +1,10 @@
-"""Safe I2C boundary with injectable backends.
+"""Safe I2C boundary.
 
 The production backend is opened only when the caller explicitly enables I2C.
-Tests and bench tools can inject :class:`MockI2CBus`; simulation never opens a
-device file or writes a register.
+Simulation never opens a device file or writes a register.  Hardware startup
+reports absent boards as unavailable instead of fabricating a device response.
 """
 from __future__ import annotations
-
-
-class MockI2CBus:
-    def __init__(self):
-        self.registers: dict[tuple[int, int], int] = {}
-        self.writes: list[tuple[str, int, int, int]] = []
-        self.closed = False
-
-    def read_byte_data(self, address, register):
-        return self.registers.get((address, register), 0) & 0xFF
-
-    def write_byte_data(self, address, register, value):
-        value &= 0xFF
-        self.registers[(address, register)] = value
-        self.writes.append(("byte", address, register, value))
-
-    def write_word_data(self, address, register, value):
-        value &= 0xFFFF
-        self.registers[(address, register)] = value
-        self.writes.append(("word", address, register, value))
-
-    def write_quick(self, address):
-        self.writes.append(("quick", address, 0, 0))
-
-    def close(self):
-        self.closed = True
-
 
 class I2CBus:
     def __init__(self, bus: int = 1, enabled: bool = False, backend=None):

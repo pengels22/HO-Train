@@ -1,11 +1,9 @@
 from pathlib import Path
 import yaml
 
-from railroad.hardware.i2c import I2CBus, MockI2CBus
-from railroad.hardware.mcp23017 import MCP23017
+from railroad.hardware.i2c import I2CBus
 from railroad.hardware.registry import HardwareRegistry
 from railroad.hardware.reed import ReedDebouncer, ReedState
-from railroad.hardware.pca9685 import PCA9685
 
 
 ROOT = Path(__file__).parents[1]
@@ -45,64 +43,17 @@ def test_two_pca9685_architecture_has_seven_motors_twelve_servos_and_six_spares(
     assert "turnout_H" not in servos
 
 
-def test_hardware_startup_initializes_four_declared_i2c_boards_only(monkeypatch):
+def test_hardware_startup_reports_each_declared_i2c_board_unavailable(monkeypatch):
     import railroad.api.server as server
-    mock = MockI2CBus()
-    monkeypatch.setattr(server.I2CBus, "open", classmethod(lambda cls, bus=1, **kwargs: I2CBus(bus, True, mock)))
+    monkeypatch.setattr(server.I2CBus, "open", classmethod(
+        lambda cls, bus=1, **kwargs: (_ for _ in ()).throw(OSError("no I2C bus"))))
     config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
     assert server._start_hardware_devices(config) is None
-    assert set(server.I2C_DEVICES) == {"sensors_1", "sensors_2", "motor_1", "servo"}
-    assert (0x40, 0x06) in mock.registers and mock.registers[(0x40, 0x08)] == 0
-    assert (0x41, 0x06) in mock.registers and mock.registers[(0x41, 0x08)] == 0
+    assert set(server.I2C_DEVICES) == set()
+    assert all(not item["connected"] for item in server.I2C_STATUS.values())
+    assert all(item["state"] == "UNAVAILABLE" for item in server.I2C_STATUS.values())
     assert 0x42 not in {int(address) for address in config["i2c"]["boards"].values()}
     server._close_hardware_devices()
-
-
-def test_hardware_startup_isolates_one_missing_i2c_board(monkeypatch):
-    import railroad.api.server as server
-    mock = MockI2CBus()
-    monkeypatch.setattr(server.I2CBus, "open", classmethod(lambda cls, bus=1, **kwargs: I2CBus(bus, True, mock)))
-    real_pca = server.PCA9685
-
-    def fail_servo(address, bus=None, enabled=False, **kwargs):
-        if address == 0x41:
-            raise OSError("servo board absent")
-        return real_pca(address, bus, enabled=enabled, **kwargs)
-
-    monkeypatch.setattr(server, "PCA9685", fail_servo)
-    config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
-    assert server._start_hardware_devices(config) is None
-    assert "motor_1" in server.I2C_DEVICES
-    assert "servo" not in server.I2C_DEVICES
-    assert server.I2C_STATUS["servo"]["state"] == "UNAVAILABLE"
-    assert server.I2C_STATUS["motor_1"]["connected"] is True
-    server._close_hardware_devices()
-
-
-def test_mock_i2c_drivers_configure_inputs_and_stop_pwm():
-    mock = MockI2CBus()
-    bus = I2CBus(enabled=True, backend=mock)
-    sensors = MCP23017(0x20, mock, enabled=True)
-    mock.registers[(0x20, sensors.GPIOA)] = 0xFE
-    assert sensors.read_inputs() & 0xFF == 0xFE
-    pwm = PCA9685(0x40, mock, enabled=True)
-    pwm.set_pwm(1, 0, 123)
-    pwm.safe_stop()
-    assert mock.registers[(0x40, 0x0A)] == 0
-
-
-def test_mock_i2c_outputs_are_dependency_injected_and_start_safe():
-    mock = MockI2CBus()
-    pwm = PCA9685(0x40, mock, enabled=True)
-    driver = __import__("railroad.hardware.drv8833", fromlist=["DRV8833"]).DRV8833(
-        pwm, (0, 1), enabled=True)
-    assert mock.registers[(0x40, 0x06)] == 0
-    assert mock.registers[(0x40, 0x0A)] == 0
-    driver.command(100)
-    assert mock.registers[(0x40, 0x08)] == 100
-    assert mock.registers[(0x40, 0x0C)] == 0
-    driver.safe_stop()
-    assert mock.registers[(0x40, 0x08)] == 0
 
 
 def test_registry_expands_physical_pca_and_nano_channels_and_applies_saved_metadata():

@@ -68,8 +68,12 @@ class Dispatcher:
     cycle_route: list[str] = field(default_factory=list)
     cycle_route_index: int = 0
     cycle_motion_command: Callable[[int, int], None] | None = field(default=None, repr=False)
+    turnout_command: Callable[[str, str], None] | None = field(default=None, repr=False)
     route_planner: RoutePlanner = field(default_factory=RoutePlanner, repr=False)
     pending_requests: list[dict] = field(default_factory=list)
+    request_history: list[dict] = field(default_factory=list)
+    request_sequence: int = 0
+    active_request_id: str | None = None
     yard_adapter: object | None = field(default=None, repr=False)
     _cycle_stop: Event | None = field(default=None, repr=False)
     _cycle_thread: Thread | None = field(default=None, repr=False)
@@ -134,6 +138,16 @@ class Dispatcher:
         """Attach the approved motion writer used by an automatic-cycle adapter."""
         with self.lock:
             self.cycle_motion_command = callback
+
+    def attach_turnout_command(self, callback: Callable[[str, str], None]) -> None:
+        """Attach the commissioned turnout writer.
+
+        A command writer is deliberately separate from feedback.  The writer
+        may request an alignment, but only a physical feedback event can make
+        that alignment safe for a route.
+        """
+        with self.lock:
+            self.turnout_command = callback
 
     @property
     def stop_transport_active(self) -> bool:
@@ -264,20 +278,42 @@ class Dispatcher:
                                            turnouts=self.turnout_feedback,
                                            destinations=self.destinations)
 
-    def submit_request(self, train_id: int, destination: str) -> dict:
+    def submit_request(self, train_id: int, destination: str, *,
+                       origin: str | None = None, priority: int = 0) -> dict:
         with self.lock:
             if train_id not in self.trains:
                 raise KeyError(train_id)
+            if any(item["train_id"] == train_id and item["state"] in
+                   {"PENDING", "PLANNING", "BLOCKED", "READY", "RUNNING"}
+                   for item in self.pending_requests):
+                raise SafetyError(f"train {train_id} already has an active request")
             self.assign_destination(train_id, destination)
-            request = {"train_id": train_id, "destination": destination, "state": "PENDING"}
+            self.request_sequence += 1
+            request = {"request_id": f"req-{self.request_sequence}", "train_id": train_id,
+                       "origin": origin if origin is not None else (self.trains[train_id].zone or self.trains[train_id].parked or ""),
+                       "destination": destination, "submitted_at": time.time(),
+                       "priority": int(priority),
+                       "state": "PENDING", "planned_route": None, "blocking_reason": None,
+                       "result": None}
             self.pending_requests.append(request)
+            self.request_history.append(request.copy())
             return request.copy()
 
     def cancel_request(self, train_id: int) -> bool:
         with self.lock:
-            before = len(self.pending_requests)
-            self.pending_requests = [item for item in self.pending_requests if item["train_id"] != train_id]
-            return len(self.pending_requests) != before
+            for item in self.pending_requests:
+                if item["train_id"] == train_id and item["state"] in {"PENDING", "BLOCKED", "READY"}:
+                    item["state"] = "CANCELLED"
+                    item["result"] = "cancelled by operator"
+                    self._update_request_history(item)
+                    return True
+            return False
+
+    def _update_request_history(self, request: dict) -> None:
+        for index, old in enumerate(self.request_history):
+            if old["request_id"] == request["request_id"]:
+                self.request_history[index] = request.copy()
+                return
 
     def start_dispatcher(self) -> None:
         with self.lock:
@@ -320,8 +356,33 @@ class Dispatcher:
         """
         with self.lock:
             self.cycle_requests += 1
-            eligible = next((t for t in self.trains.values()
-                             if t.control_mode == "automatic" and t.destination and not t.parked), None)
+            active_requests = [item for item in self.pending_requests
+                               if item["state"] in {"PENDING", "BLOCKED"}]
+            active_requests.sort(key=lambda item: (-int(item.get("priority", 0)),
+                                                   float(item.get("submitted_at", 0)), item["request_id"]))
+            selected_request = None
+            eligible = None
+            for item in active_requests:
+                train = self.trains.get(item["train_id"])
+                if train is None or train.control_mode != "automatic":
+                    continue
+                if not self.simulation:
+                    proposal = self.plan_route(item["train_id"], item["origin"], item["destination"])
+                    if proposal.status is not RouteStatus.AVAILABLE:
+                        item["state"] = "BLOCKED"
+                        item["blocking_reason"] = proposal.blocking_reason
+                        item["planned_route"] = proposal.__dict__
+                        self._update_request_history(item)
+                        continue
+                selected_request, eligible = item, train
+                break
+            if eligible is None:
+                eligible = next((t for t in self.trains.values()
+                                 if t.control_mode == "automatic" and t.destination and not t.parked), None)
+            if selected_request:
+                selected_request["state"] = "PLANNING"
+                self.active_request_id = selected_request["request_id"]
+                self._update_request_history(selected_request)
             if eligible is None:
                 self.cycle_state = "IDLE"
                 self.last_cycle_plan = {"state": "IDLE", "reason": "no eligible train"}
@@ -329,12 +390,17 @@ class Dispatcher:
             self.cycle_train_id = eligible.train_id
             self.cycle_fault = None
             self.cycle_state = "PLANNING"
+            plan = None
             if not self.simulation:
                 origin = eligible.zone or ("Yard" if eligible.parked else "")
                 plan = self.plan_route(eligible.train_id, origin, eligible.destination or "")
                 if plan.status is not RouteStatus.AVAILABLE:
                     self.cycle_state = "BLOCKED"
                     self.cycle_fault = plan.blocking_reason or plan.status.value
+                    if selected_request:
+                        selected_request["state"] = "BLOCKED"
+                        selected_request["blocking_reason"] = self.cycle_fault
+                        self._update_request_history(selected_request)
                     self.last_cycle_plan = {"state": self.cycle_state, "train": eligible.train_id,
                                             "reason": self.cycle_fault, "route_status": plan.status.value}
                     return
@@ -344,14 +410,46 @@ class Dispatcher:
             if not route or not self.route_available(eligible.train_id, route):
                 self.cycle_state = "BLOCKED"
                 self.cycle_fault = "required route unavailable or protected"
+                if selected_request:
+                    selected_request["state"] = "BLOCKED"
+                    selected_request["blocking_reason"] = self.cycle_fault
+                    self._update_request_history(selected_request)
                 self.last_cycle_plan = {"state": self.cycle_state, "train": eligible.train_id,
                                         "reason": self.cycle_fault}
                 return
-            for zone in route:
-                self.reservations[zone] = eligible.train_id
+            # Reservation and alignment are one protected planning step.  A
+            # route is never exposed as READY until every requested turnout is
+            # physically confirmed or the operation is rejected.
+            if plan is not None:
+                try:
+                    self._align_turnouts(plan)
+                    self._authorize_hardware_motion(eligible.train_id)
+                except SafetyError as exc:
+                    self.cycle_state = "BLOCKED"
+                    self.cycle_fault = str(exc)
+                    if selected_request:
+                        selected_request["state"] = "BLOCKED"
+                        selected_request["blocking_reason"] = self.cycle_fault
+                        selected_request["planned_route"] = plan.__dict__
+                        self._update_request_history(selected_request)
+                    self.last_cycle_plan = {"state": self.cycle_state, "train": eligible.train_id,
+                                            "reason": self.cycle_fault}
+                    return
+            # `reserve` performs the complete check and write while holding
+            # the dispatcher lock, including the destination reservation.
+            self.reserve(eligible.train_id, route, eligible.destination)
             self.cycle_route = route
             self.cycle_route_index = 0
             self.cycle_state = "READY"
+            if selected_request:
+                selected_request["state"] = "READY"
+                selected_request["planned_route"] = {
+                    **plan.__dict__, "zones": list(route),
+                    "turnouts": list(plan.turnouts), "checkpoints": list(plan.checkpoints),
+                    "required_feedback": list(plan.required_feedback),
+                    "status": plan.status.value if plan else "READY",
+                } if plan is not None else {"zones": list(route), "status": "READY"}
+                self._update_request_history(selected_request)
             eligible.expected_checkpoint = route[0]
             eligible.checkpoint_deadline = time.monotonic() + 30.0
             motion_issued = False
@@ -359,11 +457,36 @@ class Dispatcher:
                 self.cycle_motion_command(eligible.train_id, 64)
                 eligible.velocity = 64
                 motion_issued = True
+            elif plan is not None:
+                # The hardware transport is the only production motion path.
+                self.command_motion(eligible.train_id, 64)
+                motion_issued = True
+                if selected_request:
+                    selected_request["state"] = "RUNNING"
+                    self._update_request_history(selected_request)
             self.last_cycle_plan = {"state": self.cycle_state, "train": eligible.train_id,
                                     "origin": eligible.zone, "destination": eligible.destination,
                                     "route": route,
                                     "motion_issued": motion_issued,
                                     "reason": "awaiting verified checkpoint and controller events"}
+
+    def _align_turnouts(self, plan: RoutePlan) -> None:
+        """Request missing turnout alignments and require real feedback."""
+        for turnout, required in plan.turnouts:
+            current = self.turnout_feedback.get(turnout)
+            if current == required:
+                continue
+            if self.turnout_command is None:
+                raise SafetyError(f"turnout {turnout} requires commissioned command and feedback")
+            self.turnout_command(turnout, required)
+            if self.turnout_feedback.get(turnout) != required:
+                raise SafetyError(f"turnout {turnout} alignment is not verified")
+
+    def _authorize_hardware_motion(self, train_id: int) -> None:
+        if self.motion_transport is None:
+            raise SafetyError("locomotive motion transport is unavailable")
+        if self.controller_health is None or not self.controller_health.operating_ready(train_id):
+            raise SafetyError(f"locomotive {train_id} is not communication-ready")
 
     def _cycle_route_for(self, train: Train) -> list[str]:
         routes = {"Mine": ["MAIN-2", "MINE-1"], "Farm": ["MAIN-2", "FARM-1"],
@@ -390,6 +513,14 @@ class Dispatcher:
                 train.checkpoint_deadline = (time.monotonic() if now is None else now) + 30.0
             if self.cycle_route_index >= len(self.cycle_route):
                 self.cycle_state = "COMPLETED"
+                if self.active_request_id:
+                    for request in self.pending_requests:
+                        if request["request_id"] == self.active_request_id:
+                            request["state"] = "COMPLETED"
+                            request["result"] = "arrival and clearance confirmed"
+                            self._update_request_history(request)
+                            break
+                    self.active_request_id = None
                 if self.cycle_motion_command is not None:
                     self.cycle_motion_command(train.train_id, 0)
                 train.velocity = 0
@@ -434,6 +565,8 @@ class Dispatcher:
             if train_id not in self.trains:
                 raise KeyError(train_id)
             self._enforce_destination_speed(train_id, speed)
+            if not self.simulation and speed and self.motion_transport is None:
+                raise SafetyError("locomotive motion transport is unavailable")
             if self.motion_transport:
                 self.motion_transport.send_motion(train_id, speed)
             self.trains[train_id].velocity = int(speed)
@@ -467,6 +600,8 @@ class Dispatcher:
     def assert_motion_allowed(self, train_id: int | None = None) -> None:
         if self.global_stop or self._rearm_required:
             raise SafetyError("motion command blocked by dispatcher stop/disarmed state")
+        if not self.simulation and train_id is not None:
+            self._authorize_hardware_motion(train_id)
 
     def reconcile_controller(self, locomotive_id) -> None:
         """Operator-authorized reconciliation; never called by telemetry arrival."""
@@ -689,6 +824,8 @@ class Dispatcher:
                 "turnouts":self.turnouts.copy(),"yard_power":self.yard_power.copy(),
                 "turnout_feedback": self.turnout_feedback.copy(),
                 "pending_requests": [item.copy() for item in self.pending_requests],
+                "request_history": [item.copy() for item in self.request_history],
+                "active_request_id": self.active_request_id,
                 "yard_power_requested": self.yard_power.copy(),
                 "yard_power_verified": self.yard_power_verified.copy(),
                 "yard_power_hardware": self.yard_adapter.status() if self.yard_adapter else None,

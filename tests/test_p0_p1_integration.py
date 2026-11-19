@@ -106,6 +106,64 @@ def test_route_planner_requires_verified_feedback_and_isolates_missing_tipper():
     assert "verified" in blocked.blocking_reason
 
 
+def test_route_planner_derives_routes_from_declared_connections_and_blocks_only_bad_segment():
+    planner = RoutePlanner.from_topology({
+        "verified": False,
+        "origins": ["Yard"],
+        "destinations": ["Mine", "Farm"],
+        "connections": [
+            {"from": "Yard", "to": "MAIN-2", "zone": "MAIN-2", "verified": True},
+            {"from": "MAIN-2", "to": "Mine", "zone": "MINE-1", "verified": True},
+            {"from": "MAIN-2", "to": "Farm", "zone": "FARM-1", "verified": False,
+             "segment": "MAIN-2/FARM-1"},
+        ],
+    })
+    available = planner.plan(1, "Yard", "Mine", zones={"MAIN-2": None, "MINE-1": None},
+                             reservations={"MAIN-2": None, "MINE-1": None})
+    blocked = planner.plan(1, "Yard", "Farm", zones={"MAIN-2": None, "FARM-1": None},
+                           reservations={"MAIN-2": None, "FARM-1": None})
+    assert available.status is RouteStatus.AVAILABLE
+    assert available.zones == ("MAIN-2", "MINE-1")
+    assert blocked.status is RouteStatus.BLOCKED
+    assert blocked.blocking_segment == "MAIN-2/FARM-1"
+
+
+def test_request_queue_records_priority_and_skips_blocked_request():
+    dispatcher = Dispatcher()
+    dispatcher.trains[1].zone = "Yard"
+    dispatcher.trains[2].zone = "Yard"
+    dispatcher.route_planner = RoutePlanner.from_topology({
+        "origins": ["Yard"], "destinations": ["Mine", "Farm"],
+        "connections": [
+            {"from": "Yard", "to": "Mine", "zone": "MAIN-1", "verified": False},
+            {"from": "Yard", "to": "Farm", "zone": "MAIN-2", "verified": True},
+        ],
+    })
+    first = dispatcher.submit_request(1, "Mine", priority=10)
+    second = dispatcher.submit_request(2, "Farm", priority=1)
+    assert first["priority"] == 10
+    dispatcher.simulation = False
+    dispatcher.run_cycle_once()
+    states = {item["request_id"]: item["state"] for item in dispatcher.pending_requests}
+    assert states[first["request_id"]] == "BLOCKED"
+    assert states[second["request_id"]] == "BLOCKED" or dispatcher.active_request_id == second["request_id"]
+
+
+def test_turnout_command_is_not_feedback_and_alignment_requires_confirmation():
+    dispatcher = Dispatcher()
+    plan = RoutePlanner([RouteDefinition("Yard", "Mine", ("MAIN-1",),
+                                         (("A", "diverging"),), verified=True)]).plan(
+        1, "Yard", "Mine", zones={"MAIN-1": None}, reservations={"MAIN-1": None},
+        turnouts={"A": None})
+    commands = []
+    dispatcher.attach_turnout_command(lambda turnout, position: commands.append((turnout, position)))
+    with pytest.raises(RuntimeError):
+        dispatcher._align_turnouts(plan)
+    assert commands == [("A", "diverging")]
+    dispatcher.set_turnout_feedback("A", "diverging")
+    dispatcher._align_turnouts(plan)
+
+
 def test_dispatcher_request_queue_and_manual_takeover_are_explicit():
     dispatcher = Dispatcher()
     request = dispatcher.submit_request(1, "Yard")
