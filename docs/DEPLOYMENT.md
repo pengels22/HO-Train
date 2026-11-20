@@ -2,6 +2,11 @@
 
 Install Raspberry Pi OS, Python 3.11+, clone the repository, create a virtual environment, install the package, and review `config/hardware.yaml`, `config/yard_power.yaml`, and the wiring PDF. Hardware mode is the deployment target but remains OFF/DISARMED until power rails, fuses, I2C levels, relays, controller-local watchdogs, and controller links have been bench-verified. A physical E-Stop is not part of this project and must not be treated as a commissioning prerequisite. Use `--mode simulation` only for developer testing.
 
+Turnouts A-G are three-wire SPDT loads, not servo outputs. Their active-low
+relay channels are on PCA9685 `0x41` (`config/turnout_relays.yaml`): NC is
+straight and NO is diverging, with external +12 V supplied separately to the
+turnout common. Only the Farm and Town gates are genuine Pi-side servos.
+
 Controller registration is fixed by architecture: locomotive IDs 1-4 use
 `m5_atom_echo` over UDP; the Espressif USB serial identity ending in `64:5C` is
 the dedicated XIAO ESP32-C6 turntable controller; and the identity ending in

@@ -14,12 +14,12 @@
 
 ## Bench/unverified
 
-- Physical locomotive motion, sensor electrical levels, turnouts, tipper sequence, and relay harness remain bench-unverified. Drivers fail closed and require explicit hardware enable/arm.
+- Physical locomotive motion, sensor electrical levels, relay-driven turnouts, tipper sequence, and relay harness remain bench-unverified. Drivers fail closed and require explicit hardware enable/arm. Turnout state is commanded open-loop because no turnout feedback sensors are installed; the Farm/Town gates are the only genuine servos.
 - All zone geometry, zone transitions, and multi-zone route conflict behavior.
 
 ## Awaiting hardware
 
-- Raspberry Pi GPIO/I²C electrical validation, exact XIAO ESP32-C6/DRV8871 firmware pinout and build, IR decoder, surveyed track graph, servo geometry, tipper home/alignment feedback, electrical/fuse verification, and MQTT integration.
+- Raspberry Pi GPIO/I²C electrical validation, exact XIAO ESP32-C6/DRV8871 firmware pinout and build, IR decoder, surveyed track graph, gate servo geometry, tipper home/alignment feedback, electrical/fuse verification, and MQTT integration.
 - Physical survey/confirmation of the 15 zone boundaries, elevations, segment connectivity, turnout adjacency, and consist-clearance behavior.
 
 ## Known issues / remaining tasks

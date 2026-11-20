@@ -11,7 +11,7 @@
 | Tipper motor/decoupler | Dedicated C6 firmware fail-closed path present | `railroad/automation/tipper.py`, `firmware/tipper_esp32c6/README.md`; board pin map, feedback polarity, and mechanical limits remain to be verified. |
 | PCA9685 motor/servo outputs | Existing configurable interface, not commissioned here | `config/hardware.yaml` and hardware modules; no outputs are initialized in simulation. |
 | MCP23017 sensor inputs | Existing configuration, not commissioned here | `config/hardware.yaml`, `config/sensors.yaml`; validate addresses and duplicate assignments on the Pi. |
-| Yard relays and turnout servos | Safety/configuration boundary only | Hardware output mapping and commissioning remain required; simulation keeps them disabled. |
+| Yard relays and turnout SPDT relays | Safety/configuration boundary only | Yard outputs and active-low PCA9685 `0x41` turnout relay mapping require physical commissioning; external turnout +12 V is separate and never sourced by the Pi. The only genuine servos are the Farm/Town gates. |
 | USB IR receivers | Protocol/configuration boundary | Registered receiver ports and validated serial framing remain deployment configuration. |
 
 No row is considered hardware-ready until firmware compilation and physical

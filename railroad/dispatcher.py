@@ -164,11 +164,11 @@ class Dispatcher:
             self.cycle_motion_command = callback
 
     def attach_turnout_command(self, callback: Callable[[str, str], None]) -> None:
-        """Attach the open-loop turnout servo writer.
+        """Attach the open-loop turnout relay writer.
 
-        Turnout servos have their own local position loop.  The dispatcher
-        records the commanded alignment; no separate turnout feedback input is
-        required by this layout.
+        A relay command selects NC/straight or NO/diverging. The dispatcher
+        records the commanded alignment; no turnout feedback input is
+        installed on this layout.
         """
         with self.lock:
             self.turnout_command = callback
@@ -496,7 +496,7 @@ class Dispatcher:
                                     "reason": "awaiting verified checkpoint and controller events"}
 
     def _align_turnouts(self, plan: RoutePlan) -> None:
-        """Command missing turnout alignments and accept the servo command."""
+        """Command missing turnout alignments and record the relay assumption."""
         for turnout, required in plan.turnouts:
             current = self.turnouts.get(turnout)
             if current == required:
