@@ -14,7 +14,7 @@ def test_registry_has_station_inputs_and_unassigned_turnout_input_channels():
     registry = HardwareRegistry.from_config(config).require_valid()
     inputs = [e for e in registry.entries if e.device_type == "mcp23017"]
     assert len(inputs) == 32
-    assert sum(e.spare for e in inputs) == 25
+    assert sum(e.spare for e in inputs) == 4
     assert not any("turnout_H" in e.function for e in inputs)
 
 
@@ -39,8 +39,19 @@ def test_two_pca9685_architecture_has_seven_motors_two_servos_and_relay_turnouts
     assert len(motors) == 7 and len(motor_channels) == 14 and len(set(motor_channels)) == 14
     assert len(servos) == 2 and len(set(servo_channels)) == 2
     assert set(range(16)) - set(motor_channels) == {14, 15}
-    assert set(range(16)) - set(servo_channels) == {1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+    assert set(servo_channels) == {14, 15}
     assert "turnout_H" not in servos
+
+    relays = yaml.safe_load((ROOT / "config/turnout_relays.yaml").read_text())["turnouts"]
+    assert {name: item["output"] for name, item in relays.items()} == dict(zip("ABCDEFG", range(7)))
+
+    sensors = yaml.safe_load((ROOT / "config/sensors.yaml").read_text())["mcp23017"]
+    logical_inputs = [name for mapping in sensors.values() for name in mapping.values()]
+    assert logical_inputs[:21] == [
+        f"turnout_{turnout}_{role}"
+        for turnout in "ABCDEFG"
+        for role in ("common", "straight", "divergent")
+    ]
 
 
 def test_hardware_startup_reports_each_declared_i2c_board_unavailable(monkeypatch):

@@ -12,10 +12,10 @@ controller: servo
 board: 0x41
 active_high: false
 turnouts:
-  A: {output: 1, straight_contact: NC, diverging_contact: NO}
-  B: {output: 2, straight_contact: NC, diverging_contact: NO}
-  C: {output: 3, straight_contact: NC, diverging_contact: NO}
-  D: {output: 9, straight_contact: NC, diverging_contact: NO}
-  E: {output: 10, straight_contact: NC, diverging_contact: NO}
-  F: {output: 11, straight_contact: NC, diverging_contact: NO}
-  G: {output: 12, straight_contact: NC, diverging_contact: NO}
+  A: {output: 0, straight_contact: NC, diverging_contact: NO}
+  B: {output: 1, straight_contact: NC, diverging_contact: NO}
+  C: {output: 2, straight_contact: NC, diverging_contact: NO}
+  D: {output: 3, straight_contact: NC, diverging_contact: NO}
+  E: {output: 4, straight_contact: NC, diverging_contact: NO}
+  F: {output: 5, straight_contact: NC, diverging_contact: NO}
+  G: {output: 6, straight_contact: NC, diverging_contact: NO}

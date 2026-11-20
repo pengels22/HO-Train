@@ -18,8 +18,8 @@ Source: user-exported `HO_Train_Unified_Geography.json` from the standalone unif
 
 The imported geometry contains historical Turnout H and provisional turnout
 feedback-sensor records. These are retained for traceability but are not part
-of the current powered A-G relay roster: no turnout feedback sensors are
-installed, and H remains unresolved legacy turntable topology.
+of the current powered A-G relay roster: the newly mapped reed inputs remain
+physically unverified, and H remains unresolved legacy turntable topology.
 3. Render on the matching native mockup image, or compute exactly one tested transform to another image.
 4. Map JMRI segment IDs and explicit junction connections. The track's operating graph and turnout H common/straight mapping remain unverified; no automated dispatch until validated.
 5. Update dashboard, sensor config and route simulation for turnout H and UND-4 with safe stopping interlocks. No live hardware outputs.

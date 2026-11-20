@@ -14,7 +14,7 @@
 
 ## Bench/unverified
 
-- Physical locomotive motion, sensor electrical levels, relay-driven turnouts, tipper sequence, and relay harness remain bench-unverified. Drivers fail closed and require explicit hardware enable/arm. Turnout state is commanded open-loop because no turnout feedback sensors are installed; the Farm/Town gates are the only genuine servos.
+- Physical locomotive motion, sensor electrical levels, relay-driven turnouts, turnout reed installation, tipper sequence, and relay harness remain bench-unverified. Drivers fail closed and require explicit hardware enable/arm. Turnout state remains commanded open-loop until the common/straight/divergent reed inputs are validated; the Farm/Town gates are the only genuine servos.
 - All zone geometry, zone transitions, and multi-zone route conflict behavior.
 
 ## Awaiting hardware

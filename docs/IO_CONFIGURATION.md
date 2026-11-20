@@ -10,7 +10,7 @@ the following controller views:
 | Controller | Physical device | Channels |
 | --- | --- | --- |
 | Motion Controller 1 | PCA9685 `0x40` (`motor_1`) | 0–15 |
-| Servo Controller | PCA9685 `0x41` (`servo`) | 0–15 |
+| Servo/Turnout Controller | PCA9685 `0x41` (`servo`) | 0–15 |
 | Input Controller 1 | MCP23017 `0x20` (`sensors_1`) | GPA0–GPB7 |
 | Input Controller 2 | MCP23017 `0x21` (`sensors_2`) | GPA0–GPB7 |
 | IR Sensor Configuration | Nano ESP USB receiver | CH1–CH12 |
@@ -22,14 +22,22 @@ IR channels are digital inputs; their bias is either `Pull-up (internal)` or
 these Pi controller views because those are standalone USB controllers.
 
 Turnouts A-G are three-wire SPDT loads, not servos. Their external +12 V
-common is switched by a relay: NC is straight and NO is diverging. No turnout
-feedback input is installed; the dispatcher records the commanded relay state.
+common is switched by a relay: NC is straight and NO is diverging. The logical
+common/straight/divergent reed inputs are assigned below; physical reed
+installation and polarity remain commissioning items. The dispatcher records
+the commanded relay state until those inputs are validated.
 Relay control uses active-low PCA9685 `0x41` outputs: zero duty energizes
 NO/diverging and full duty releases to NC/straight, as mapped in
 `config/turnout_relays.yaml`. The Pi never sources the external turnout +12 V
 directly.
 
-The two genuine servos, Farm gates and Town gates, use the same simple profile:
+The logical relay order is A-G on channels 0-6. Each turnout has three reed
+inputs in sequential MCP order: common, straight, then divergent. The two
+gate servos use channels 14 and 15; channels 7-13 remain available for future
+non-turnout outputs.
+
+The two genuine servos, Farm gates and Town gates, use channels 14 and 15 with
+the same simple profile:
 home at 90°, actuate to 0°, then return to 90°.
 
 The Pi keeps the physical board identity (`pca9685`, address, and channel)

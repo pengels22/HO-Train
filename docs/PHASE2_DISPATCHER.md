@@ -8,9 +8,11 @@ Routes are conservative by default: the current layout configuration is marked
 physically unverified, so a hardware runtime cannot start a movement from a
 route plan until the surveyed topology, controller availability, occupancy,
 and commanded turnout alignment are all present. Turnouts A-G are relay-driven
-three-wire SPDT loads and have no position feedback sensors; the dispatcher
-records the relay command as an open-loop assumption and must not describe it
-as sensor-confirmed. No missing sensor or controller is interpreted as clear.
+three-wire SPDT loads with logically assigned common/straight/divergent reed
+inputs. Those inputs are not yet physically validated; until validation the
+dispatcher records the relay command as an open-loop assumption and must not
+describe it as sensor-confirmed. No missing sensor or controller is interpreted
+as clear.
 
 The automatic controls are explicit. `enable_automatic` enables scheduling but
 does not start a cycle; `run_cycle_once` is the operator authorization for one
@@ -24,6 +26,11 @@ controllers. I²C boards are probed independently. An absent board is reported
 as `UNAVAILABLE`, retried periodically, and cannot stop unrelated controller
 operation. Newly connected PWM boards initialize safe-off and require
 reconciliation before being considered ready.
+
+The logical 0x41 output order is turnout A-G on channels 0-6, spare channels
+7-13, and Farm/Town gate servos on channels 14-15. MCP inputs are grouped as
+common/straight/divergent reed inputs for each turnout, followed by the
+station inputs.
 
 Topology, physical relay/turnout commissioning, Nano IR checkpoint assignments, consist-clearance
 signals, yard relay mappings, and calibrated locomotive speeds remain physical

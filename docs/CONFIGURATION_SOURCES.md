@@ -20,7 +20,7 @@ validated deployment.
 The current powered turnout roster is A-G. These are three-wire SPDT loads
 switched by active-low relay outputs on PCA9685 `0x41` as defined in
 `config/turnout_relays.yaml`: NC is straight and NO is diverging. There are no
-turnout position sensors. The H references in imported JMRI geometry and legacy
+turnout position sensors are physically unverified. The H references in imported JMRI geometry and legacy
 turntable topology are retained as historical/unresolved source data and are
 not part of the current powered-turnout inventory.
 
