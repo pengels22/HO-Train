@@ -8,7 +8,7 @@ function renderGeometryEditor(){let p=document.getElementById('dashboard-geometr
 function ensureDashboardGeometryEditor(){if(!document.querySelector('.map-tools')||!state.geography)return;let b=document.getElementById('edit-geometry');if(!b){b=document.createElement('button');b.id='edit-geometry';b.textContent='Edit Geometry';document.querySelector('.map-tools').prepend(b);b.onclick=()=>{state.geometryEdit=!state.geometryEdit;if(state.geometryEdit&&!state.geometrySaved)state.geometrySaved=geometrySnapshot();b.textContent=state.geometryEdit?'Close Editor':'Edit Geometry';b.classList.toggle('primary-button',state.geometryEdit);renderGeometryEditor();drawCenterlines();};}let p=document.getElementById('dashboard-geometry-editor');if(!p){p=document.createElement('div');p.id='dashboard-geometry-editor';p.className='geometry-editor-panel';p.hidden=true;document.querySelector('.map-footer').after(p);}renderGeometryEditor();}
 const $=id=>document.getElementById(id),svgNS='http://www.w3.org/2000/svg';
 setInterval(()=>{if(typeof state!=='undefined'&&state.geography){ensureDashboardGeometryEditor();if(!state.geometryEdit&&document.getElementById('show-centerlines')){document.getElementById('show-centerlines').checked=false;drawCenterlines();}if(!document.getElementById('settings-tab')?.hidden)renderTrackGeometryEditor()}},500);
-const state={status:null,zones:[],boundaries:{},geography:null,config:null,calibration:null,commandedSpeeds:{},scale:1,x:0,y:0,drag:null,dragMarker:null,editorZone:null,showLabels:false,geometryEdit:false,selectedSegment:null,selectedPoint:0,geometryUndo:[],geometrySaved:null};
+const state={status:null,zones:[],boundaries:{},geography:null,config:null,calibration:null,commandedSpeeds:{},commandedDirections:{},speedUpdateTimers:{},scale:1,x:0,y:0,drag:null,dragMarker:null,editorZone:null,showLabels:false,geometryEdit:false,selectedSegment:null,selectedPoint:0,geometryUndo:[],geometrySaved:null};
 function ensureLabelToggle(){if($('show-zone-labels'))return;const lines=document.createElement('label');lines.innerHTML='<input id="show-centerlines" type="checkbox" checked> Centerlines';const labels=document.createElement('label');labels.innerHTML='<input id="show-zone-labels" type="checkbox"> Labels';const snap=document.createElement('label');snap.innerHTML='<input id="snap-markers" type="checkbox" checked> Snap to path';const status=document.createElement('span');status.id='calibration-status';status.className='centerline-status';status.textContent='Centerline proposals · unverified';document.querySelector('.map-footer').prepend(lines,snap,labels,status);$('show-centerlines').onchange=drawCenterlines;}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))} function fmt(v){return v==null?'—':v}
 function setTab(name){document.querySelectorAll('.nav-tab,.side-link').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));document.querySelectorAll('.tab-panel').forEach(p=>{p.hidden=p.id!==name+'-tab';p.classList.toggle('active',p.id===name+'-tab')});if(name==='settings')renderSettings();}
@@ -95,7 +95,28 @@ document.addEventListener('input',event=>{
   const container=card?.closest('#trains-tab,#dashboard-tab');
   const cards=container?[...container.querySelectorAll('.detailed-train-card,.dashboard-train-card')]:[];
   const train=state.status?.trains?.[cards.indexOf(card)];
-  if(train)state.commandedSpeeds[train.id]=Math.max(0,Math.min(100,Number(range.value)||0));
+  if(train){
+    const percent=Math.max(0,Math.min(100,Number(range.value)||0));
+    state.commandedSpeeds[train.id]=percent;
+    // A slider change while moving is a throttle update, not just a UI
+    // preference. Preserve the last commanded direction. When stopped, keep
+    // the value for the next FWD/REV command without starting the train.
+    const currentSpeed=Number(train.speed)||0;
+    const direction=currentSpeed<0?-1:currentSpeed>0?1:(state.commandedDirections[train.id]||0);
+    if(direction&&currentSpeed!==0){
+      clearTimeout(state.speedUpdateTimers[train.id]);
+      state.speedUpdateTimers[train.id]=setTimeout(async()=>{
+        const speed=direction*Math.max(1,Math.min(255,Math.round(percent*2.55)));
+        try{
+          const response=await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'command_motion',train_id:train.id,speed})});
+          const data=await response.json();
+          if(!response.ok||!data.ok)throw Error(data.error||`command rejected (${response.status})`);
+          state.status=data.status||state.status;
+          controlFeedback(`Train ${train.id}: ${Math.round(Math.abs(speed)/2.55)}% ${speed>0?'forward':'reverse'}`);
+        }catch(error){controlFeedback(`Train ${train.id}: ${error.message}`,true);console.error(error)}
+      },75);
+    }
+  }
   const display=card?.querySelector('.train-card-speed,.dashboard-train-speed');
   if(display)display.textContent=`${Math.round(Number(range.value)||0)}%`;
 });
@@ -129,7 +150,10 @@ document.addEventListener('click',async event=>{
   event.preventDefault();event.stopImmediatePropagation();button.disabled=true;
   try{
     const request={action:speed?'command_motion':'stop_train',train_id:train.id,...(speed?{speed}:{})};
-    if(speed)state.commandedSpeeds[train.id]=Math.round(Math.abs(speed)/2.55);
+    if(speed){
+      state.commandedSpeeds[train.id]=Math.round(Math.abs(speed)/2.55);
+      state.commandedDirections[train.id]=speed<0?-1:1;
+    }
     const response=await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
     const data=await response.json();
     if(!response.ok||!data.ok)throw Error(data.error||`command rejected (${response.status})`);
