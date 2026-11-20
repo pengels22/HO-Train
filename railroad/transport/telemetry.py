@@ -207,7 +207,12 @@ class ControllerHealthRegistry:
                 if item is None or now - item[1] > self.freshness_s:
                     return False
                 telemetry, _ = item
-                return (self.usb_registry.all_required_ready() and telemetry.state == "ARMED" and
+                # Locomotive UDP operation is independent of USB accessory
+                # controllers.  A disconnected turntable, tipper, or other
+                # accessory must not block a locomotive whose own telemetry is
+                # fresh and safe; route-level operations apply their own
+                # accessory prerequisites separately.
+                return (telemetry.state == "ARMED" and
                         telemetry.armed and not telemetry.estop and not telemetry.communication_fault and
                         not any(k.startswith(f"locomotive-{int(locomotive_id)}:") for k in self._failures))
             fresh = all(i in self.telemetry and now - self.telemetry[i][1] <= self.freshness_s for i in self.required_locomotives)

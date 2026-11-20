@@ -80,6 +80,17 @@ def test_independent_locomotives_do_not_require_missing_fleet_members():
     assert status["locomotive-2"]["required"] is False
 
 
+def test_individual_locomotive_motion_does_not_require_usb_accessories():
+    accessory = RegisteredController("tipper", "/dev/missing", lambda _: None)
+    health = ControllerHealthRegistry(
+        ControllerRegistry([accessory]), locomotive_ids=[1],
+        independent_locomotives=True,
+    )
+    health.update(telemetry(sequence=1).encode(), now=time.monotonic())
+    assert not health.usb_registry.all_required_ready()
+    assert health.operating_ready(1)
+
+
 def test_parked_missing_telemetry_is_not_a_fault_but_moving_is():
     health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1, 2], independent_locomotives=True)
     parked = {item["id"]: item for item in health.status(moving_locomotives={1: False, 2: True})}
