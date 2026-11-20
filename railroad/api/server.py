@@ -868,6 +868,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 DISPATCHER.stop_train(int(payload["train_id"]))
             elif action == "command_motion":
                 DISPATCHER.command_motion(int(payload["train_id"]), int(payload["speed"]))
+            elif action == "speed_calibration_arm":
+                DISPATCHER.arm_speed_calibration(
+                    int(payload["train_id"]), str(payload["start_receiver"]),
+                    str(payload["end_receiver"]), float(payload.get("distance_mm", 914.4)),
+                    int(payload.get("stop_delay_ms", 1000)))
+            elif action == "speed_calibration_cancel":
+                DISPATCHER.cancel_speed_calibration()
+            elif action == "speed_calibration_save":
+                calibration = DISPATCHER.speed_calibration
+                if calibration.get("state") != "COMPLETE":
+                    raise SafetyError("speed calibration is not complete")
+                import yaml
+                path = ROOT / "config/locomotives.yaml"
+                data = yaml.safe_load(path.read_text()) or {}
+                train_id = int(calibration["train_id"])
+                value = float(calibration["speed_mm_s_at_255"])
+                for locomotive in data.get("locomotives", []):
+                    if int(locomotive.get("id")) == train_id:
+                        locomotive["speed_mm_s_at_255"] = value
+                        locomotive["calibration_status"] = "verified_two_receiver_run"
+                        break
+                else:
+                    raise KeyError(f"unknown locomotive {train_id}")
+                path.write_text(yaml.safe_dump(data, sort_keys=False))
             elif action == "controller_command":
                 controller_id = str(payload["controller_id"])
                 command = str(payload["command"])

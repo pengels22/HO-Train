@@ -100,6 +100,8 @@ class Dispatcher:
     accessory_errors: dict[str, str] = field(default_factory=dict, repr=False)
     controller_health: object | None = field(default=None, repr=False)
     _commanded_at: dict[int, float] = field(default_factory=dict, repr=False)
+    speed_calibration: dict = field(default_factory=lambda: {"state": "IDLE"}, repr=False)
+    _speed_calibration_timer: object | None = field(default=None, repr=False)
     # Calibrated physical velocity at full command, per locomotive. None means
     # the locomotive is not authorized for automatic slow-destination motion.
     speed_mm_s_at_255: dict[int, float | None] = field(default_factory=dict, repr=False)
@@ -611,6 +613,85 @@ class Dispatcher:
             raise ValueError("calibrated speed must be positive")
         self.speed_mm_s_at_255[train_id] = mm_s_at_255
 
+    def arm_speed_calibration(self, train_id: int, start_receiver: str,
+                              end_receiver: str, distance_mm: float = 914.4,
+                              stop_delay_ms: int = 1000) -> dict:
+        """Arm a measured two-receiver full-speed run; does not start motion."""
+        if train_id not in self.trains:
+            raise KeyError(train_id)
+        if not start_receiver or not end_receiver or start_receiver == end_receiver:
+            raise ValueError("calibration requires two different receivers")
+        if distance_mm <= 0 or stop_delay_ms < 0:
+            raise ValueError("calibration distance and stop delay must be positive")
+        with self.lock:
+            if self.speed_calibration.get("state") in {"ARMED", "TIMING", "STOP_PENDING"}:
+                raise SafetyError("speed calibration is already active")
+            self.speed_calibration = {
+                "state": "ARMED", "train_id": train_id,
+                "start_receiver": start_receiver, "end_receiver": end_receiver,
+                "distance_mm": float(distance_mm), "stop_delay_ms": int(stop_delay_ms),
+                "started_at": None, "ended_at": None, "elapsed_s": None,
+                "speed_mm_s": None, "speed_mm_s_at_255": None,
+                "error": None,
+            }
+            return dict(self.speed_calibration)
+
+    def cancel_speed_calibration(self) -> dict:
+        with self.lock:
+            if self._speed_calibration_timer is not None:
+                self._speed_calibration_timer.cancel()
+                self._speed_calibration_timer = None
+            self.speed_calibration = {"state": "IDLE"}
+            return dict(self.speed_calibration)
+
+    def _handle_speed_calibration_event(self, event) -> bool:
+        """Consume matching receiver edges and calculate commanded speed."""
+        with self.lock:
+            calibration = self.speed_calibration
+            if event.train_id != calibration.get("train_id"):
+                return False
+            receiver = event.receiver_id
+            if calibration.get("state") == "ARMED" and receiver == calibration.get("start_receiver"):
+                command_speed = abs(self.trains[event.train_id].velocity)
+                if command_speed <= 0:
+                    calibration["error"] = "train must be moving at the start receiver"
+                    return True
+                calibration.update({"state": "TIMING", "started_at": event.timestamp,
+                                    "command_speed": command_speed})
+                return True
+            if calibration.get("state") != "TIMING" or receiver != calibration.get("end_receiver"):
+                return False
+            elapsed = event.timestamp - float(calibration["started_at"])
+            if elapsed <= 0:
+                calibration["state"] = "ERROR"
+                calibration["error"] = "receiver timestamps are not monotonic"
+                return True
+            measured = float(calibration["distance_mm"]) / elapsed
+            command_speed = max(1, int(calibration.get("command_speed", 255)))
+            normalized = measured * 255.0 / command_speed
+            calibration.update({"state": "STOP_PENDING", "ended_at": event.timestamp,
+                                "elapsed_s": elapsed, "speed_mm_s": measured,
+                                "speed_mm_s_at_255": normalized})
+            train_id = event.train_id
+            delay = int(calibration["stop_delay_ms"]) / 1000.0
+            def finish():
+                try:
+                    self.stop_train(train_id)
+                    with self.lock:
+                        self.set_speed_calibration(train_id, normalized)
+                        self.speed_calibration["state"] = "COMPLETE"
+                except Exception as exc:
+                    with self.lock:
+                        self.speed_calibration["state"] = "ERROR"
+                        self.speed_calibration["error"] = str(exc)
+                finally:
+                    self._speed_calibration_timer = None
+            from threading import Timer
+            self._speed_calibration_timer = Timer(delay, finish)
+            self._speed_calibration_timer.daemon = True
+            self._speed_calibration_timer.start()
+            return True
+
     def _enforce_destination_speed(self, train_id: int, speed: int) -> None:
         destination = self.trains[train_id].destination
         if destination not in SLOW_DESTINATIONS or speed == 0:
@@ -805,6 +886,7 @@ class Dispatcher:
             train.parked = stall
             if stall is not None:
                 train.zone = "YARD"
+            self._handle_speed_calibration_event(event)
             self.checkpoint(event.train_id, event.receiver_id, zone=zone, now=event.timestamp)
         return location
 
@@ -846,6 +928,8 @@ class Dispatcher:
                                 if self.controller_health else []),
                 "stop_transport_active":self.stop_transport_active,
                 "motion_armed":not self._rearm_required and not self.global_stop,
+                "speed_calibration": self.speed_calibration.copy(),
+                "speed_calibrations_mm_s_at_255": self.speed_mm_s_at_255.copy(),
                 "accessory_stop_faults":self.accessory_errors.copy(),
                 "tipper":{"state":self.tipper,"fault":self.tipper_fault,"protected_zones":sorted(TIPPER_LOCKED)},
                 "trains":[{"id":t.train_id,"name":t.name,"type":t.kind,"zone":t.zone,
