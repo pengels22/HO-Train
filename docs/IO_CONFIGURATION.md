@@ -29,6 +29,9 @@ NO/diverging and full duty releases to NC/straight, as mapped in
 `config/turnout_relays.yaml`. The Pi never sources the external turnout +12 V
 directly.
 
+The two genuine servos, Farm gates and Town gates, use the same simple profile:
+home at 90°, actuate to 0°, then return to 90°.
+
 The Pi keeps the physical board identity (`pca9685`, address, and channel)
 separate from the editable assignment. Existing `motion2` CSV rows are
 migrated to the servo controller; incompatible motor assignments are preserved
