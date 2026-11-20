@@ -296,6 +296,22 @@ def _close_hardware_devices():
     I2C_STATUS = {}
 
 
+def _command_turnout_servo(turnout: str, position: str) -> None:
+    """Write an open-loop turnout angle through the configured servo board."""
+    import yaml
+    servo_config = yaml.safe_load((ROOT / "config/servos.yaml").read_text()) or {}
+    entry = (servo_config.get("servos", {}) or {}).get(f"turnout_{turnout}")
+    if not entry:
+        raise SafetyError(f"turnout {turnout} has no configured servo channel")
+    angle_key = "straight_angle" if position == "straight" else "diverging_angle"
+    if angle_key not in entry:
+        raise SafetyError(f"turnout {turnout} has no configured {position} servo angle")
+    device = I2C_DEVICES.get("servo")
+    if device is None:
+        raise SafetyError("turnout servo controller is unavailable")
+    device.set_servo_angle(int(entry["channel"]), float(entry[angle_key]))
+
+
 def _start_hardware_devices(hardware):
     """Open declared I2C boards independently; absent boards stay unavailable."""
     global I2C_BUS, I2C_DEVICES, I2C_STATUS, I2C_RETRY_STOP, I2C_RETRY_THREAD
@@ -501,6 +517,7 @@ def configure_runtime(mode: str = "simulation") -> None:
     IO_CONFIG_STATE = _effective_io_config(hardware)
     IO_HARDWARE_REGISTRY = HardwareRegistry.from_config(hardware, IO_CONFIG_STATE).require_valid()
     hardware_error = _start_hardware_devices(hardware)
+    DISPATCHER.attach_turnout_command(_command_turnout_servo)
     if hardware_error:
         DISPATCHER.accessory_errors["i2c"] = hardware_error
     else:

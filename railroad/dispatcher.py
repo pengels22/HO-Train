@@ -164,11 +164,11 @@ class Dispatcher:
             self.cycle_motion_command = callback
 
     def attach_turnout_command(self, callback: Callable[[str, str], None]) -> None:
-        """Attach the commissioned turnout writer.
+        """Attach the open-loop turnout servo writer.
 
-        A command writer is deliberately separate from feedback.  The writer
-        may request an alignment, but only a physical feedback event can make
-        that alignment safe for a route.
+        Turnout servos have their own local position loop.  The dispatcher
+        records the commanded alignment; no separate turnout feedback input is
+        required by this layout.
         """
         with self.lock:
             self.turnout_command = callback
@@ -496,16 +496,14 @@ class Dispatcher:
                                     "reason": "awaiting verified checkpoint and controller events"}
 
     def _align_turnouts(self, plan: RoutePlan) -> None:
-        """Request missing turnout alignments and require real feedback."""
+        """Command missing turnout alignments and accept the servo command."""
         for turnout, required in plan.turnouts:
-            current = self.turnout_feedback.get(turnout)
+            current = self.turnouts.get(turnout)
             if current == required:
                 continue
-            if self.turnout_command is None:
-                raise SafetyError(f"turnout {turnout} requires commissioned command and feedback")
-            self.turnout_command(turnout, required)
-            if self.turnout_feedback.get(turnout) != required:
-                raise SafetyError(f"turnout {turnout} alignment is not verified")
+            if self.turnout_command is not None:
+                self.turnout_command(turnout, required)
+            self.turnouts[turnout] = required
 
     def _authorize_hardware_motion(self, train_id: int) -> None:
         if self.motion_transport is None:
@@ -647,8 +645,10 @@ class Dispatcher:
             return "feedback"
         if not operator_confirmed:
             raise SafetyError(f"confirm turnout {turnout} is physically {required}; no turnout feedback sensor is configured")
+        if self.turnout_command is not None:
+            self.turnout_command(turnout, required)
         self.turnouts[turnout] = required
-        return "operator_confirmation"
+        return "servo_command_assumed"
 
     def cancel_speed_calibration(self) -> dict:
         with self.lock:

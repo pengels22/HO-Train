@@ -3,7 +3,7 @@ servos:
   farm_gates: {channel: 0, min_us: 600, max_us: 2400}
   turnout_A: {channel: 1}
   turnout_B: {channel: 2}
-  turnout_C: {channel: 3}
+  turnout_C: {channel: 3, straight_angle: 45}
   town_gates: {channel: 4}
   yard_1: {channel: 5}
   yard_2: {channel: 6}

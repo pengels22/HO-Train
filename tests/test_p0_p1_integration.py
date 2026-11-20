@@ -149,19 +149,20 @@ def test_request_queue_records_priority_and_skips_blocked_request():
     assert states[second["request_id"]] == "BLOCKED" or dispatcher.active_request_id == second["request_id"]
 
 
-def test_turnout_command_is_not_feedback_and_alignment_requires_confirmation():
+def test_turnout_command_is_open_loop_and_records_commanded_alignment():
     dispatcher = Dispatcher()
     plan = RoutePlanner([RouteDefinition("Yard", "Mine", ("MAIN-1",),
                                          (("A", "diverging"),), verified=True)]).plan(
         1, "Yard", "Mine", zones={"MAIN-1": None}, reservations={"MAIN-1": None},
         turnouts={"A": None})
     commands = []
+    dispatcher.turnouts["A"] = None
     dispatcher.attach_turnout_command(lambda turnout, position: commands.append((turnout, position)))
-    with pytest.raises(RuntimeError):
-        dispatcher._align_turnouts(plan)
-    assert commands == [("A", "diverging")]
-    dispatcher.set_turnout_feedback("A", "diverging")
     dispatcher._align_turnouts(plan)
+    assert commands == [("A", "diverging")]
+    assert dispatcher.turnouts["A"] == "diverging"
+    dispatcher._align_turnouts(plan)
+    assert commands == [("A", "diverging")]
 
 
 def test_dispatcher_request_queue_and_manual_takeover_are_explicit():

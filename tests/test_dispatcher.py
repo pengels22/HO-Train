@@ -57,7 +57,7 @@ def test_speed_calibration_requires_operator_confirmation_without_turnout_feedba
     calibration = d.arm_speed_calibration(
         1, "Tunnel Exit West", "Tunnel Exit East",
         turnout_c_straight_confirmed=True)
-    assert calibration["turnout_alignment_source"] == "operator_confirmation"
+    assert calibration["turnout_alignment_source"] == "servo_command_assumed"
     assert d.turnouts["C"] == "straight"
 
 def test_destination_planning_remains_available_while_stopped():
