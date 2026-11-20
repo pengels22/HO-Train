@@ -28,7 +28,7 @@ def test_final_controller_assignments_keep_m5_fleet_and_xiao_accessories_distinc
     }
 
 
-def test_two_pca9685_architecture_has_seven_motors_five_servos_and_relay_turnouts():
+def test_two_pca9685_architecture_has_seven_motors_two_servos_and_relay_turnouts():
     config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
     boards = config["i2c"]["boards"]
     assert boards == {"motor_1": 0x40, "servo": 0x41, "sensors_1": 0x20, "sensors_2": 0x21}
@@ -37,9 +37,9 @@ def test_two_pca9685_architecture_has_seven_motors_five_servos_and_relay_turnout
     motor_channels = [channel for item in motors.values() for channel in item["channels"]]
     servo_channels = [item["channel"] for item in servos.values()]
     assert len(motors) == 7 and len(motor_channels) == 14 and len(set(motor_channels)) == 14
-    assert len(servos) == 5 and len(set(servo_channels)) == 5
+    assert len(servos) == 2 and len(set(servo_channels)) == 2
     assert set(range(16)) - set(motor_channels) == {14, 15}
-    assert set(range(16)) - set(servo_channels) == {1, 2, 3, 8, 9, 10, 11, 12, 13, 14, 15}
+    assert set(range(16)) - set(servo_channels) == {1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
     assert "turnout_H" not in servos
 
 
@@ -76,7 +76,7 @@ def test_registry_expands_physical_pca_and_nano_channels_and_applies_saved_metad
     default_registry = HardwareRegistry.from_config(config, server._default_io_config(config))
     default_pca = [entry for entry in default_registry.entries if entry.device_type == "pca9685"]
     assert sum(entry.assignment_type == "Motor" for entry in default_pca) == 14
-    assert sum(entry.assignment_type == "Servo" for entry in default_pca) == 5
+    assert sum(entry.assignment_type == "Servo" for entry in default_pca) == 2
 
 
 def test_reed_requires_stable_open_close_cycle_and_counts_long_contact_once():

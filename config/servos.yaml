@@ -2,10 +2,6 @@ board: {address: 0x41}
 servos:
   farm_gates: {channel: 0, min_us: 600, max_us: 2400}
   town_gates: {channel: 4}
-  yard_1: {channel: 5}
-  yard_2: {channel: 6}
-  yard_3: {channel: 7}
   # CH8 spare: the tipper lock is controlled by the dedicated XIAO ESP32-C6.
-  # Turnouts are SPDT relay loads, not servos; see turnout_relays.yaml.
-  # CH1-3 and CH9-12 remain available for actual servo accessories.
-  # CH13-15 remain spare. No turnout H is assigned.
+  # Yard and turnout outputs are relay loads, not servos; see the relay maps.
+  # CH1-3, CH5-7, and CH9-15 are available for relay or future accessory use.
