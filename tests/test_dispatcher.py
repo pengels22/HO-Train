@@ -2,6 +2,7 @@ import pytest
 from railroad.dispatcher import Dispatcher,Cargo,SafetyError
 from railroad.transport.udp import Command
 from railroad.tracking.ir_serial import parse_event
+from railroad.tracking.receivers import ReceiverEvent
 from railroad.yard import YardPower
 
 def test_exclusive_zone_and_destination():
@@ -13,6 +14,16 @@ def test_exclusive_zone_and_destination():
     with pytest.raises(SafetyError):d.tail_clear(1,"MAIN-2",last_car_confirmed=False)
     d.hall_clear(1,"MAIN-2",detected_cars=3,expected_cars=3)
     assert d.zones["MAIN-2"] is None
+
+
+def test_ir_receiver_updates_station_and_yard_location():
+    d = Dispatcher()
+    d.process_ir_event(ReceiverEvent("Mine Station", 1, 1.0))
+    assert d.trains[1].location == "Mine"
+    assert d.trains[1].parked is None
+    d.process_ir_event(ReceiverEvent("Stall 2", 1, 2.0))
+    assert d.trains[1].location == "Yard · Stall 2"
+    assert d.trains[1].parked == "2"
 
 def test_destination_planning_remains_available_while_stopped():
     d = Dispatcher()

@@ -9,6 +9,17 @@ from railroad.routing.planner import RoutePlan, RoutePlanner, RouteStatus
 
 ZONES = tuple(f"{line}-{n}" for line in ("SKI", "FARM", "UND", "MINE", "MAIN") for n in (1, 2, 3))
 STALLS = ("1A", "1B", "2", "3")
+IR_LOCATION_MAP = {
+    "Mine Station": ("Mine", None),
+    "Farm Station": ("Farm", None),
+    "Town Station": ("Town", None),
+    "Ski Entrance": ("Ski", None),
+    "Stall 1A": ("Yard · Stall 1A", "1A"),
+    "Stall 1B": ("Yard · Stall 1B", "1B"),
+    "Stall 2": ("Yard · Stall 2", "2"),
+    "Stall 3": ("Yard · Stall 3", "3"),
+    "Yard Entrance": ("Yard Entrance", None),
+}
 TURNOUT_DEFAULTS = {"A":"diverging", "B":"straight", "C":"straight", "D":"straight", "E":"straight", "F":"straight", "G":"straight"}
 TIPPER_LOCKED = frozenset(("MAIN-3", "UND-1"))
 DESTINATIONS = ("Mine", "Farm", "Ski", "Town", "Tipper", "Turntable", "Yard")
@@ -30,6 +41,7 @@ class Train:
     name: str
     kind: str = "freight"
     zone: str | None = None
+    location: str | None = None
     destination: str | None = None
     cargo: Cargo = Cargo.EMPTY
     velocity: int = 0
@@ -786,7 +798,15 @@ class Dispatcher:
 
     def process_ir_event(self, event, zone: str | None = None):
         """Common entry point for decoded Nano events and simulated IR events."""
-        return self.checkpoint(event.train_id, event.receiver_id, zone=zone, now=event.timestamp)
+        location, stall = IR_LOCATION_MAP.get(event.receiver_id, (event.receiver_id, None))
+        with self.lock:
+            train = self.trains[event.train_id]
+            train.location = location
+            train.parked = stall
+            if stall is not None:
+                train.zone = "YARD"
+            self.checkpoint(event.train_id, event.receiver_id, zone=zone, now=event.timestamp)
+        return location
 
     def check_deadlines(self, now:float|None=None):
         with self.lock:
@@ -829,6 +849,7 @@ class Dispatcher:
                 "accessory_stop_faults":self.accessory_errors.copy(),
                 "tipper":{"state":self.tipper,"fault":self.tipper_fault,"protected_zones":sorted(TIPPER_LOCKED)},
                 "trains":[{"id":t.train_id,"name":t.name,"type":t.kind,"zone":t.zone,
+                           "location":t.location,
                            "destination":t.destination,"cargo":t.cargo.value,"speed":t.velocity,
                            "mode":t.control_mode,
                            "parked":t.parked,"checkpoint":t.last_checkpoint,
