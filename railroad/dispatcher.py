@@ -626,15 +626,27 @@ class Dispatcher:
         with self.lock:
             if self.speed_calibration.get("state") in {"ARMED", "TIMING", "STOP_PENDING"}:
                 raise SafetyError("speed calibration is already active")
+            self._ensure_turnout_alignment("C", "straight")
             self.speed_calibration = {
                 "state": "ARMED", "train_id": train_id,
                 "start_receiver": start_receiver, "end_receiver": end_receiver,
                 "distance_mm": float(distance_mm), "stop_delay_ms": int(stop_delay_ms),
                 "started_at": None, "ended_at": None, "elapsed_s": None,
                 "speed_mm_s": None, "speed_mm_s_at_255": None,
+                "required_turnouts": {"C": "straight"},
                 "error": None,
             }
             return dict(self.speed_calibration)
+
+    def _ensure_turnout_alignment(self, turnout: str, required: str) -> None:
+        current = self.turnout_feedback.get(turnout)
+        if current == required:
+            return
+        if self.turnout_command is None:
+            raise SafetyError(f"turnout {turnout} must be physically confirmed {required} before calibration")
+        self.turnout_command(turnout, required)
+        if self.turnout_feedback.get(turnout) != required:
+            raise SafetyError(f"turnout {turnout} alignment is not verified")
 
     def cancel_speed_calibration(self) -> dict:
         with self.lock:

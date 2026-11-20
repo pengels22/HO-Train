@@ -34,6 +34,7 @@ def test_two_receiver_speed_calibration_normalizes_and_stops():
     sender = Sender()
     d = Dispatcher()
     d.attach_motion_transport(LocomotiveCommandTransport(sender, start_armed=True), require_rearm=False)
+    d.set_turnout_feedback("C", "straight")
     d.command_motion(1, 255)
     d.arm_speed_calibration(1, "Tunnel Exit West", "Tunnel Exit East", stop_delay_ms=0)
     d.process_ir_event(ReceiverEvent("Tunnel Exit West", 1, 10.0))
