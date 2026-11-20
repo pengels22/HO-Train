@@ -281,7 +281,7 @@ class Dispatcher:
             self.stop_train(train_id)
 
     def set_turnout_feedback(self, turnout: str, position: str | None) -> None:
-        """Record verified physical feedback, never a commanded servo angle."""
+        """Accept an optional legacy turnout feedback event if one is provided."""
         if turnout not in self.turnout_feedback:
             raise KeyError(turnout)
         if position not in {None, "straight", "diverging"}:

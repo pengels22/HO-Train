@@ -24,8 +24,9 @@ these Pi controller views because those are standalone USB controllers.
 Turnouts A-G are three-wire SPDT loads, not servos. Their external +12 V
 common is switched by a relay: NC is straight and NO is diverging. No turnout
 feedback input is installed; the dispatcher records the commanded relay state.
-Relay control channels remain unassigned in `config/turnout_relays.yaml` until
-the actual relay board is identified.
+Relay control uses PCA9685 `0x41` at full duty for NO/diverging and zero duty
+for NC/straight, as mapped in `config/turnout_relays.yaml`. The Pi never
+sources the external turnout +12 V directly.
 
 The Pi keeps the physical board identity (`pca9685`, address, and channel)
 separate from the editable assignment. Existing `motion2` CSV rows are

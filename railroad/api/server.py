@@ -297,15 +297,21 @@ def _close_hardware_devices():
 
 
 def _command_turnout_relay(turnout: str, position: str) -> None:
-    """Write an open-loop turnout relay once its control channel is assigned."""
+    """Drive a PCA9685 turnout relay: OFF/NC is straight, full duty/NO diverges."""
     import yaml
     relay_config = yaml.safe_load((ROOT / "config/turnout_relays.yaml").read_text()) or {}
     entry = (relay_config.get("turnouts", {}) or {}).get(turnout)
     if not entry:
         raise SafetyError(f"turnout {turnout} has no configured relay")
-    if entry.get("output") is None:
-        raise SafetyError("turnout relay control channels are not assigned")
-    raise SafetyError("turnout relay writer is not configured for the assigned controller")
+    channel = entry.get("output")
+    if channel is None:
+        raise SafetyError("turnout relay control channel is not assigned")
+    device = I2C_DEVICES.get(str(relay_config.get("controller", "servo")))
+    if device is None:
+        raise SafetyError("turnout relay PCA9685 is unavailable")
+    if position not in {"straight", "diverging"}:
+        raise SafetyError(f"invalid turnout position: {position}")
+    device.set_duty(int(channel), 4095 if position == "diverging" else 0)
 
 
 def _start_hardware_devices(hardware):
@@ -513,6 +519,7 @@ def configure_runtime(mode: str = "simulation") -> None:
     IO_CONFIG_STATE = _effective_io_config(hardware)
     IO_HARDWARE_REGISTRY = HardwareRegistry.from_config(hardware, IO_CONFIG_STATE).require_valid()
     hardware_error = _start_hardware_devices(hardware)
+    DISPATCHER.attach_turnout_command(_command_turnout_relay)
     if hardware_error:
         DISPATCHER.accessory_errors["i2c"] = hardware_error
     else:
