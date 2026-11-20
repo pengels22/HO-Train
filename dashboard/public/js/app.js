@@ -92,6 +92,10 @@ document.addEventListener('input',event=>{
   const range=event.target.closest?.('.train-card-range');
   if(!range)return;
   const card=range.closest('.detailed-train-card,.dashboard-train-card');
+  const container=card?.closest('#trains-tab,#dashboard-tab');
+  const cards=container?[...container.querySelectorAll('.detailed-train-card,.dashboard-train-card')]:[];
+  const train=state.status?.trains?.[cards.indexOf(card)];
+  if(train)state.commandedSpeeds[train.id]=Math.max(0,Math.min(100,Number(range.value)||0));
   const display=card?.querySelector('.train-card-speed,.dashboard-train-speed');
   if(display)display.textContent=`${Math.round(Number(range.value)||0)}%`;
 });
@@ -103,6 +107,10 @@ document.addEventListener('click',async event=>{
     const value=Number.parseInt(preset.textContent,10);
     if(range&&Number.isFinite(value)){
       range.value=String(Math.max(0,Math.min(100,value)));
+      const container=card.closest('#trains-tab,#dashboard-tab');
+      const cards=container?[...container.querySelectorAll('.detailed-train-card,.dashboard-train-card')]:[];
+      const train=state.status?.trains?.[cards.indexOf(card)];
+      if(train)state.commandedSpeeds[train.id]=Number(range.value);
       range.dispatchEvent(new Event('input',{bubbles:true}));
       card.querySelectorAll('.speed-presets button').forEach(button=>button.classList.toggle('selected',button===preset));
     }
