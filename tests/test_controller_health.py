@@ -91,6 +91,17 @@ def test_individual_locomotive_motion_does_not_require_usb_accessories():
     assert health.operating_ready(1)
 
 
+def test_control_only_locomotive_can_use_udp_when_telemetry_is_unavailable():
+    health = ControllerHealthRegistry(
+        ControllerRegistry(), locomotive_ids=[1],
+        control_only_locomotives=[1], independent_locomotives=True,
+    )
+    assert health.operating_ready(1)
+    status = health.status()[0]
+    assert status["state"] == "CONTROL_ONLY"
+    assert status["control_only"] is True
+
+
 def test_parked_missing_telemetry_is_not_a_fault_but_moving_is():
     health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1, 2], independent_locomotives=True)
     parked = {item["id"]: item for item in health.status(moving_locomotives={1: False, 2: True})}

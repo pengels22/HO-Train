@@ -523,6 +523,7 @@ def configure_runtime(mode: str = "simulation") -> None:
     HEALTH = ControllerHealthRegistry(
         USB_CONTROLLERS, locomotive_ids=locomotive_ids,
         locomotive_types={int(item["id"]): item["type"] for item in locomotive_config},
+        control_only_locomotives={int(item["id"]) for item in locomotive_config if item.get("control_only")},
         independent_locomotives=True)
     DISPATCHER.attach_controller_health(HEALTH)
     # Build the validated yard adapter without a writer until mappings are

@@ -73,11 +73,12 @@ class ControllerHealthRegistry:
     """Thread-safe health view; sequences are monotonic within each boot session."""
     def __init__(self, usb_registry, locomotive_ids=(), freshness_s: float = 0.75,
                  clock=time.monotonic, *, independent_locomotives: bool = False,
-                 locomotive_types=None):
+                 locomotive_types=None, control_only_locomotives=()):
         self.usb_registry = usb_registry
         self.required_locomotives = set(locomotive_ids)
         self.independent_locomotives = bool(independent_locomotives)
         self.locomotive_types = {int(k): str(v) for k, v in (locomotive_types or {}).items()}
+        self.control_only_locomotives = {int(i) for i in control_only_locomotives}
         self.freshness_s = float(freshness_s)
         self.clock = clock
         self.telemetry = {}
@@ -203,6 +204,8 @@ class ControllerHealthRegistry:
             if locomotive_id is None and self.independent_locomotives:
                 return self.usb_registry.all_required_ready()
             if locomotive_id is not None:
+                if int(locomotive_id) in self.control_only_locomotives:
+                    return True
                 item = self.telemetry.get(int(locomotive_id))
                 if item is None or now - item[1] > self.freshness_s:
                     return False
@@ -253,6 +256,9 @@ class ControllerHealthRegistry:
         moving_locomotives = moving_locomotives or {}
         with self._lock:
             for ident in sorted(self.required_locomotives):
+                if ident in self.control_only_locomotives:
+                    result.append({"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": False, "connected": True, "state": "CONTROL_ONLY", "faults": [], "armed": True, "estop": False, "control_only": True, "offline_reason": None})
+                    continue
                 moving = bool(moving_locomotives.get(ident, False))
                 item = self.telemetry.get(ident)
                 if item is None:
