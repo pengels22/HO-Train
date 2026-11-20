@@ -72,9 +72,11 @@ class LocomotiveStopFanout:
 class LocomotiveCommandTransport:
     """Own the command stream so ordinary throttle commands cannot bypass a latch.
 
-    Starts DISARMED; only explicit rearm permits motion. An dispatcher stop sends an
-    immediate zero command and continues at 100 ms until cleared. Clearing
-    keeps the system DISARMED, with all trains stopped.
+    Starts DISARMED; only explicit rearm permits motion. Each locomotive's most
+    recent command is rebroadcast at the transport cadence so its communication
+    watchdog sees a fresh command even when the UI is idle. A dispatcher stop
+    sends an immediate zero command and continues at 100 ms until cleared.
+    Clearing keeps the system DISARMED, with all trains stopped.
     """
 
     def __init__(self, sender: Sender, period_s: float = DEFAULT_PERIOD_S, *, start_armed: bool = False):
@@ -88,6 +90,7 @@ class LocomotiveCommandTransport:
         self._stopped = False
         self._armed = start_armed
         self._sequence = 0
+        self._current_commands: dict[int, tuple[int, int, int]] = {}
         self._last_error: Exception | None = None
         self._thread = Thread(target=self._broadcast_loop, name="ho-stopped", daemon=True)
         self._thread.start()
@@ -143,6 +146,7 @@ class LocomotiveCommandTransport:
         with self._lock:
             self._stopped = False
             self._armed = False
+            self._current_commands.clear()
             setter = getattr(self._sender, "controllers", None)
             if setter is not None:
                 setter.set_stop_active(False)
@@ -166,6 +170,9 @@ class LocomotiveCommandTransport:
             except Exception as exc:
                 self._last_error = exc
                 raise RuntimeError("rearm handshake delivery failed") from exc
+            # Rearm never resumes a stale throttle command. Motion must be
+            # requested explicitly after the handshake.
+            self._current_commands.clear()
             self._armed = True
 
     def send_motion(self, train_id: int, speed: int, target: int = 0, flags: int = 0) -> None:
@@ -177,8 +184,29 @@ class LocomotiveCommandTransport:
                 raise RuntimeError("motion command blocked: dispatcher stop or disarmed")
             if flags & GLOBAL_STOP_FLAG or train_id == ALL_TRAINS:
                 raise ValueError("reserved dispatcher stop flag or broadcast train ID")
-            self._sender.send(self._next(stopped=False, train_id=train_id,
-                                          speed=speed, target=target, flags=flags))
+            command = self._next(stopped=False, train_id=train_id,
+                                 speed=speed, target=target, flags=flags)
+            self._sender.send(command)
+            self._current_commands[train_id] = (speed, target, flags)
+
+    def _send_current_commands(self) -> None:
+        """Refresh each locomotive's watchdog with its latest command."""
+        with self._lock:
+            if self._closed or self._stopped or not self._current_commands:
+                return
+            for train_id, (speed, target, flags) in tuple(self._current_commands.items()):
+                try:
+                    self._sender.send(self._next(
+                        stopped=False,
+                        train_id=train_id,
+                        speed=speed,
+                        target=target,
+                        flags=flags,
+                    ))
+                    self._last_error = None
+                except Exception as exc:
+                    # Keep the latest command cached and retry on the next tick.
+                    self._last_error = exc
 
     def _broadcast_loop(self) -> None:
         while True:
@@ -191,6 +219,8 @@ class LocomotiveCommandTransport:
                 active = self._stopped
             if active:
                 self._send_stop()
+            else:
+                self._send_current_commands()
 
     def shutdown(self) -> None:
         """Stop the worker. A supervising service must handle hardware shutdown."""

@@ -71,6 +71,25 @@ def test_commands_blocked_during_estop_and_after_clear_until_rearm():
         stop.shutdown()
 
 
+def test_latest_command_repeats_for_locomotive_watchdog():
+    fake = FakeSender()
+    transport = LocomotiveCommandTransport(fake, period_s=0.02, start_armed=True)
+    try:
+        transport.send_motion(1, 80)
+        transport.send_motion(2, -35)
+        time.sleep(0.075)
+        frames = fake.snapshot()
+        train_one = [frame for frame in frames if frame.train_id == 1]
+        train_two = [frame for frame in frames if frame.train_id == 2]
+        assert len(train_one) >= 3
+        assert len(train_two) >= 3
+        assert all(frame.speed == 80 for frame in train_one)
+        assert all(frame.speed == -35 for frame in train_two)
+        assert len({frame.sequence for frame in frames}) == len(frames)
+    finally:
+        transport.shutdown()
+
+
 def test_network_not_enabled_implicitly():
     with pytest.raises(RuntimeError):
         create_bench_sender()
