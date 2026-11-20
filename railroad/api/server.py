@@ -289,6 +289,12 @@ def _close_hardware_devices():
                 safe_stop()
             except Exception:
                 pass
+    # PCA9685.safe_stop() clears outputs to zero, which energizes active-low
+    # turnout relays. Release them back to NC/straight before closing the bus.
+    try:
+        _safe_turnout_relay_outputs()
+    except Exception:
+        pass
     I2C_DEVICES = {}
     if I2C_BUS:
         I2C_BUS.close()
@@ -297,7 +303,7 @@ def _close_hardware_devices():
 
 
 def _command_turnout_relay(turnout: str, position: str) -> None:
-    """Drive a PCA9685 turnout relay: OFF/NC is straight, full duty/NO diverges."""
+    """Drive an active-low PCA9685 turnout relay."""
     import yaml
     relay_config = yaml.safe_load((ROOT / "config/turnout_relays.yaml").read_text()) or {}
     entry = (relay_config.get("turnouts", {}) or {}).get(turnout)
@@ -311,7 +317,23 @@ def _command_turnout_relay(turnout: str, position: str) -> None:
         raise SafetyError("turnout relay PCA9685 is unavailable")
     if position not in {"straight", "diverging"}:
         raise SafetyError(f"invalid turnout position: {position}")
-    device.set_duty(int(channel), 4095 if position == "diverging" else 0)
+    active = position == "diverging"
+    if not bool(relay_config.get("active_high", True)):
+        active = not active
+    device.set_duty(int(channel), 4095 if active else 0)
+
+
+def _safe_turnout_relay_outputs() -> None:
+    """Leave configured turnout relays released at NC/straight."""
+    import yaml
+    relay_config = yaml.safe_load((ROOT / "config/turnout_relays.yaml").read_text()) or {}
+    device = I2C_DEVICES.get(str(relay_config.get("controller", "servo")))
+    if device is None:
+        return
+    released_duty = 4095 if not bool(relay_config.get("active_high", True)) else 0
+    for entry in (relay_config.get("turnouts", {}) or {}).values():
+        if entry.get("output") is not None:
+            device.set_duty(int(entry["output"]), released_duty)
 
 
 def _start_hardware_devices(hardware):
@@ -388,6 +410,10 @@ def _start_hardware_devices(hardware):
     if I2C_BUS is not None:
         for name in boards:
             probe(name)
+        try:
+            _safe_turnout_relay_outputs()
+        except Exception:
+            pass
 
     # Reconnection is bounded and quiet. A newly-created PWM device is always
     # initialized safe-off and remains marked for operator reconciliation.

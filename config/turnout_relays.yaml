@@ -10,7 +10,7 @@
 # source the turnout +12 V directly.
 controller: servo
 board: 0x41
-active_high: true
+active_high: false
 turnouts:
   A: {output: 1, straight_contact: NC, diverging_contact: NO}
   B: {output: 2, straight_contact: NC, diverging_contact: NO}
