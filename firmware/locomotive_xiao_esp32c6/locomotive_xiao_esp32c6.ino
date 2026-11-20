@@ -42,7 +42,7 @@ constexpr uint16_t TELEMETRY_PORT = 4211;
 WiFiUDP udp, telemetryUdp;
 enum LocomotiveState { DISARMED, ARMED, ESTOP_LATCHED, COMMUNICATION_FAULT };
 LocomotiveState state = DISARMED;
-unsigned long lastApplicableCommandMs = 0, lastWifiAttemptMs = 0, lastTelemetryMs = 0;
+unsigned long lastApplicableCommandMs = 0, lastWifiAttemptMs = 0, lastTelemetryMs = 0, lastSerialStatusMs = 0;
 bool udpStarted = false, communicationFault = true, wifiConnectedAnnounced = false;
 int16_t commandedSpeed = 0;
 uint8_t commandedTarget = 0;
@@ -136,6 +136,21 @@ void reportWifiState() {
   } else if (!connected && wifiConnectedAnnounced) { Serial.println("WIFI_DISCONNECTED"); wifiConnectedAnnounced = false; }
 }
 
+void reportPeriodicSerialStatus() {
+  const unsigned long nowMs = millis();
+  if (nowMs - lastSerialStatusMs < 1000) return;
+  lastSerialStatusMs = nowMs;
+  Serial.print("STATUS WIFI=");
+  Serial.print(WiFi.status() == WL_CONNECTED ? "CONNECTED" : "DISCONNECTED");
+  Serial.print(" LOCOMOTIVE_ID=");
+  Serial.print(LOCOMOTIVE_ID_VALUE);
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print(" IP=");
+    Serial.print(WiFi.localIP());
+  }
+  Serial.println();
+}
+
 void handleCommand(const uint8_t *p, size_t length) {
   if (length != 12 || p[0] != 'H' || p[1] != 'C' || p[2] != VERSION || crc16(p, 10) != (uint16_t(p[11]) << 8 | p[10])) return;
   const uint8_t trainId = p[3]; const uint16_t sequence = uint16_t(p[4]) | uint16_t(p[5]) << 8;
@@ -181,6 +196,7 @@ void setup() {
 
 void loop() {
   connectWifi(); reportWifiState();
+  reportPeriodicSerialStatus();
   if (WiFi.status() == WL_CONNECTED) {
     if (!udpStarted) { udp.begin(UDP_PORT); udpStarted = true; }
     const int packetSize = udp.parsePacket();
