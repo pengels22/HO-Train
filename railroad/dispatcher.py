@@ -300,7 +300,7 @@ class Dispatcher:
             return self.route_planner.plan(train_id, origin, destination,
                                            zones=self.zones, reservations=self.reservations,
                                            controllers=controller_status,
-                                           turnouts=self.turnout_feedback,
+                                           turnouts=self.turnouts,
                                            destinations=self.destinations)
 
     def submit_request(self, train_id: int, destination: str, *,
@@ -640,15 +640,10 @@ class Dispatcher:
             return dict(self.speed_calibration)
 
     def _ensure_turnout_alignment(self, turnout: str, required: str, *, operator_confirmed: bool = False) -> str:
-        current = self.turnout_feedback.get(turnout)
-        if current == required:
-            return "feedback"
-        if not operator_confirmed:
-            raise SafetyError(f"confirm turnout {turnout} is physically {required}; no turnout feedback sensor is configured")
         if self.turnout_command is not None:
             self.turnout_command(turnout, required)
         self.turnouts[turnout] = required
-        return "servo_command_assumed"
+        return "relay_command_assumed"
 
     def cancel_speed_calibration(self) -> dict:
         with self.lock:

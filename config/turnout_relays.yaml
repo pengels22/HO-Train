@@ -1,0 +1,21 @@
+# Seven powered turnouts use one SPDT relay each.
+#
+# Turnout wiring:
+#   turnout common (C) -> external +12 V turnout supply
+#   relay common       -> turnout common/return
+#   relay NC           -> straight
+#   relay NO           -> diverging
+#
+# The relay control channels are intentionally unassigned until the actual
+# relay board and its controller channels are identified. The Pi must never
+# source the turnout +12 V directly.
+controller: unassigned
+active_high: true
+turnouts:
+  A: {output: null, straight_contact: NC, diverging_contact: NO}
+  B: {output: null, straight_contact: NC, diverging_contact: NO}
+  C: {output: null, straight_contact: NC, diverging_contact: NO}
+  D: {output: null, straight_contact: NC, diverging_contact: NO}
+  E: {output: null, straight_contact: NC, diverging_contact: NO}
+  F: {output: null, straight_contact: NC, diverging_contact: NO}
+  G: {output: null, straight_contact: NC, diverging_contact: NO}
