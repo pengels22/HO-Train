@@ -39,6 +39,12 @@ constexpr unsigned long WATCHDOG_MS = 500;
 constexpr uint16_t UDP_PORT = 4210;
 constexpr uint16_t TELEMETRY_PORT = 4211;
 
+// Lab 1 is the dispatcher/telemetry receiver. Override at build time for a
+// different controller address.
+#ifndef HO_CONTROLLER_IP
+#define HO_CONTROLLER_IP "192.168.20.36"
+#endif
+
 WiFiUDP udp, telemetryUdp;
 enum LocomotiveState { DISARMED, ARMED, ESTOP_LATCHED, COMMUNICATION_FAULT };
 LocomotiveState state = DISARMED;
@@ -184,7 +190,14 @@ void sendTelemetry() {
     ",\"communication_fault\":" + (state == COMMUNICATION_FAULT ? "true" : "false") + ",\"armed\":" + (state == ARMED ? "true" : "false") +",\"speed\":" + commandedSpeed +
     ",\"sequence\":" + String(telemetrySequence++) + ",\"last_command_sequence\":" + lastAcceptedSequence + ",\"session\":\"" + bootSession + "\",\"uptime_ms\":" + millis();
   if (rearmTransaction.length()) body += ",\"rearm_transaction\":\"" + rearmTransaction + "\"";
-  body += "}"; telemetryUdp.beginPacket(WiFi.broadcastIP(), TELEMETRY_PORT); telemetryUdp.write((const uint8_t *)body.c_str(), body.length()); telemetryUdp.endPacket();
+  body += "}";
+  IPAddress controllerIp;
+  if (controllerIp.fromString(HO_CONTROLLER_IP) && controllerIp != IPAddress(0, 0, 0, 0)) {
+    telemetryUdp.beginPacket(controllerIp, TELEMETRY_PORT);
+  } else {
+    telemetryUdp.beginPacket(WiFi.broadcastIP(), TELEMETRY_PORT);
+  }
+  telemetryUdp.write((const uint8_t *)body.c_str(), body.length()); telemetryUdp.endPacket();
 }
 
 void setup() {
