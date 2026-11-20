@@ -615,7 +615,8 @@ class Dispatcher:
 
     def arm_speed_calibration(self, train_id: int, start_receiver: str,
                               end_receiver: str, distance_mm: float = 914.4,
-                              stop_delay_ms: int = 1000) -> dict:
+                              stop_delay_ms: int = 1000,
+                              turnout_c_straight_confirmed: bool = False) -> dict:
         """Arm a measured two-receiver full-speed run; does not start motion."""
         if train_id not in self.trains:
             raise KeyError(train_id)
@@ -626,7 +627,8 @@ class Dispatcher:
         with self.lock:
             if self.speed_calibration.get("state") in {"ARMED", "TIMING", "STOP_PENDING"}:
                 raise SafetyError("speed calibration is already active")
-            self._ensure_turnout_alignment("C", "straight")
+            alignment_source = self._ensure_turnout_alignment(
+                "C", "straight", operator_confirmed=turnout_c_straight_confirmed)
             self.speed_calibration = {
                 "state": "ARMED", "train_id": train_id,
                 "start_receiver": start_receiver, "end_receiver": end_receiver,
@@ -634,19 +636,19 @@ class Dispatcher:
                 "started_at": None, "ended_at": None, "elapsed_s": None,
                 "speed_mm_s": None, "speed_mm_s_at_255": None,
                 "required_turnouts": {"C": "straight"},
+                "turnout_alignment_source": alignment_source,
                 "error": None,
             }
             return dict(self.speed_calibration)
 
-    def _ensure_turnout_alignment(self, turnout: str, required: str) -> None:
+    def _ensure_turnout_alignment(self, turnout: str, required: str, *, operator_confirmed: bool = False) -> str:
         current = self.turnout_feedback.get(turnout)
         if current == required:
-            return
-        if self.turnout_command is None:
-            raise SafetyError(f"turnout {turnout} must be physically confirmed {required} before calibration")
-        self.turnout_command(turnout, required)
-        if self.turnout_feedback.get(turnout) != required:
-            raise SafetyError(f"turnout {turnout} alignment is not verified")
+            return "feedback"
+        if not operator_confirmed:
+            raise SafetyError(f"confirm turnout {turnout} is physically {required}; no turnout feedback sensor is configured")
+        self.turnouts[turnout] = required
+        return "operator_confirmation"
 
     def cancel_speed_calibration(self) -> dict:
         with self.lock:

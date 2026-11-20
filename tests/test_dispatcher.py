@@ -44,8 +44,21 @@ def test_two_receiver_speed_calibration_normalizes_and_stops():
     time.sleep(0.02)
     assert d.speed_calibration["state"] == "COMPLETE"
     assert d.speed_calibration["elapsed_s"] == 12.0
+    assert d.speed_calibration["turnout_alignment_source"] == "feedback"
     assert d.trains[1].velocity == 0
     assert d.speed_mm_s_at_255[1] == pytest.approx(914.4 / 12.0)
+
+
+def test_speed_calibration_requires_operator_confirmation_without_turnout_feedback():
+    d = Dispatcher()
+    with pytest.raises(SafetyError, match="no turnout feedback sensor"):
+        d.arm_speed_calibration(1, "Tunnel Exit West", "Tunnel Exit East")
+
+    calibration = d.arm_speed_calibration(
+        1, "Tunnel Exit West", "Tunnel Exit East",
+        turnout_c_straight_confirmed=True)
+    assert calibration["turnout_alignment_source"] == "operator_confirmation"
+    assert d.turnouts["C"] == "straight"
 
 def test_destination_planning_remains_available_while_stopped():
     d = Dispatcher()

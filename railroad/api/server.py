@@ -872,7 +872,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 DISPATCHER.arm_speed_calibration(
                     int(payload["train_id"]), str(payload["start_receiver"]),
                     str(payload["end_receiver"]), float(payload.get("distance_mm", 914.4)),
-                    int(payload.get("stop_delay_ms", 1000)))
+                    int(payload.get("stop_delay_ms", 1000)),
+                    bool(payload.get("turnout_c_straight_confirmed", False)))
             elif action == "speed_calibration_cancel":
                 DISPATCHER.cancel_speed_calibration()
             elif action == "speed_calibration_save":
