@@ -26,7 +26,8 @@ bench_ir_receiver:
 # or faulted M5 blocks only that locomotive, not the other three.
 locomotive_controllers:
   # Temporary Train 1 commissioning override: active UDP-compatible C6 at
-  # .46 has proven command reception, but its telemetry is not reaching Lab 1.
+  # .46 has proven command reception. Lab 1 reports accepted commands as
+  # explicitly unverified command feedback until real UDP telemetry is proven.
   # The C6 firmware watchdog remains the final loss-of-communications stop.
   - {id: 1, type: m5_atom_echo, transport: udp, address: 192.168.20.46, control_only: true}
   - {id: 2, type: m5_atom_echo, transport: udp, address: 192.168.20.102}

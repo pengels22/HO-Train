@@ -102,6 +102,27 @@ def test_control_only_locomotive_can_use_udp_when_telemetry_is_unavailable():
     assert status["control_only"] is True
 
 
+def test_command_feedback_reports_requested_motion_without_claiming_telemetry():
+    health = ControllerHealthRegistry(
+        ControllerRegistry(), locomotive_ids=[1],
+        control_only_locomotives=[1], independent_locomotives=True,
+    )
+    class Sender:
+        def send(self, command):
+            self.last = command
+    dispatcher = Dispatcher()
+    dispatcher.attach_controller_health(health)
+    dispatcher._rearm_required = False
+    dispatcher.attach_motion_transport(LocomotiveCommandTransport(Sender(), start_armed=True), require_rearm=False)
+    dispatcher.command_motion(1, 128)
+    status = health.status()[0]
+    assert status["state"] == "COMMAND_FEEDBACK"
+    assert status["speed"] == 128
+    assert status["direction"] == "forward"
+    assert status["telemetry_source"] == "command_feedback"
+    assert status["telemetry_confirmed"] is False
+
+
 def test_parked_missing_telemetry_is_not_a_fault_but_moving_is():
     health = ControllerHealthRegistry(ControllerRegistry(), locomotive_ids=[1, 2], independent_locomotives=True)
     parked = {item["id"]: item for item in health.status(moving_locomotives={1: False, 2: True})}

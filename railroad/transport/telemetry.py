@@ -87,11 +87,16 @@ class ControllerHealthRegistry:
         self._monitor_thread = self._monitor_stop = None
         self.on_failure = None
         self.motion_provider = None
+        self.command_provider = None
         usb_registry.on_failure = self._usb_failure
 
     def set_motion_provider(self, provider) -> None:
         """Supply the dispatcher’s current commanded-motion state."""
         self.motion_provider = provider
+
+    def set_command_provider(self, provider) -> None:
+        """Supply last accepted commands as explicitly non-measured feedback."""
+        self.command_provider = provider
 
     def _fail(self, controller, reason):
         key = f"{controller}:{reason}"
@@ -254,15 +259,25 @@ class ControllerHealthRegistry:
     def status(self, *, moving_locomotives=None):
         result = list(self.usb_registry.status()); now = self.clock()
         moving_locomotives = moving_locomotives or {}
+        commanded = self.command_provider() if self.command_provider else {}
         with self._lock:
             for ident in sorted(self.required_locomotives):
                 if ident in self.control_only_locomotives:
-                    result.append({"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": False, "connected": True, "state": "CONTROL_ONLY", "faults": [], "armed": True, "estop": False, "control_only": True, "offline_reason": None})
+                    feedback = commanded.get(ident)
+                    item = {"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": False, "connected": True, "state": "COMMAND_FEEDBACK" if feedback else "CONTROL_ONLY", "faults": [], "armed": True, "estop": False, "control_only": True, "telemetry_source": "command_feedback" if feedback else "none", "telemetry_confirmed": False, "offline_reason": None}
+                    if feedback:
+                        item.update(feedback)
+                    result.append(item)
                     continue
                 moving = bool(moving_locomotives.get(ident, False))
                 item = self.telemetry.get(ident)
                 if item is None:
-                    result.append({"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": not self.independent_locomotives, "connected": False, "state": "OFFLINE_MOVING" if moving else "PARKED_OFFLINE", "faults": ["telemetry_missing"] if moving else [], "unverified": True, "offline_reason": "moving" if moving else "parked"}); continue
+                    feedback = commanded.get(ident)
+                    if feedback:
+                        result.append({"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": not self.independent_locomotives, "connected": True, "state": "COMMAND_FEEDBACK", "faults": [], "armed": True, "estop": False, "telemetry_source": "command_feedback", "telemetry_confirmed": False, "offline_reason": None, **feedback})
+                    else:
+                        result.append({"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": not self.independent_locomotives, "connected": False, "state": "OFFLINE_MOVING" if moving else "PARKED_OFFLINE", "faults": ["telemetry_missing"] if moving else [], "unverified": True, "offline_reason": "moving" if moving else "parked"})
+                    continue
                 telemetry, received = item
                 faults = [key.split(":", 1)[1] for key in self._failures if key.startswith(f"locomotive-{ident}:")]
                 if telemetry.communication_fault and "reported unsafe state" not in faults:

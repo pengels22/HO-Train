@@ -87,6 +87,7 @@ class Dispatcher:
     motion_stops: list[Callable[[], None]] = field(default_factory=list, repr=False)
     accessory_errors: dict[str, str] = field(default_factory=dict, repr=False)
     controller_health: object | None = field(default=None, repr=False)
+    _commanded_at: dict[int, float] = field(default_factory=dict, repr=False)
     # Calibrated physical velocity at full command, per locomotive. None means
     # the locomotive is not authorized for automatic slow-destination motion.
     speed_mm_s_at_255: dict[int, float | None] = field(default_factory=dict, repr=False)
@@ -119,6 +120,15 @@ class Dispatcher:
             registry.set_motion_provider(lambda: {
                 train_id: abs(train.velocity) > 0
                 for train_id, train in self.trains.items()
+            })
+            registry.set_command_provider(lambda: {
+                train_id: {
+                    "speed": int(train.velocity),
+                    "direction": "forward" if train.velocity > 0 else "reverse" if train.velocity < 0 else "stopped",
+                    "commanded_at": self._commanded_at.get(train_id),
+                }
+                for train_id, train in self.trains.items()
+                if train_id in self._commanded_at
             })
             # A disconnected accessory or locomotive is reported in telemetry,
             # not treated as a stop command for every other train.
@@ -174,6 +184,7 @@ class Dispatcher:
             self._rearm_required = True
             for t in self.trains.values():
                 t.velocity = 0
+                self._commanded_at[t.train_id] = time.monotonic()
             for stop in tuple(self.motion_stops):
                 try:
                     stop()
@@ -570,6 +581,7 @@ class Dispatcher:
             if self.motion_transport:
                 self.motion_transport.send_motion(train_id, speed)
             self.trains[train_id].velocity = int(speed)
+            self._commanded_at[train_id] = time.monotonic()
 
     def stop_train(self, train_id: int) -> None:
         """Issue a zero-speed command without requiring a movement arm gate."""
@@ -579,6 +591,7 @@ class Dispatcher:
             if self.motion_transport:
                 self.motion_transport.send_motion(train_id, 0)
             self.trains[train_id].velocity = 0
+            self._commanded_at[train_id] = time.monotonic()
 
     def set_speed_calibration(self, train_id: int, mm_s_at_255: float | None) -> None:
         """Set measured full-command speed; null deliberately disables unknown hardware."""
