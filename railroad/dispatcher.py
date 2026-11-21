@@ -172,7 +172,7 @@ class Dispatcher:
     def attach_turnout_command(self, callback: Callable[[str, str], None]) -> None:
         """Attach the open-loop turnout relay writer.
 
-        A relay command selects NC/straight or NO/diverging. The dispatcher
+        A relay command selects NC/standard or NO/alternate (A is reversed). The dispatcher
         records the commanded alignment; no turnout feedback input is
         installed on this layout.
         """

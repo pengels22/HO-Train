@@ -32,6 +32,14 @@ class YardPowerAdapter:
                    for row in config.get("yard_outputs", [])]
         return cls(outputs, writer)
 
+    @classmethod
+    def from_firmata(cls, hardware, layout, writer=None):
+        mapping = layout["relay_nano"]["yard_power"]
+        outputs = [YardOutput(str(row["track"]), tuple(map(str, row["sections"])),
+                              mapping[str(row["track"])], False)
+                   for row in hardware["yard_outputs"]]
+        return cls(outputs, writer)
+
     def _validate_inventory(self):
         if set(self.outputs) != {"1", "2", "3"}:
             raise ValueError("yard power requires exactly tracks 1, 2, and 3")

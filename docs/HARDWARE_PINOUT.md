@@ -1,40 +1,32 @@
-# Hardware pinout
+# Current hardware pinout
 
-See `config/` for the agreed provisional assignments. The controller split is:
+The authoritative runtime assignments are in config/firmata_layout.yaml, config/ir_receivers.yaml, config/turntable.yaml and config/tipper.yaml. No MCP23017/PCA9685 board is active.
 
-## Dispatcher and controller STOP
+## Mega 2560 (USB Firmata)
 
-No dedicated physical emergency-stop input is part of the railroad. The Pi
-propagates dispatcher STOP to registered locomotive controllers. The USB accessory
-controllers provide independent local STOP and communications watchdogs. See
-`docs/DISPATCHER_STOP_PROTOCOL.md` for retained legacy wire fields.
+| Function | Pins |
+|---|---|
+| M2 chairlift PWM | D2/D3 |
+| M4 farm road PWM | D4/D5 |
+| M5 ski road PWM | D6/D7 |
+| M6 long road PWM | D8/D9 |
+| M7 town road PWM | D10/D11 |
+| Turnout A-H reeds, common/straight/divergent | D14-D37, groups of three |
+| Mine/farm/ski/town reeds | D38/D39/D40/D41 |
+| Farm/town crossing servos | D44/D45 |
+| M1 mine lift digital | D46/D47 |
+| M3 grain auger digital | D48/D49 |
+| Reserved serial | D0/D1 |
+| Spare | D12/D13, D42/D43, D50-D53, A0-A15 |
 
-| Controller | Assignment | Pin status |
-|---|---|---|
-| Raspberry Pi 4B | Central dispatcher and MCP/PCA railroad I/O; serial interface to the dedicated tipper controller | BCM assignments in `config/hardware.yaml`; verify harness before enabling |
-| M5 Atom Echo x4 | Locomotive motor driver, UDP command receiver, watchdog, telemetry, IR transmitter | Existing firmware assignments are preserved; compile/bench-verify each locomotive ID |
-| XIAO ESP32-C6 locomotive bench variant | Locomotive motor driver, UDP command receiver, watchdog, telemetry, IR transmitter | D7/GPIO17 motor IN1, D8/GPIO19 motor IN2, D9/GPIO20 IR; optional target only, never the tipper harness |
-| XIAO ESP32-C6 | Dedicated turntable controller | `D0-D7` assignments are in `config/turntable.yaml`; verify board variant/harness |
-| XIAO ESP32-C6 | Dedicated rotary tipper controller | GPIO2/21/22 Hall, GPIO23 encoder, GPIO16/17 rotation motor, GPIO19/20 gripper motor, GPIO18 decoupler; verify harness |
+All reeds active-low pull-up. All seven motors use DRV8833. PWM normalized to 0..1 at Firmata interface. Reed sensors detect train magnets, not point positions.
 
-The rotary tipper's motor, lock, decoupler, sensors, and encoder belong to the
-dedicated XIAO ESP32-C6. No Pi BCM pin is assigned to those functions, and no
-Pi output may be wired in parallel with the C6 assignment. The gripper motor
-uses GPIO19/20 (IN3/IN4), forward unlock and reverse lock, with an 800 ms
-pulse. IR front/back inputs remain unassigned because they are not present in
-the supplied C6 table.
+## Nano Classic (USB Firmata)
 
-### MCP23017 destination IR inputs
+D2-D9 turnout A-H; D10-D12 yard tracks 1-3; D13 spare. 12 installed relay channels, 11 assigned. Active-low input, external pull-ups. A NC diverging, B-H NC straight. Yard relays use NO for switched power. Nano USB path pending.
 
-The next available MCP inputs are assigned to the missing destination station
-receivers. All are active-low inputs; this changes input allocation only and
-does not enable any output:
+## Dedicated controllers
 
-| Board | Input | Function |
-|---|---|---|
-| MCP23017 `0x21` | GPB4 | Mine station IR |
-| MCP23017 `0x21` | GPB2 | Farm station IR |
-| MCP23017 `0x21` | GPB3 | Town station IR |
+Nano ESP32: planned IR D2-D12 and A0-A2 (last three provisional); actual bench firmware one D2 input. 3.3V logic, verify receiver voltage. Turntable C6 D0/D1 endpoint reeds, D2/D3 motor, D4 polarity relay, D5 track relay, D6/D7 train reeds. Tipper C6 GPIO16/17 rotation, 19/20 lock, 18 decoupler, 21/2/22 Hall back/front/clear, 23 encoder. Front/back IR unassigned.
 
-The remaining open inputs are `0x20` GPB7 and `0x21` GPB5–GPB7. Turntable arrival remains
-validated by its dedicated C6 alignment/reed feedback.
+Both locomotive variants supported; see their firmware for actual pin maps. No physical E-stop hardware requirement.

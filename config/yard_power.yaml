@@ -1,7 +1,6 @@
-# Yard track arrangement only. No yard control signals or direct Pi GPIO assigned.
-# Power control wiring and implementation are not defined here.
+# Yard topology; physical outputs are defined in firmata_layout.yaml.
 default_power: off
-relay_outputs: {}
+relay_output_source: config/firmata_layout.yaml#relay_nano.yard_power
 tracks:
   "1": {stalls: ["1A", "1B"]}
   "2": {stalls: ["2"]}

@@ -95,7 +95,7 @@ class FirmataControllerManager:
         self.boards: dict[str, FirmataBoard] = {}
         self.status: dict[str, FirmataStatus] = {
             name: FirmataStatus(name, spec.get("board", "unknown"), spec.get("port"),
-                                commissioned=self.enabled)
+                                commissioned=self.enabled and bool(spec.get("port")))
             for name, spec in (("mega", self.layout.get("mega", {})),
                                ("relay_nano", self.layout.get("relay_nano", {})))
         }
@@ -132,13 +132,15 @@ class FirmataControllerManager:
             board.connect()
             with self._lock:
                 self.boards[name] = board
+            self._safe_initialize(name)
             self.status[name].connected = True
             self.status[name].error = None
             self.status[name].last_success = self.clock()
-            self._safe_initialize(name)
         except Exception as exc:
             self.status[name].connected = False
             self.status[name].error = str(exc)
+            with self._lock:
+                self.boards.pop(name, None)
             board.close()
 
     def _safe_initialize(self, name: str) -> None:
@@ -155,6 +157,8 @@ class FirmataControllerManager:
         elif name == "relay_nano":
             spec = self.layout["relay_nano"]
             for pin_number in list(spec.get("turnout_direction_select", {}).values()) + list(spec.get("yard_power", {}).values()):
+                # Request pull-up before output selection; bench-verify actual AVR latch behavior.
+                board.pin(_pin_number(pin_number), "u")
                 board.pin(_pin_number(pin_number), "o").write(1)
 
     def start_reeds(self, on_event) -> bool:
@@ -173,6 +177,7 @@ class FirmataControllerManager:
                     self.reeds.poll()
                 except Exception as exc:
                     self.status["mega"].error = str(exc)
+                    self.status["mega"].connected = False
                     break
         self._poll_thread = Thread(target=poll_loop, name="ho-mega-reeds", daemon=True)
         self._poll_thread.start()
@@ -212,7 +217,7 @@ class FirmataMegaOutputs:
 
     def _board(self):
         board = self.manager.boards.get("mega")
-        if board is None:
+        if board is None or not self.manager.status["mega"].connected:
             raise FirmataNotReady("Mega is not connected")
         return board
 
@@ -228,9 +233,9 @@ class FirmataMegaOutputs:
         forward.write(0)
         reverse.write(0)
         if speed > 0:
-            forward.write(255 if spec.get("mode") == "pwm" else 1)
+            forward.write(abs(speed) / 255.0 if spec.get("mode") == "pwm" else 1)
         elif speed < 0:
-            reverse.write(255 if spec.get("mode") == "pwm" else 1)
+            reverse.write(abs(speed) / 255.0 if spec.get("mode") == "pwm" else 1)
 
     def servo(self, name: str, angle: float) -> None:
         pin_number = self.manager.layout["mega"]["crossing_servos"].get(name)
@@ -248,7 +253,7 @@ class FirmataRelayOutputs:
 
     def _board(self):
         board = self.manager.boards.get("relay_nano")
-        if board is None:
+        if board is None or not self.manager.status["relay_nano"].connected:
             raise FirmataNotReady("relay Nano is not connected")
         return board
 

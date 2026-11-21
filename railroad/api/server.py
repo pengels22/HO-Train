@@ -367,10 +367,9 @@ def configure_runtime(mode: str = "simulation") -> None:
         control_only_locomotives={int(item["id"]) for item in locomotive_config if item.get("control_only")},
         independent_locomotives=True)
     DISPATCHER.attach_controller_health(HEALTH)
-    # Build the validated yard adapter without a writer until mappings are
-    # commissioned. This makes activation fail explicitly instead of guessing
-    # a Pi GPIO or claiming power is verified.
-    DISPATCHER.yard_adapter = YardPowerAdapter.from_config(hardware)
+    # Yard topology lives in hardware.yaml; physical pins come only from Firmata.
+    DISPATCHER.yard_adapter = YardPowerAdapter.from_firmata(
+        hardware, layout, writer=lambda output, enabled: FIRMATA_RELAYS.yard_power(output.track, enabled))
     DISPATCHER.simulation = False
     DISPATCHER.bench_mode = mode == "bench"
     # Healthy locomotive operation is independent of accessory availability.

@@ -15,6 +15,16 @@ approach_section: UND-4
 access_turnout: H
 turnout_default: straight
 rotation_degrees: 180
+# Desired mechanical behavior; not yet implemented in flashed firmware.
+planned_rotation:
+  motor: 6V_TT
+  calibrated_duration_ms: null
+  endpoint_confirmation: reed_switches
+  physical_alignment_stops: true
+  requested_hold_duty_percent: 10
+  holding_thermal_verified: false
+  automatic_polarity_selection: true
+  implemented: false
 motion: [rotate_180_forward, rotate_180_reverse_to_home]
 additional_approach_hall_sensors: 0
 position_feedback: not_configured

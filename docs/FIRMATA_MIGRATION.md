@@ -28,8 +28,7 @@ python3 -m pip install -e '.[hardware]'
 Use a matching StandardFirmata/StandardFirmataPlus-compatible sketch on the
 Mega and Nano. Verify board identity, serial path, firmware, and pin wiring
 before connecting relay and actuator power. The first connection must be made
-with motor, relay, and servo power disconnected. Startup initializes motors
-to zero, crossing servos to neutral (90°), and active-low relays HIGH.
+with motor, relay, and servo power disconnected. Startup initializes motors to zero, crossing servos to 90°, and relay inputs HIGH. Servo attachment can move hardware; verify gate positions with actuator power disconnected. Nano relay initialization requests pull-up before output mode; verify absence of a LOW transient on the actual firmware and harness.
 
 ## I/O editing
 
@@ -41,9 +40,7 @@ not duplicated in the Mega/Nano input pages.
 
 ## Retained compatibility
 
-The old I²C modules and YAML entries remain only as migration compatibility
-until the rest of the repository is pruned. They are not selected by the
-Firmata runtime. Locomotive UDP protocol fields, including the legacy `0x80`
+The old dedicated I²C driver modules have been removed. Historical documents may still mention the previous design. Locomotive UDP protocol fields, including the legacy `0x80`
 stop flag, remain unchanged pending coordinated firmware migration.
 
 Firmware is not flashed automatically by the runtime. When hardware mode is
@@ -56,4 +53,4 @@ On 2026-11-21, Lab 1 identified the connected Mega as Arduino VID:PID
 `2341:0042`, board `arduino:avr:mega`, with the persistent path recorded in
 `config/firmata_layout.yaml`. Firmata library 2.5.9 `StandardFirmataPlus`
 compiled and uploaded successfully to that path. The relay Nano was not
-connected, and the runtime remains disabled pending full electrical review.
+connected, and the Mega USB runtime is enabled; the relay harness and powered actuator commissioning remain pending.

@@ -30,9 +30,10 @@ class TurnoutAutoReturn:
 
     def command_position(self, turnout: str, position: str):
         relay_input_level(turnout, position)  # validate
-        if self.positions[turnout] != position:
-            self.command(turnout, position)  # errors must not update commanded state
-            self.positions[turnout] = position
+        if self.positions[turnout] == position:
+            return
+        self.command(turnout, position)  # errors must not update commanded state
+        self.positions[turnout] = position
         self.pending.pop(turnout, None)
         if position != STANDARDS[turnout]:
             suffix = "straight" if position == "straight" else "divergent"

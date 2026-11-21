@@ -13,11 +13,10 @@ controller_transport:
     - {id: tipper, type: xiao_esp32_c6_tipper, port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00}
   serial_baudrate: 115200
 yard_outputs:
-  # Three physical sections are reserved. GPIO mappings remain unassigned
-  # until the MCP/PCA hardware is installed and verified; defaults are off.
-  - {track: 1, sections: [1A, 1B], gpio: null, requested: false, verified: false}
-  - {track: 2, sections: [2], gpio: null, requested: false, verified: false}
-  - {track: 3, sections: [3], gpio: null, requested: false, verified: false}
+  # Three physical sections; pins and active-low polarity live in firmata_layout.yaml.
+  - {track: 1, sections: [1A, 1B], requested: false, verified: false}
+  - {track: 2, sections: [2], requested: false, verified: false}
+  - {track: 3, sections: [3], requested: false, verified: false}
 bench_ir_receiver:
   enabled: true
   port: /dev/serial/by-id/usb-Arduino_Nano_ESP32_4827E2FC9A24-if01
@@ -30,7 +29,7 @@ locomotive_controllers:
   # .46 has proven command reception. Lab 1 reports accepted commands as
   # explicitly unverified command feedback until real UDP telemetry is proven.
   # The C6 firmware watchdog remains the final loss-of-communications stop.
-  - {id: 1, type: m5_atom_echo, transport: udp, address: 192.168.20.46, control_only: true}
+  - {id: 1, type: xiao_esp32_c6, transport: udp, address: 192.168.20.46, control_only: true}
   - {id: 2, type: m5_atom_echo, transport: udp, address: 192.168.20.102}
   - {id: 3, type: m5_atom_echo, transport: udp, address: 192.168.20.103}
   - {id: 4, type: m5_atom_echo, transport: udp, address: 192.168.20.104}

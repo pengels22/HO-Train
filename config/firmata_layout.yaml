@@ -74,11 +74,10 @@ relay_nano:
     "2": D11
     "3": D12
   unassigned: [D13]
-  # Active-low module flyback protection does NOT limit turnout solenoid pulse.
-  turnout_coil_pulse:
-    enabled: false
-    pin: null
-    commissioning_required: true
+  physical_relay_count: 12
+  spare_relay_count: 1
+  turnout_selector_mode: maintained
+  continuous_coil_rating_verified: false
 ir_nano_esp32:
   firmware: dedicated_ir_decoder
   receiver_count: 14
