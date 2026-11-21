@@ -34,12 +34,13 @@ def test_default_io_inventory_is_physical_and_complete():
     import yaml
     hardware = yaml.safe_load((server.ROOT / "config/hardware.yaml").read_text())
     rows = server._default_io_config(hardware)
-    assert len(rows) == 76
-    assert rows[0]["board"] == "motor_1"
-    assert rows[0]["physical_channel"] == "0"
-    assert rows[0]["tag"] == "1A"
-    assert rows[1]["tag"] == "1B"
-    assert rows[32]["physical_channel"] == "GPA0"
+    assert len(rows) == 69
+    assert rows[0]["board"] == "mega2560"
+    assert rows[0]["physical_channel"] == "D46"
+    assert rows[0]["tag"] == "M1_forward"
+    assert rows[1]["tag"] == "M1_reverse"
+    assert rows[16]["physical_channel"] == "D14"
+    assert rows[44]["controller"] == "relay_nano"
     assert rows[-1]["controller"] == "ir"
 
 
@@ -134,15 +135,15 @@ def test_api_rejects_invalid_registry_without_replacing_runtime_state(tmp_path, 
 def test_successful_save_returns_same_validated_registry_for_activation(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "IO_CONFIG_PATH", tmp_path / "io_config.csv")
     rows, registry = server._save_io_config([
-        {"controller": "servo", "channel": "CH1", "device_type": "Servo",
+        {"controller": "mega", "channel": "CH15", "device_type": "Servo",
          "tag": "farm_gates"}
     ], with_registry=True)
     assert server._read_io_config() == rows
     assert registry.require_valid() is registry
     first = next(entry for entry in registry.entries
-                 if entry.controller == "servo" and entry.channel == 0)
+                 if entry.controller == "mega" and entry.channel == "D44")
     assert first.tag == "farm_gates"
-    assert first.address == 0x41
+    assert first.address is None
 
 def test_dispatcher_operator_controls_are_stateful_without_motion_output():
     dispatcher = Dispatcher()

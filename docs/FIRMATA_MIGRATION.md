@@ -1,34 +1,49 @@
-# Mega 2560 / classic Nano Firmata migration (proposed)
+# USB Firmata controller migration
 
-This branch is a **non-energizing first pass**. It adds a declarative pinout and
-a lazy pyFirmata2 adapter. No startup path imports/opens this adapter, and
-`config/firmata_layout.yaml` is disabled by default. It does **not** replace
-the existing Pi MCP/PCA hardware runtime yet.
+The Pi controller is being migrated from the former MCP23017/PCA9685 I²C
+inventory to two USB Firmata boards:
 
-* Mega D2-D11: reversible PWM motor channels M2/M4-M7.
-* Mega D46-D49: bidirectional full-speed M1/M3 via existing DRV8833 drivers.
-* Mega D14-D37: 24 reed inputs, groups A-H (common, straight, diverging).
-* Mega D38-D41: mine, farm, ski, town destination reeds.
-* Mega D44-D45: two crossing gate servos.
-* Classic Nano D2-D9: eight active-low turnout **direction select** relays.
-* Classic Nano D10-D12: three independent active-low yard track power relays.
-* Classic Nano D13: spare. The safe turnout coil pulse-enable design is **not commissioned**.
-* Nano ESP32: existing custom USB IR decoder, with 3 proposed station receiver
-  locations appended to the existing 11. A0-A2 require physical pin validation.
-* Turntable and tipper XIAO C6 retain their existing local control and USB paths.
+- Arduino Mega 2560: turnout reed inputs D14–D41, seven motor H-bridge pairs,
+  and the farm/town crossing servos on D44/D45.
+- Arduino Nano Classic: active-low turnout direction relays D2–D9 and yard
+  power relays D10–D12.
+- Arduino Nano ESP32: the dedicated IR receiver endpoint map.
+- XIAO ESP32-C6 boards: dedicated turntable and rotary tipper controllers;
+  their local pin maps and protocols are not routed through Firmata.
 
-**Warning:** Arduino internal pull-ups cannot hold active-low relay signals
-safe while the MCU is unpowered or reset. StandardFirmata does not guarantee
-high-before-output relay initialization or a USB-disconnect watchdog. Module
-hardware and boot transients must be bench-verified before energizing relay banks.
+## Commissioning state
 
-Eight turnout relays select solenoid direction but do not provide an independent
-pulse limit. Never energize turnout coils until a safe pulse scheme is designed,
-validated and wired. Train-detection reeds are not turnout-alignment feedback.
+`config/firmata_layout.yaml` is the authoritative physical map. Firmata is
+deliberately disabled by default (`enabled: false`) and both USB ports are
+unset until stable `/dev/serial/by-id/` paths have been verified on the Pi.
+Loading or validating the configuration is side-effect free. The runtime does
+not open the old I²C devices when the Firmata block is present.
 
-The topology keeps H's unsurveyed straight/common links as TBD rather than
-inventing route geometry. H is a physical powered turnout and is deliberately
-not eligible for verified routing until those links are surveyed.
+Install the optional hardware dependencies only on the controller host:
 
-Install `pyfirmata2` only when bench-testing the optional adapter. Continue to
-run all existing dispatch and controller tests with outputs disabled.
+```text
+python3 -m pip install -e '.[hardware]'
+```
+
+Use a matching StandardFirmata/StandardFirmataPlus-compatible sketch on the
+Mega and Nano. Verify board identity, serial path, firmware, and pin wiring
+before setting `firmata.enabled` to `true`. The first connection must be made
+with motor, relay, and servo power disconnected. Startup initializes motors
+to zero, crossing servos to neutral (90°), and active-low relays HIGH.
+
+## I/O editing
+
+The Settings page edits tags and configuration/status and saves the complete
+map to `config/io_config.csv` through `/api/io-config`. It displays Mega
+outputs, Mega reed inputs, Nano relay outputs, Nano ESP32 IR channels, and
+dedicated XIAO controller status. Turntable and tipper pins are intentionally
+not duplicated in the Mega/Nano input pages.
+
+## Retained compatibility
+
+The old I²C modules and YAML entries remain only as migration compatibility
+until the rest of the repository is pruned. They are not selected by the
+Firmata runtime. Locomotive UDP protocol fields, including the legacy `0x80`
+stop flag, remain unchanged pending coordinated firmware migration.
+
+No firmware is flashed and no physical output is enabled by this migration.

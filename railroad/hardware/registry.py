@@ -39,6 +39,11 @@ class HardwareRegistry:
 
     @classmethod
     def from_config(cls, config: dict[str, Any], io_rows: Iterable[dict[str, Any]] | None = None) -> "HardwareRegistry":
+        # Firmata is the commissioned controller architecture.  Build its
+        # inventory from the declarative layout and do not expand the legacy
+        # Pi-I2C board list when it is present.
+        if config.get("firmata"):
+            return cls._from_firmata(config, io_rows)
         raw = config.get("io_registry", [])
         entries = []
         for item in raw:
@@ -50,6 +55,44 @@ class HardwareRegistry:
         entries.extend(cls._physical_inventory(config, entries))
         registry = cls(entries, reserved_bcm=config.get("reserved_bcm_pins", []))
         return registry.apply_ui_rows(io_rows or [])
+
+    @classmethod
+    def _from_firmata(cls, config: dict[str, Any], io_rows: Iterable[dict[str, Any]] | None) -> "HardwareRegistry":
+        import yaml
+        from pathlib import Path
+
+        layout_ref = (config.get("firmata") or {}).get("layout", "config/firmata_layout.yaml")
+        layout_path = Path(__file__).resolve().parents[2] / str(layout_ref)
+        layout = yaml.safe_load(layout_path.read_text()) or {}
+        entries: list[IOEntry] = []
+        mega = layout.get("mega", {}) or {}
+        for motor, spec in (mega.get("motor_outputs", {}) or {}).items():
+            for direction, pin in (("forward", spec["forward"]), ("reverse", spec["reverse"])):
+                entries.append(IOEntry("mega2560", None, str(pin), "firmata_output",
+                                       f"{motor}_{direction}", "Arduino Mega 2560", "output",
+                                       "active_high", controller="mega", tag=f"{motor}_{direction}",
+                                       configuration_status="configured", assignment_type="Motor"))
+        for name, pin in (mega.get("crossing_servos", {}) or {}).items():
+            entries.append(IOEntry("mega2560", None, str(pin), "firmata_output", name,
+                                   "Arduino Mega 2560", "output", "active_high", controller="mega",
+                                   tag=name, configuration_status="configured", assignment_type="Servo"))
+        for pin, function in (mega.get("reed_pins", {}) or {}).items():
+            entries.append(IOEntry("mega2560", None, str(pin), "firmata_input", str(function),
+                                   "Arduino Mega 2560", "input", "active_low", controller="mega",
+                                   tag=str(function), configuration_status="configured",
+                                   assignment_type="Digital Input"))
+        nano = layout.get("relay_nano", {}) or {}
+        for name, pin in list((nano.get("turnout_direction_select", {}) or {}).items()) + [
+                (f"yard_{track}", pin) for track, pin in (nano.get("yard_power", {}) or {}).items()]:
+            entries.append(IOEntry("nano_classic", None, str(pin), "firmata_output", str(name),
+                                   "Arduino Nano Classic", "output", "active_low", controller="relay_nano",
+                                   tag=str(name), configuration_status="configured", assignment_type="Relay"))
+        count = int((layout.get("ir_nano_esp32", {}) or {}).get("receiver_count", 14))
+        entries.extend(IOEntry("nano_esp32", None, f"CH{n}", "ir_receiver", "ir_receiver",
+                               "Arduino Nano ESP32", "input", "active_high", controller="ir",
+                               tag="", configuration_status="configured", assignment_type="IR Receiver")
+                       for n in range(1, count + 1))
+        return cls(entries, reserved_bcm=config.get("reserved_bcm_pins", [])).apply_ui_rows(io_rows or [])
 
     @staticmethod
     def _physical_inventory(config: dict[str, Any], existing: list[IOEntry]) -> list[IOEntry]:
@@ -104,10 +147,11 @@ class HardwareRegistry:
         for i, entry in enumerate(self.entries):
             if not entry.controller:
                 continue
-            logical = (f"CH{int(entry.channel) + 1}"
-                       if entry.controller in {"motion1", "servo"} and isinstance(entry.channel, int)
-                       else None)
+            logical = None
             lookup[(entry.controller, str(entry.channel))] = i
+            if entry.controller in {"mega", "relay_nano"}:
+                ordinal = sum(1 for prior in self.entries[:i] if prior.controller == entry.controller) + 1
+                lookup[(entry.controller, f"CH{ordinal}")] = i
             if logical:
                 lookup[(entry.controller, logical)] = i
         for index, entry in enumerate(self.entries):
@@ -115,6 +159,8 @@ class HardwareRegistry:
                 number = (int(entry.channel[3:]) if entry.channel.startswith("GPA") else 8 + int(entry.channel[3:])) + 1
                 lookup[(entry.controller, f"CH{number}")] = index
             elif entry.controller == "ir":
+                lookup[(entry.controller, str(entry.channel))] = index
+            elif entry.controller in {"mega", "relay_nano"}:
                 lookup[(entry.controller, str(entry.channel))] = index
         for row in rows:
             key = (str(row.get("controller", "")), str(row.get("channel", "")))

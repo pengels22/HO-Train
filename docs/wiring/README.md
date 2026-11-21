@@ -25,3 +25,10 @@ git push
 ```
 
 Do not paste extracted PDF text or a similarly named substitute in place of this original two-page drawing.
+# Controller architecture note
+
+The current wiring authority is `config/firmata_layout.yaml`: the Raspberry Pi
+communicates with the Arduino Mega 2560 and Nano Classic over USB Firmata.
+The former MCP23017/PCA9685 address tables below are retained as historical
+migration notes only and are not opened by the Firmata runtime. The turntable
+and rotary tipper remain dedicated XIAO ESP32-C6 units.

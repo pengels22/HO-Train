@@ -9,11 +9,10 @@ the following controller views:
 
 | Controller | Physical device | Channels |
 | --- | --- | --- |
-| Motion Controller 1 | PCA9685 `0x40` (`motor_1`) | 0–15 |
-| Servo/Turnout Controller | PCA9685 `0x41` (`servo`) | 0–15 |
-| Input Controller 1 | MCP23017 `0x20` (`sensors_1`) | GPA0–GPB7 |
-| Input Controller 2 | MCP23017 `0x21` (`sensors_2`) | GPA0–GPB7 |
-| IR Sensor Configuration | Nano ESP USB receiver | CH1–CH12 |
+| Arduino Mega 2560 outputs | USB Firmata | D2–D11, D44–D49 |
+| Arduino Mega 2560 reed inputs | USB Firmata | D14–D41 |
+| Arduino Nano Classic relay outputs | USB Firmata | D2–D12 |
+| Arduino Nano ESP32 IR | Dedicated USB serial protocol | CH1–CH14 |
 
 Motor channels may be `Motor` or `Unassigned`; servo channels may be `Servo` or
 `Unassigned`. Input and
@@ -21,38 +20,32 @@ IR channels are digital inputs; their bias is either `Pull-up (internal)` or
 `No bias`. Turntable and rotary tipper channels are deliberately absent from
 these Pi controller views because those are standalone USB controllers.
 
-Turnouts A-G are three-wire SPDT loads, not servos. Their external +12 V
+Turnouts A-H are three-wire SPDT loads, not servos. Their external +12 V
 common is switched by a relay: NC is straight and NO is diverging. The logical
 common/straight/divergent reed inputs are assigned below; physical reed
 installation and polarity remain commissioning items. The dispatcher records
 the commanded relay state until those inputs are validated.
-Relay control uses active-low PCA9685 `0x41` outputs: zero duty energizes
-NO/diverging and full duty releases to NC/straight, as mapped in
-`config/turnout_relays.yaml`. The Pi never sources the external turnout +12 V
+Relay control uses active-low Nano Classic outputs: LOW selects the requested
+relay state and HIGH is the safe idle state, as mapped in
+`config/firmata_layout.yaml`. The Pi never sources the external turnout +12 V
 directly.
 
-The logical relay order is A-G on channels 0-6. Each turnout has three reed
-inputs in sequential MCP order: common, straight, then divergent. The two
-gate servos use channels 14 and 15; channels 7-13 remain available for future
-non-turnout outputs.
+The logical relay order is A-H on Nano pins D2-D9, followed by yard relays on
+D10-D12. Each turnout has three Mega reed inputs in common, straight,
+divergent order. The two gate servos use Mega pins D44 and D45.
 
-The two genuine servos, Farm gates and Town gates, use channels 14 and 15 with
-the same simple profile:
+The two genuine servos, Farm gates and Town gates, use Mega pins D44 and D45
+with the same simple profile:
 home at 90°, actuate to 0°, then return to 90°.
 
-The Pi keeps the physical board identity (`pca9685`, address, and channel)
-separate from the editable assignment. Existing `motion2` CSV rows are
-migrated to the servo controller; incompatible motor assignments are preserved
-as `Unassigned` with a migration warning. The first migration creates
-`config/io_config.csv.bak` so the original mapping remains recoverable.
+The Pi keeps the physical Firmata board identity and pin separate from the
+editable assignment. Legacy CSV rows remain recoverable during migration but
+are not used to activate I²C hardware.
 
-The initial motion mapping reserves PCA9685 channels 0 and 1 as the paired
-`1A`/`1B` motor controls. All other motion channels are unassigned until
-commissioned. Saving metadata validates the complete row set and reloads the
-same physical mapping into `HardwareRegistry`; it does not energize an output.
+Saving metadata validates the complete USB row set and reloads the same
+physical mapping into `HardwareRegistry`; it does not energize an output.
 
-In hardware mode, declared I²C devices are opened through the injected bus
-adapter. MCP inputs are configured with pull-ups by default and PCA9685 output
-latches are cleared during initialization and shutdown. A missing Linux I²C
-backend is reported as a runtime hardware fault; it is never silently replaced
-with simulation.
+In hardware mode, Firmata devices are opened only after explicit commissioning
+and verified USB paths. Mega motor outputs initialize to zero, crossing servos
+to 90°, and Nano relay outputs HIGH. A missing USB backend is reported as a
+runtime hardware fault; it is never silently replaced with simulation.

@@ -12,10 +12,11 @@ ROOT = Path(__file__).parents[1]
 def test_registry_has_station_inputs_and_unassigned_turnout_input_channels():
     config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
     registry = HardwareRegistry.from_config(config).require_valid()
-    inputs = [e for e in registry.entries if e.device_type == "mcp23017"]
-    assert len(inputs) == 32
-    assert sum(e.spare for e in inputs) == 4
-    assert not any("turnout_H" in e.function for e in inputs)
+    inputs = [e for e in registry.entries if e.controller == "mega" and e.direction == "input"]
+    assert len(inputs) == 28
+    assert inputs[0].channel == "D14"
+    assert inputs[-1].channel == "D41"
+    assert not any(e.address is not None for e in registry.entries)
 
 
 def test_final_controller_assignments_keep_m5_fleet_and_xiao_accessories_distinct():
@@ -42,8 +43,10 @@ def test_two_pca9685_architecture_has_seven_motors_two_servos_and_relay_turnouts
     assert set(servo_channels) == {14, 15}
     assert "turnout_H" not in servos
 
-    relays = yaml.safe_load((ROOT / "config/turnout_relays.yaml").read_text())["turnouts"]
-    assert {name: item["output"] for name, item in relays.items()} == dict(zip("ABCDEFG", range(7)))
+    firmata = yaml.safe_load((ROOT / "config/firmata_layout.yaml").read_text())
+    assert {name: item for name, item in firmata["relay_nano"]["turnout_direction_select"].items()} == {
+        name: f"D{index}" for index, name in enumerate("ABCDEFGH", 2)
+    }
 
     sensors = yaml.safe_load((ROOT / "config/sensors.yaml").read_text())["mcp23017"]
     logical_inputs = [name for mapping in sensors.values() for name in mapping.values()]
@@ -67,27 +70,24 @@ def test_hardware_startup_reports_each_declared_i2c_board_unavailable(monkeypatc
     server._close_hardware_devices()
 
 
-def test_registry_expands_physical_pca_and_nano_channels_and_applies_saved_metadata():
+def test_registry_expands_firmata_channels_and_applies_saved_metadata():
     config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
     registry = HardwareRegistry.from_config(config, [{
-        "controller": "motion1", "channel": "CH1", "device_type": "Motor",
+        "controller": "mega", "channel": "CH1", "device_type": "Motor",
         "tag": "1A", "configuration_status": "motor 1 forward",
     }]).require_valid()
-    first = next(entry for entry in registry.entries if entry.controller == "motion1" and entry.channel == 0)
-    assert first.address == 0x40 and first.tag == "1A" and first.active
-    assert sum(entry.controller == "motion1" for entry in registry.entries) == 16
-    assert sum(entry.controller == "inputs1" for entry in registry.entries) == 16
-    assert sum(entry.controller == "ir" for entry in registry.entries) == 12
-    pca = [entry for entry in registry.entries if entry.device_type == "pca9685"]
-    assert len(pca) == 32
-    assert {entry.address for entry in pca} == {0x40, 0x41}
-    assert sum(entry.assignment_type == "Motor" for entry in pca) == 1
+    first = next(entry for entry in registry.entries if entry.controller == "mega" and entry.channel == "D46")
+    assert first.address is None and first.tag == "1A" and first.active
+    assert sum(entry.controller == "mega" for entry in registry.entries) == 44
+    assert sum(entry.controller == "relay_nano" for entry in registry.entries) == 11
+    assert sum(entry.controller == "ir" for entry in registry.entries) == 14
 
     from railroad.api import server
-    default_registry = HardwareRegistry.from_config(config, server._default_io_config(config))
-    default_pca = [entry for entry in default_registry.entries if entry.device_type == "pca9685"]
-    assert sum(entry.assignment_type == "Motor" for entry in default_pca) == 14
-    assert sum(entry.assignment_type == "Servo" for entry in default_pca) == 2
+    rows = server._default_io_config(config)
+    assert len(rows) == 69
+    assert sum(row["controller"] == "mega" for row in rows) == 44
+    assert sum(row["controller"] == "relay_nano" for row in rows) == 11
+    assert sum(row["controller"] == "ir" for row in rows) == 14
 
 
 def test_reed_requires_stable_open_close_cycle_and_counts_long_contact_once():

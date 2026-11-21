@@ -22,6 +22,8 @@ from railroad.routing.planner import RoutePlanner
 from railroad.hardware.i2c import I2CBus
 from railroad.hardware.mcp23017 import MCP23017
 from railroad.hardware.pca9685 import PCA9685
+from railroad.hardware.firmata import (FirmataControllerManager,
+                                        FirmataRelayOutputs)
 
 DISPATCHER = Dispatcher()
 
@@ -47,12 +49,14 @@ I2C_STATUS: dict[str, dict] = {}
 I2C_RETRY_STOP = None
 I2C_RETRY_THREAD = None
 IO_MIGRATION_WARNINGS: list[str] = []
+FIRMATA_MANAGER: FirmataControllerManager | None = None
+FIRMATA_RELAYS: FirmataRelayOutputs | None = None
 
 
 IO_CONFIG_COLUMNS = ("controller", "channel", "board", "address", "physical_channel",
                      "direction", "polarity", "device_type", "tag", "configuration_status", "bias",
                      "assignment_type")
-IO_CONFIG_CONTROLLERS = {"motion1", "servo", "inputs1", "inputs2", "ir"}
+IO_CONFIG_CONTROLLERS = {"motion1", "servo", "inputs1", "inputs2", "ir", "mega", "relay_nano"}
 LEGACY_IO_CONTROLLERS = {"motion2"}
 OUTPUT_TYPES = {"", "Motor", "Relay", "Servo", "Unassigned"}
 INPUT_BIASES = {"", "Pull-up (internal)", "No bias"}
@@ -67,6 +71,12 @@ def _read_io_config():
 
 def _default_io_config(hardware):
     """Return the physical channel inventory used before the first save."""
+    firmata = hardware.get("firmata")
+    if firmata:
+        import yaml
+        layout_path = ROOT / str(firmata.get("layout", "config/firmata_layout.yaml"))
+        layout = yaml.safe_load(layout_path.read_text()) or {}
+        return _default_firmata_io_config(layout)
     boards = (hardware.get("i2c", {}) or {}).get("boards", {}) or {}
     rows = []
     motor_config = {}
@@ -125,6 +135,49 @@ def _default_io_config(hardware):
                      "tag": receivers.get(channel, ""),
                      "configuration_status": "configured" if channel in receivers else "Unassigned",
                      "bias": "No bias"})
+    return rows
+
+
+def _default_firmata_io_config(layout):
+    """Build the editable Mega/Nano/IR inventory from firmata_layout.yaml."""
+    rows = []
+    mega = layout.get("mega", {}) or {}
+    logical = 0
+    for motor, spec in (mega.get("motor_outputs", {}) or {}).items():
+        for direction, pin in (("forward", spec["forward"]), ("reverse", spec["reverse"])):
+            rows.append({"controller": "mega", "channel": f"CH{logical + 1}",
+                         "board": "mega2560", "address": "", "physical_channel": str(pin),
+                         "direction": "output", "polarity": "active_high", "device_type": "Motor",
+                         "tag": f"{motor}_{direction}", "configuration_status": "configured",
+                         "bias": ""})
+            logical += 1
+    for name, pin in (mega.get("crossing_servos", {}) or {}).items():
+        rows.append({"controller": "mega", "channel": f"CH{logical + 1}",
+                     "board": "mega2560", "address": "", "physical_channel": str(pin),
+                     "direction": "output", "polarity": "active_high", "device_type": "Servo",
+                     "tag": name, "configuration_status": "configured", "bias": ""})
+        logical += 1
+    for name, pin in (mega.get("reed_pins", {}) or {}).items():
+        rows.append({"controller": "mega", "channel": f"CH{logical + 1}",
+                     "board": "mega2560", "address": "", "physical_channel": str(name),
+                     "direction": "input", "polarity": "active_low", "device_type": "Digital Input",
+                     "tag": str(pin), "configuration_status": "configured",
+                     "bias": "Pull-up (internal)"})
+        logical += 1
+    nano = layout.get("relay_nano", {}) or {}
+    relay_rows = list((nano.get("turnout_direction_select", {}) or {}).items())
+    relay_rows += [(f"yard_{name}", pin) for name, pin in (nano.get("yard_power", {}) or {}).items()]
+    for index, (name, pin) in enumerate(relay_rows, 1):
+        rows.append({"controller": "relay_nano", "channel": f"CH{index}",
+                     "board": "nano_classic", "address": "", "physical_channel": str(pin),
+                     "direction": "output", "polarity": "active_low", "device_type": "Relay",
+                     "tag": str(name), "configuration_status": "configured", "bias": ""})
+    receiver_count = int((layout.get("ir_nano_esp32", {}) or {}).get("receiver_count", 14))
+    for channel in range(1, receiver_count + 1):
+        rows.append({"controller": "ir", "channel": f"CH{channel}", "board": "nano_esp32",
+                     "address": "", "physical_channel": f"CH{channel}", "direction": "input",
+                     "polarity": "active_high", "device_type": "IR Receiver", "tag": "",
+                     "configuration_status": "configured", "bias": "No bias"})
     return rows
 
 
@@ -213,7 +266,8 @@ def _save_io_config(rows, *, hardware=None, backup=False, with_registry=False):
         channel = str(row.get("channel", ""))
         if controller not in IO_CONFIG_CONTROLLERS:
             raise ValueError(f"unknown I/O controller: {controller}")
-        if channel not in {f"CH{i}" for i in range(1, 17)}:
+        max_channel = 44 if controller == "mega" else (11 if controller == "relay_nano" else 16)
+        if channel not in {f"CH{i}" for i in range(1, max_channel + 1)}:
             raise ValueError(f"invalid channel: {channel}")
         key = (controller, channel)
         if key in seen:
@@ -234,6 +288,10 @@ def _save_io_config(rows, *, hardware=None, backup=False, with_registry=False):
             raise ValueError("input channels support only Digital Input or Unassigned")
         if controller.startswith("inputs") and values["bias"] not in INPUT_BIASES:
             raise ValueError("input bias must be Pull-up (internal) or No bias")
+        if controller == "mega" and device not in {"", "Motor", "Relay", "Servo", "Unassigned", "Digital Input", "IR Receiver"}:
+            raise ValueError("Mega channels support only Motor, Relay, Servo, Digital Input, IR Receiver, or Unassigned")
+        if controller == "relay_nano" and device not in {"", "Relay", "Unassigned"}:
+            raise ValueError("relay Nano channels support only Relay or Unassigned")
         if controller == "ir" and channel not in {f"CH{i}" for i in range(1, 13)}:
             raise ValueError("IR receiver channels are CH1 through CH12")
         if any(len(value) > 120 for value in values.values()):
@@ -277,6 +335,11 @@ def _stop_telemetry_listener():
 
 def _close_hardware_devices():
     global I2C_BUS, I2C_DEVICES, I2C_RETRY_STOP, I2C_RETRY_THREAD, I2C_STATUS
+    global FIRMATA_MANAGER, FIRMATA_RELAYS
+    if FIRMATA_MANAGER:
+        FIRMATA_MANAGER.close()
+    FIRMATA_MANAGER = None
+    FIRMATA_RELAYS = None
     if I2C_RETRY_STOP:
         I2C_RETRY_STOP.set()
     if I2C_RETRY_THREAD:
@@ -300,6 +363,22 @@ def _close_hardware_devices():
         I2C_BUS.close()
     I2C_BUS = None
     I2C_STATUS = {}
+
+
+def _start_firmata_devices(layout: dict) -> None:
+    """Start independent Firmata controllers; disabled layouts do no I/O."""
+    global FIRMATA_MANAGER, FIRMATA_RELAYS
+    if FIRMATA_MANAGER:
+        FIRMATA_MANAGER.close()
+    FIRMATA_MANAGER = FirmataControllerManager(layout)
+    FIRMATA_MANAGER.connect_all()
+    FIRMATA_RELAYS = FirmataRelayOutputs(FIRMATA_MANAGER)
+    if FIRMATA_MANAGER.status["mega"].connected:
+        FIRMATA_MANAGER.start_reeds(DISPATCHER.handle_reed_event)
+
+
+def _firmata_snapshot() -> dict:
+    return FIRMATA_MANAGER.snapshot() if FIRMATA_MANAGER else {}
 
 
 def _command_turnout_relay(turnout: str, position: str) -> None:
@@ -544,12 +623,26 @@ def configure_runtime(mode: str = "simulation") -> None:
     # never consulted by hardware adapters.
     IO_CONFIG_STATE = _effective_io_config(hardware)
     IO_HARDWARE_REGISTRY = HardwareRegistry.from_config(hardware, IO_CONFIG_STATE).require_valid()
-    hardware_error = _start_hardware_devices(hardware)
-    DISPATCHER.attach_turnout_command(_command_turnout_relay)
-    if hardware_error:
-        DISPATCHER.accessory_errors["i2c"] = hardware_error
+    firmata = hardware.get("firmata")
+    if firmata:
+        import yaml
+        layout_path = ROOT / str(firmata.get("layout", "config/firmata_layout.yaml"))
+        layout = yaml.safe_load(layout_path.read_text()) or {}
+        layout["enabled"] = bool(firmata.get("enabled", False))
+        _start_firmata_devices(layout)
+        hardware_error = None
+        if FIRMATA_RELAYS:
+            DISPATCHER.attach_turnout_command(FIRMATA_RELAYS.turnout)
     else:
-        DISPATCHER.accessory_errors.pop("i2c", None)
+        hardware_error = _start_hardware_devices(hardware)
+        DISPATCHER.attach_turnout_command(_command_turnout_relay)
+    error_key = "firmata" if firmata else "i2c"
+    if hardware_error:
+        DISPATCHER.accessory_errors[error_key] = hardware_error
+    else:
+        DISPATCHER.accessory_errors.pop(error_key, None)
+        if firmata:
+            DISPATCHER.accessory_errors.pop("i2c", None)
     controller_transport_config = hardware.get("controller_transport", {}) or {}
     configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
     known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
@@ -639,6 +732,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             status = DISPATCHER.snapshot()
             status["simulation"] = SIMULATION.snapshot()
             status["i2c"] = {name: dict(value) for name, value in I2C_STATUS.items()}
+            status["firmata"] = _firmata_snapshot()
             status["stop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}
             bench = IR_BENCH.status() if IR_BENCH else {"enabled": False, "connected": False}
             status["bench_ir_receiver"] = bench
@@ -686,7 +780,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             ir = yaml.safe_load((ROOT / "config/ir_receivers.yaml").read_text()) or {}
             locomotives = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
             wifi = locomotives.get("wifi", {})
-            io = [{"device": "Raspberry Pi GPIO", "io": "unassigned", "location": "Raspberry Pi", "function": "general-purpose I/O", "polarity": "n/a", "status": "reserved"}]
+            io = [{"device": "Arduino USB", "io": "unassigned", "location": "USB controllers", "function": "Firmata I/O", "polarity": "n/a", "status": "commissioning"}]
             registry = IO_HARDWARE_REGISTRY or HardwareRegistry.from_config(hardware, _effective_io_config(hardware)).require_valid()
             io = [{"device": entry.device_type, "assignment": entry.assignment_type,
                    "io": f"{entry.board}:{entry.channel}",
@@ -697,12 +791,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                    "polarity": entry.polarity,
                    "status": entry.configuration_status or ("spare" if entry.spare else ("active" if entry.active else "reserved"))}
                   for entry in registry.entries]
-            for board, address in (hardware.get("i2c", {}).get("boards", {}) or {}).items():
-                device = "MCP23017" if board.startswith("sensors") else ("PCA9685" if board in {"motor_1", "servo"} else "I2C / " + board)
-                io.append({"device": device, "io": hex(address) if isinstance(address, int) else str(address), "location": "Raspberry Pi I2C", "function": board, "polarity": "n/a", "status": "configured"})
-            for receiver in ir.get("receivers", []):
-                io.append({"device": "Arduino Nano", "io": receiver.get("pin", "unassigned"), "location": ", ".join(receiver.get("zones", [])) or "Yard", "function": receiver.get("description", "IR receiver"), "polarity": "active_high", "status": "configured"})
-            body = json.dumps({"io": io, "registry_errors": registry.validate(), "io_config": _effective_io_config(hardware), "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": hardware.get("yard_outputs", [])}}).encode()
+            if not hardware.get("firmata"):
+                for board, address in (hardware.get("i2c", {}).get("boards", {}) or {}).items():
+                    device = "MCP23017" if board.startswith("sensors") else ("PCA9685" if board in {"motor_1", "servo"} else "I2C / " + board)
+                    io.append({"device": device, "io": hex(address) if isinstance(address, int) else str(address), "location": "Raspberry Pi I2C", "function": board, "polarity": "n/a", "status": "legacy"})
+                for receiver in ir.get("receivers", []):
+                    io.append({"device": "Arduino Nano", "io": receiver.get("pin", "unassigned"), "location": ", ".join(receiver.get("zones", [])) or "Yard", "function": receiver.get("description", "IR receiver"), "polarity": "active_high", "status": "configured"})
+            body = json.dumps({"io": io, "registry_errors": registry.validate(), "io_config": _effective_io_config(hardware), "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "transport": "Firmata USB" if hardware.get("firmata") else "legacy I2C", "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": hardware.get("yard_outputs", [])}}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/io-config":
             import yaml

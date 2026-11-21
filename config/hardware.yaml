@@ -1,10 +1,18 @@
 mode: simulation
+# Firmata is the commissioned USB architecture. Keep disabled until the
+# persistent USB paths and electrical harness are verified on the Pi.
+firmata:
+  enabled: false
+  layout: config/firmata_layout.yaml
+# Legacy I2C entries are retained only for migration/config-file compatibility;
+# hardware mode does not open them when Firmata is enabled.
 i2c:
   bus: 1
   level_shifter_required: true
   boards: {motor_1: 0x40, servo: 0x41, sensors_1: 0x20, sensors_2: 0x21}
-# All sensor and accessory IO goes through MCP23017/PCA9685/ESP32 boards.
-# Pi GPIO is unassigned; I2C SDA/SCL are only bus communications.
+# Firmata USB is the active migration architecture. The I2C block below is
+# retained only for configuration-file compatibility and is not opened while
+# the Firmata block is present. Pi GPIO remains unassigned.
 # USB accessory controller registration and local STOP/watchdog propagation.
 controller_transport:
   serial_controllers:
