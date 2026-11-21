@@ -6,6 +6,7 @@ from threading import Event, RLock, Thread
 import time
 from typing import Callable
 from railroad.routing.planner import RoutePlan, RoutePlanner, RouteStatus
+from railroad.hardware.turnout_return import TurnoutAutoReturn
 
 ZONES = tuple(f"{line}-{n}" for line in ("SKI", "FARM", "UND", "MINE", "MAIN") for n in (1, 2, 3))
 STALLS = ("1A", "1B", "2", "3")
@@ -20,7 +21,7 @@ IR_LOCATION_MAP = {
     "Stall 3": ("Yard · Stall 3", "3"),
     "Yard Entrance": ("Yard Entrance", None),
 }
-TURNOUT_DEFAULTS = {"A":"diverging", "B":"straight", "C":"straight", "D":"straight", "E":"straight", "F":"straight", "G":"straight"}
+TURNOUT_DEFAULTS = {"A":"diverging", "B":"straight", "C":"straight", "D":"straight", "E":"straight", "F":"straight", "G":"straight", "H":"straight"}
 TIPPER_LOCKED = frozenset(("MAIN-3", "UND-1"))
 DESTINATIONS = ("Mine", "Farm", "Ski", "Town", "Tipper", "Turntable", "Yard")
 SLOW_DESTINATIONS = frozenset(("Tipper", "Turntable"))
@@ -81,6 +82,7 @@ class Dispatcher:
     cycle_route_index: int = 0
     cycle_motion_command: Callable[[int, int], None] | None = field(default=None, repr=False)
     turnout_command: Callable[[str, str], None] | None = field(default=None, repr=False)
+    turnout_auto_return: TurnoutAutoReturn | None = field(default=None, repr=False)
     route_planner: RoutePlanner = field(default_factory=RoutePlanner, repr=False)
     pending_requests: list[dict] = field(default_factory=list)
     request_history: list[dict] = field(default_factory=list)
@@ -172,6 +174,38 @@ class Dispatcher:
         """
         with self.lock:
             self.turnout_command = callback
+
+    def enable_turnout_auto_return(self) -> None:
+        """Opt-in dispatcher return tracker; still needs the real relay writer."""
+        with self.lock:
+            if self.turnout_command is None:
+                raise SafetyError("turnout relay output is not connected")
+            self.turnout_auto_return = TurnoutAutoReturn(self.turnout_command)
+
+    def turnout_reed_event(self, sensor: str, *, closed: bool, now: float) -> None:
+        """Forward stable Mega reed edges; never infer clearance from OPEN alone."""
+        with self.lock:
+            if self.turnout_auto_return is not None:
+                self.turnout_auto_return.reed_event(sensor, closed=closed, now=now)
+
+    def turnout_tail_confirmed(self, turnout: str, *, exit_reed: str) -> None:
+        """Explicit rear-of-consist confirmation from the occupancy tracker."""
+        with self.lock:
+            if self.turnout_auto_return is not None:
+                self.turnout_auto_return.confirm_tail_clear(turnout, exit_reed=exit_reed)
+
+    def poll_turnout_returns(self, *, now: float, route_holds: set[str] | None = None,
+                             occupied: set[str] | None = None,
+                             connected: bool = False) -> tuple[str, ...]:
+        """Caller must provide authoritative interlocks and live USB health."""
+        with self.lock:
+            if self.turnout_auto_return is None or self.global_stop:
+                return ()
+            result = self.turnout_auto_return.tick(
+                now, route_holds=route_holds, occupied=occupied, connected=connected)
+            for name in result:
+                self.turnouts[name] = TURNOUT_DEFAULTS[name]
+            return result
 
     @property
     def stop_transport_active(self) -> bool:
@@ -501,7 +535,9 @@ class Dispatcher:
             current = self.turnouts.get(turnout)
             if current == required:
                 continue
-            if self.turnout_command is not None:
+            if self.turnout_auto_return is not None:
+                self.turnout_auto_return.command_position(turnout, required)
+            elif self.turnout_command is not None:
                 self.turnout_command(turnout, required)
             self.turnouts[turnout] = required
 
@@ -640,7 +676,9 @@ class Dispatcher:
             return dict(self.speed_calibration)
 
     def _ensure_turnout_alignment(self, turnout: str, required: str, *, operator_confirmed: bool = False) -> str:
-        if self.turnout_command is not None:
+        if self.turnout_auto_return is not None:
+            self.turnout_auto_return.command_position(turnout, required)
+        elif self.turnout_command is not None:
             self.turnout_command(turnout, required)
         self.turnouts[turnout] = required
         return "relay_command_assumed"

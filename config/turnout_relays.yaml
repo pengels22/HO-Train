@@ -1,26 +1,19 @@
-# Eight powered turnouts use one SPDT relay each.
-#
-# Turnout wiring:
-#   turnout common (C) -> external +12 V turnout supply
-#   relay common       -> turnout common/return
-#   relay NC           -> straight
-#   relay NO           -> diverging
-#
-# Relay control is through PCA9685 0x41 channels below. The Pi must never
-# source the turnout +12 V directly.
+# Eight relay-driven powered turnouts (A-H). Passive P1-P3 have no relay.
+# External pull-ups fitted to active-low 5V relay inputs.
+# HIGH/OFF selects NC (standard); LOW/ON selects NO (alternate).
 controller: nano_classic_firmata
-board: relay_bank_8
-active_high: false
+active_low: true
+clearance_open_ms: 1000
+require_consist_tail_clear: true
+auto_return_to_standard: true
 turnouts:
-  A: {output: 0, straight_contact: NC, diverging_contact: NO}
-  B: {output: 1, straight_contact: NC, diverging_contact: NO}
-  C: {output: 2, straight_contact: NC, diverging_contact: NO}
-  D: {output: 3, straight_contact: NC, diverging_contact: NO}
-  E: {output: 4, straight_contact: NC, diverging_contact: NO}
-  F: {output: 5, straight_contact: NC, diverging_contact: NO}
-  G: {output: 6, straight_contact: NC, diverging_contact: NO}
-  H: {output: 7, straight_contact: NC, diverging_contact: NO}
-
-# Relay module inputs are active LOW; selection alone must never continuously
-# energize a dual-coil turnout. No shared coil-pulse output is commissioned.
-coil_pulse: {configured: false, enable_pin: null, requires_hardware_verification: true}
+  A: {pin: D2, standard: diverging, nc: diverging, no: straight, exit_reeds: {straight: turnout_A_straight, diverging: turnout_A_divergent}}
+  B: {pin: D3, standard: straight, nc: straight, no: diverging, exit_reeds: {straight: turnout_B_straight, diverging: turnout_B_divergent}}
+  C: {pin: D4, standard: straight, nc: straight, no: diverging, exit_reeds: {straight: turnout_C_straight, diverging: turnout_C_divergent}}
+  D: {pin: D5, standard: straight, nc: straight, no: diverging, exit_reeds: {straight: turnout_D_straight, diverging: turnout_D_divergent}}
+  E: {pin: D6, standard: straight, nc: straight, no: diverging, exit_reeds: {straight: turnout_E_straight, diverging: turnout_E_divergent}}
+  F: {pin: D7, standard: straight, nc: straight, no: diverging, exit_reeds: {straight: turnout_F_straight, diverging: turnout_F_divergent}}
+  G: {pin: D8, standard: straight, nc: straight, no: diverging, exit_reeds: {straight: turnout_G_straight, diverging: turnout_G_divergent}}
+  H: {pin: D9, standard: straight, nc: straight, no: diverging, exit_reeds: {straight: turnout_H_straight, diverging: turnout_H_divergent}}
+# Relay state persists until another command or safe automatic restoration.
+# Reed sensors indicate train position, not actual turnout-point alignment.
