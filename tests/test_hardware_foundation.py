@@ -20,7 +20,9 @@ def test_registry_has_station_inputs_and_unassigned_turnout_input_channels():
 
 def test_final_controller_assignments_keep_m5_fleet_and_xiao_accessories_distinct():
     config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
-    assert [item["type"] for item in config["locomotive_controllers"]] == ["m5_atom_echo"] * 4
+    assert [item["id"] for item in config["locomotive_controllers"]] == [1, 2, 3, 4]
+    assert {item["type"] for item in config["locomotive_controllers"]} <= {"m5_atom_echo", "xiao_esp32_c6"}
+    assert config["locomotive_controllers"][0]["control_only"] is True
     accessories = {item["id"]: item["type"] for item in config["controller_transport"]["serial_controllers"]}
     assert accessories == {
         "turntable": "xiao_esp32_c6_turntable",

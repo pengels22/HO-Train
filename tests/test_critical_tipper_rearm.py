@@ -72,7 +72,7 @@ def test_yard_has_no_assigned_io_and_pi_gpio_is_unused():
     root = Path(__file__).resolve().parents[1]
     hardware = (root / "config" / "hardware.yaml").read_text()
     yard = (root / "config" / "yard_power.yaml").read_text()
-    assert "relay_outputs: {}" in yard
+    assert "relay_output_source: config/firmata_layout.yaml#relay_nano.yard_power" in yard
     assert "bcm:" not in yard
     assert "reserved_bcm_pins:" not in hardware
     assert "yard_track_1_relay" not in hardware

@@ -1,7 +1,6 @@
 # USB Firmata controller migration
 
-The Pi controller is being migrated from the former MCP23017/PCA9685 I²C
-inventory to two USB Firmata boards:
+The Pi controller uses two USB Firmata boards for railroad I/O:
 
 - Arduino Mega 2560: turnout reed inputs D14–D41, seven motor H-bridge pairs,
   and the farm/town crossing servos on D44/D45.
@@ -17,7 +16,7 @@ inventory to two USB Firmata boards:
 enabled for the commissioned Mega, while the relay Nano remains optional
 until its stable `/dev/serial/by-id/` path is verified on the Pi.
 Loading or validating the configuration is side-effect free. The runtime does
-not open the old I²C devices when the Firmata block is present.
+not open or import the retired Pi I/O drivers.
 
 Install the optional hardware dependencies only on the controller host:
 
@@ -38,10 +37,12 @@ outputs, Mega reed inputs, Nano relay outputs, Nano ESP32 IR channels, and
 dedicated XIAO controller status. Turntable and tipper pins are intentionally
 not duplicated in the Mega/Nano input pages.
 
-## Retained compatibility
+## Retained protocol compatibility
 
-The old dedicated I²C driver modules have been removed. Historical documents may still mention the previous design. Locomotive UDP protocol fields, including the legacy `0x80`
-stop flag, remain unchanged pending coordinated firmware migration.
+The retired Pi I/O architecture is not supported. Historical documents may
+still mention the previous design. Locomotive UDP protocol fields, including
+the legacy `0x80` stop flag, remain unchanged pending coordinated firmware
+migration.
 
 Firmware is not flashed automatically by the runtime. When hardware mode is
 explicitly started, the Mega is initialized to zero/neutral outputs; the
