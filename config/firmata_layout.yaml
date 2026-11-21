@@ -4,7 +4,7 @@ enabled: false
 transport: usb_serial
 library: pyfirmata2
 mega:
-  port: null                  # use stable /dev/serial/by-id path after verification
+  port: /dev/serial/by-id/usb-Arduino__www.arduino.cc__0042_85937323130351400231-if00
   board: mega2560
   reed_active_low: true
   reed_pullups: true

@@ -46,4 +46,13 @@ until the rest of the repository is pruned. They are not selected by the
 Firmata runtime. Locomotive UDP protocol fields, including the legacy `0x80`
 stop flag, remain unchanged pending coordinated firmware migration.
 
-No firmware is flashed and no physical output is enabled by this migration.
+Firmware is not flashed automatically by the runtime, and no physical output
+is enabled by this migration.
+
+## Lab 1 commissioning record
+
+On 2026-11-21, Lab 1 identified the connected Mega as Arduino VID:PID
+`2341:0042`, board `arduino:avr:mega`, with the persistent path recorded in
+`config/firmata_layout.yaml`. Firmata library 2.5.9 `StandardFirmataPlus`
+compiled and uploaded successfully to that path. The relay Nano was not
+connected, and the runtime remains disabled pending full electrical review.
