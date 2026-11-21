@@ -259,7 +259,8 @@ def _start_ir_bench(hardware):
     global IR_BENCH
     import yaml
     _stop_ir_bench()
-    config = hardware.get("bench_ir_receiver", {}) or {}
+    config = (hardware.get("ir_receiver_nano_esp32")
+              or hardware.get("bench_ir_receiver", {}) or {})
     if not config.get("enabled") or not config.get("port"):
         return
     ir_config = yaml.safe_load((ROOT / "config/ir_receivers.yaml").read_text()) or {}

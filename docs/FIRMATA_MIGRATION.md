@@ -6,7 +6,9 @@ The Pi controller uses two USB Firmata boards for railroad I/O:
   and the farm/town crossing servos on D44/D45.
 - Arduino Nano Classic: active-low turnout direction relays D2–D9 and yard
   power relays D10–D12.
-- Arduino Nano ESP32: the dedicated IR receiver endpoint map.
+- Arduino Nano ESP32: the dedicated 14-channel IR receiver endpoint map. The
+  production sketch is receive-only and emits validated three-sample train IDs;
+  the physical pin harness remains an electrical commissioning item.
 - XIAO ESP32-C6 boards: dedicated turntable and rotary tipper controllers;
   their local pin maps and protocols are not routed through Firmata.
 

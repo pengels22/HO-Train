@@ -10,6 +10,7 @@
 | Seeed XIAO ESP32-C6 turntable | `turntable_esp32c6/turntable_esp32c6.ino` | Dedicated USB turntable controller with per-consist count and stable reed edge debounce; compile and bench-test relay polarity, limit switches, and mechanical timeout |
 | Seeed XIAO ESP32-C6 rotary tipper | `tipper_esp32c6/tipper_esp32c6.ino` | Dedicated accessory controller using the supplied GPIO map: rotation 16/17, gripper 19/20, decoupler 18, Hall 2/21/22, encoder 23; verify polarity and mechanics |
 | Arduino Nano 11 IR sensors | `ir_receiver/ir_receiver_nano_diagnostics.ino` | **New** non-actuating 11-input wiring/timing diagnostic; NOT the final 4-byte locomotive beacon decoder |
+| Arduino Nano ESP32 production IR | `ir_receiver_nano_esp32/ir_receiver_nano_esp32.ino` | Fourteen receive-only channels with three-sample majority decoding |
 | Arduino Nano ESP32 bench IR | `ir_receiver_nano_esp32_bench/ir_receiver_nano_esp32_bench.ino` | One D2 receiver with persistent logical endpoint and test train selection; non-actuating |
 | Rotary tipper | Dedicated XIAO ESP32-C6 over USB serial; Pi dispatcher interface in `railroad/automation/tipper.py` | Motor, lock, decoupler, sensors, and encoder are C6-owned; outputs start disabled and require explicit rearm |
 

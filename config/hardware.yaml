@@ -17,7 +17,7 @@ yard_outputs:
   - {track: 1, sections: [1A, 1B], requested: false, verified: false}
   - {track: 2, sections: [2], requested: false, verified: false}
   - {track: 3, sections: [3], requested: false, verified: false}
-bench_ir_receiver:
+ir_receiver_nano_esp32:
   enabled: true
   port: /dev/serial/by-id/usb-Arduino_Nano_ESP32_4827E2FC9A24-if01
   baudrate: 115200
