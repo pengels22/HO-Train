@@ -142,7 +142,11 @@ def _save_io_config(rows, *, hardware=None, backup=False, with_registry=False):
         channel = str(row.get("channel", ""))
         if controller not in IO_CONFIG_CONTROLLERS:
             raise ValueError(f"unknown I/O controller: {controller}")
-        max_channel = 44 if controller == "mega" else (11 if controller == "relay_nano" else 12)
+        # The UI exposes sixteen logical slots for each controller.  The
+        # physical Firmata layout populates 44 Mega channels, 11 relay-Nano
+        # channels, and 14 IR channels; unused logical slots remain
+        # Unassigned and are retained in the CSV for configuration editing.
+        max_channel = 44 if controller == "mega" else (16 if controller == "relay_nano" else 14)
         if channel not in {f"CH{i}" for i in range(1, max_channel + 1)}:
             raise ValueError(f"invalid channel: {channel}")
         key = (controller, channel)
@@ -160,8 +164,8 @@ def _save_io_config(rows, *, hardware=None, backup=False, with_registry=False):
             raise ValueError("Mega channels support only Motor, Relay, Servo, Digital Input, IR Receiver, or Unassigned")
         if controller == "relay_nano" and device not in {"", "Relay", "Unassigned"}:
             raise ValueError("relay Nano channels support only Relay or Unassigned")
-        if controller == "ir" and channel not in {f"CH{i}" for i in range(1, 13)}:
-            raise ValueError("IR receiver channels are CH1 through CH12")
+        if controller == "ir" and channel not in {f"CH{i}" for i in range(1, 15)}:
+            raise ValueError("IR receiver channels are CH1 through CH14")
         if any(len(value) > 120 for value in values.values()):
             raise ValueError("I/O fields must be 120 characters or less")
         normalized.append(values)
@@ -437,12 +441,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             status["firmata"] = _firmata_snapshot()
             status["stop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}
             bench = IR_BENCH.status() if IR_BENCH else {"enabled": False, "connected": False}
-            status["bench_ir_receiver"] = bench
+            status["ir_receiver_nano_esp32"] = bench
             # The Nano is a real, read-only controller in hardware mode.  Keep
             # it in the same inventory as the locomotive and accessory boards
             # so the headline count reflects every connected controller.
             status["controllers"].append({
-                "id": "nano-ir-bench",
+                "id": "nano-ir",
                 "type": "arduino_nano_esp32_ir",
                 "required": False,
                 "connected": bool(bench.get("connected")),
@@ -450,7 +454,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "state": "RECEIVING" if bench.get("connected") else None,
                 "faults": (["receiver_unavailable"] if bench.get("last_error") else []),
                 "status": {
-                    "controller": "nano_ir_bench",
+                    "controller": "nano_esp32_ir",
                     "events": bench.get("events", 0),
                     "last_event": bench.get("last_event"),
                 },

@@ -20,12 +20,13 @@ eligible cycle. `manual_takeover` cancels automatic control for one locomotive
 and issues its individual stop. Pending destination requests can be submitted
 or cancelled independently.
 
-The Pi I/O inventory remains exactly two PCA9685 boards (`0x40` motors and
-`0x41` gate servos plus active-low turnout relays), two MCP23017 input boards (`0x20` and `0x21`), and the USB
-controllers. I²C boards are probed independently. An absent board is reported
-as `UNAVAILABLE`, retried periodically, and cannot stop unrelated controller
-operation. Newly connected PWM boards initialize safe-off and require
-reconciliation before being considered ready.
+The Pi I/O inventory is the USB Firmata Mega/Nano layout in
+`config/firmata_layout.yaml`, plus the USB Nano ESP32 IR decoder and dedicated
+XIAO controllers. Turntable and tipper I/O are local to those C6 boards. A
+missing relay Nano, IR decoder, or accessory controller is reported as
+unavailable and must not stop unrelated locomotive operation. Firmata outputs
+initialize safe-off/neutral and require reconciliation before being considered
+ready.
 
 The logical 0x41 output order is turnout A-G on channels 0-6, spare channels
 7-13, and Farm/Town gate servos on channels 14-15. MCP inputs are grouped as

@@ -9,10 +9,9 @@
 | XIAO rotary tipper controller | Validated C6 GPIO map implemented; mechanical polarity/limits still require bench verification | `config/tipper.yaml`, `firmware/tipper_esp32c6/tipper_esp32c6.ino`; verify gripper direction, 800 ms travel, feedback polarity, and mechanical limits before arming. |
 | Turntable Python lifecycle | Implemented and tested | `railroad/turntable.py`; hardware controller acknowledgement still required before operation. |
 | Tipper motor/decoupler | Dedicated C6 firmware fail-closed path present | `railroad/automation/tipper.py`, `firmware/tipper_esp32c6/README.md`; board pin map, feedback polarity, and mechanical limits remain to be verified. |
-| PCA9685 motor/servo outputs | Existing configurable interface, not commissioned here | `config/hardware.yaml` and hardware modules; no outputs are initialized in simulation. |
-| MCP23017 sensor inputs | Existing configuration, not commissioned here | `config/hardware.yaml`, `config/sensors.yaml`; validate addresses and duplicate assignments on the Pi. |
-| Yard relays and turnout SPDT relays | Safety/configuration boundary only | Yard outputs and active-low PCA9685 `0x41` turnout relay mapping require physical commissioning; external turnout +12 V is separate and never sourced by the Pi. The only genuine servos are the Farm/Town gates. |
-| USB IR receivers | Protocol/configuration boundary | Registered receiver ports and validated serial framing remain deployment configuration. |
+| Mega/Nano Firmata I/O | Implemented, USB identity and electrical harness still require commissioning | `config/firmata_layout.yaml`, `railroad/hardware/firmata.py`; outputs initialize safe-off/neutral and missing relay Nano is tolerated. |
+| Yard relays and turnout SPDT relays | Safety/configuration boundary only | Yard D10-D12 and turnout D2-D9 are active-low Nano Classic Firmata outputs; external turnout +12 V is separate and never sourced by the Pi. The only genuine servos are the Farm/Town gates on Mega D44/D45. |
+| USB IR receiver | Production protocol compiled; physical channels unverified | `firmware/ir_receiver_nano_esp32/`, `config/ir_receivers.yaml`, and the registered serial port require deployment/field validation. |
 
 No row is considered hardware-ready until firmware compilation and physical
 bench validation succeed.

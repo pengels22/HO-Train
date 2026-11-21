@@ -30,6 +30,15 @@ def test_io_config_rejects_unknown_controller_or_channel(tmp_path, monkeypatch):
         server._save_io_config([{"controller": "mega", "channel": "GPIO1"}])
 
 
+def test_io_config_accepts_all_fourteen_ir_channels(tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "IO_CONFIG_PATH", tmp_path / "io.csv")
+    rows = server._save_io_config([
+        {"controller": "ir", "channel": "CH14", "device_type": "IR Receiver",
+         "tag": "town_station", "configuration_status": "configured"}
+    ])
+    assert rows[0]["channel"] == "CH14"
+
+
 def test_default_io_inventory_is_physical_and_complete():
     import yaml
     hardware = yaml.safe_load((server.ROOT / "config/hardware.yaml").read_text())

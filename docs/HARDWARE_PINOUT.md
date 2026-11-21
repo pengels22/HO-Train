@@ -23,10 +23,19 @@ All reeds active-low pull-up. All seven motors use DRV8833. PWM normalized to 0.
 
 ## Nano Classic (USB Firmata)
 
-D2-D9 turnout A-H; D10-D12 yard tracks 1-3; D13 spare. 12 installed relay channels, 11 assigned. Active-low input, external pull-ups. A NC diverging, B-H NC straight. Yard relays use NO for switched power. Nano USB path pending.
+D2-D9 turnout A-H; D10-D12 yard tracks 1-3; D13 spare. Twelve installed
+relay channels, eleven assigned. Relay outputs are active-low: HIGH is idle and
+LOW selects the relay. External pull-ups are fitted. Turnout NC is straight and
+NO is divergent; yard relays use NO for switched power. Nano USB path pending.
 
 ## Dedicated controllers
 
-Nano ESP32: planned IR D2-D12 and A0-A2 (last three provisional); actual bench firmware one D2 input. 3.3V logic, verify receiver voltage. Turntable C6 D0/D1 endpoint reeds, D2/D3 motor, D4 polarity relay, D5 track relay, D6/D7 train reeds. Tipper C6 GPIO16/17 rotation, 19/20 lock, 18 decoupler, 21/2/22 Hall back/front/clear, 23 encoder. Front/back IR unassigned.
+Nano ESP32 production IR decoder: fourteen configured receive-only channels on
+D2-D12 and A0-A2, matching `config/ir_receivers.yaml`; physical receiver
+harness and voltage compatibility remain commissioning items. The one-channel
+bench sketch is retained separately for test-track use. Turntable C6 D0/D1
+endpoint reeds, D2/D3 motor, D4 polarity relay, D5 track relay, D6/D7 train
+reeds. Tipper C6 GPIO16/17 rotation, 19/20 lock, 18 decoupler, 21/2/22 Hall
+back/front/clear, 23 encoder. Front/back IR remains unassigned.
 
 Both locomotive variants supported; see their firmware for actual pin maps. No physical E-stop hardware requirement.

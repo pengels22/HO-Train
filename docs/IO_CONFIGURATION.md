@@ -4,15 +4,17 @@ The Raspberry Pi `config/io_config.csv` file is the editable source of truth
 for controller channel metadata. The dashboard reads and writes it through
 `/api/io-config`; browser local storage is only a presentation cache.
 
-The physical inventory is fixed by `config/hardware.yaml` and is expanded into
-the following controller views:
+The physical inventory is fixed by `config/firmata_layout.yaml` and is expanded
+into the following controller views. The editor presents sixteen logical slots
+per controller; slots without a physical assignment remain `Unassigned`.
 
 | Controller | Physical device | Channels |
 | --- | --- | --- |
-| Arduino Mega 2560 outputs | USB Firmata | D2–D11, D44–D49 |
-| Arduino Mega 2560 reed inputs | USB Firmata | D14–D41 |
-| Arduino Nano Classic relay outputs | USB Firmata | D2–D12 |
-| Arduino Nano ESP32 IR | Dedicated USB serial protocol | CH1–CH14 |
+| Motion Controller 1 (Mega outputs) | Arduino Mega 2560 / USB Firmata | 16 channels: M1–M7 pairs and D44/D45 servos |
+| Motion Controller 2 (relay outputs) | Arduino Nano Classic / USB Firmata | 16 logical slots; D2–D12 assigned, D13 spare, CH14–CH16 unassigned |
+| Input Controller 1 | Arduino Mega 2560 / USB Firmata | reed channels 1–16, physical D14–D29 |
+| Input Controller 2 | Arduino Mega 2560 / USB Firmata | reed channels 1–12, physical D30–D41; four spare slots |
+| IR Sensor Configuration | Arduino Nano ESP32 / USB serial | CH1–CH14 |
 
 Motor channels may be `Motor` or `Unassigned`; servo channels may be `Servo` or
 `Unassigned`. Input and
@@ -39,10 +41,14 @@ with the same simple profile:
 home at 90°, actuate to 0°, then return to 90°.
 
 The Pi keeps the physical Firmata board identity and pin separate from the
-editable assignment. Legacy CSV rows remain recoverable during migration but
-are not used to activate I²C hardware.
+editable assignment. Historical CSV rows remain recoverable during migration
+but are not used to activate retired hardware drivers.
 
-Saving metadata validates the complete USB row set and reloads the same
+The dashboard exposes editable tags and configuration/status for every row.
+Output rows are limited to Motor, Relay, Servo, or Unassigned. Input rows are
+digital inputs with Pull-up (internal) or No bias. Turnout tags use `As`
+(straight), `Ad` (divergent), and `Ac` (common); station tags may use names
+such as `Ski`, `Grain`, and `Mine`. Saving metadata validates the complete USB row set and reloads the same
 physical mapping into `HardwareRegistry`; it does not energize an output.
 
 In hardware mode, Firmata devices are opened only after explicit commissioning
