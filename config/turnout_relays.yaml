@@ -1,4 +1,4 @@
-# Seven powered turnouts use one SPDT relay each.
+# Eight powered turnouts use one SPDT relay each.
 #
 # Turnout wiring:
 #   turnout common (C) -> external +12 V turnout supply
@@ -8,8 +8,8 @@
 #
 # Relay control is through PCA9685 0x41 channels below. The Pi must never
 # source the turnout +12 V directly.
-controller: servo
-board: 0x41
+controller: nano_classic_firmata
+board: relay_bank_8
 active_high: false
 turnouts:
   A: {output: 0, straight_contact: NC, diverging_contact: NO}
@@ -19,3 +19,8 @@ turnouts:
   E: {output: 4, straight_contact: NC, diverging_contact: NO}
   F: {output: 5, straight_contact: NC, diverging_contact: NO}
   G: {output: 6, straight_contact: NC, diverging_contact: NO}
+  H: {output: 7, straight_contact: NC, diverging_contact: NO}
+
+# Relay module inputs are active LOW; selection alone must never continuously
+# energize a dual-coil turnout. No shared coil-pulse output is commissioned.
+coil_pulse: {configured: false, enable_pin: null, requires_hardware_verification: true}

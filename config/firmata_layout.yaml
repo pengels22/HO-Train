@@ -1,0 +1,84 @@
+# Proposed Mega/Nano Firmata migration, November 20 2026.
+# Not commissioned. Do not automatically open serial ports or arm outputs.
+enabled: false
+transport: usb_serial
+library: pyfirmata2
+mega:
+  port: null                  # use stable /dev/serial/by-id path after verification
+  board: mega2560
+  reed_active_low: true
+  reed_pullups: true
+  reed_pins:
+  D14: turnout_A_common
+  D15: turnout_A_straight
+  D16: turnout_A_divergent
+  D17: turnout_B_common
+  D18: turnout_B_straight
+  D19: turnout_B_divergent
+  D20: turnout_C_common
+  D21: turnout_C_straight
+  D22: turnout_C_divergent
+  D23: turnout_D_common
+  D24: turnout_D_straight
+  D25: turnout_D_divergent
+  D26: turnout_E_common
+  D27: turnout_E_straight
+  D28: turnout_E_divergent
+  D29: turnout_F_common
+  D30: turnout_F_straight
+  D31: turnout_F_divergent
+  D32: turnout_G_common
+  D33: turnout_G_straight
+  D34: turnout_G_divergent
+  D35: turnout_H_common
+  D36: turnout_H_straight
+  D37: turnout_H_divergent
+  D38: mine_loading
+  D39: farm_loading
+  D40: ski_lodge
+  D41: town
+  motor_outputs:
+    M1: {forward: D46, reverse: D47, mode: digital_full_speed}
+    M2: {forward: D2, reverse: D3, mode: pwm}
+    M3: {forward: D48, reverse: D49, mode: digital_full_speed}
+    M4: {forward: D4, reverse: D5, mode: pwm}
+    M5: {forward: D6, reverse: D7, mode: pwm}
+    M6: {forward: D8, reverse: D9, mode: pwm}
+    M7: {forward: D10, reverse: D11, mode: pwm}
+  crossing_servos:
+    farm_gates: D44
+    town_gates: D45
+  spare_pwm: [D12, D13]
+  other_spares: [D42, D43, D50, D51, D52, D53]
+relay_nano:
+  port: null
+  board: nano_classic
+  active_low: true
+  output_idle_high: true
+  internal_pullups_requested: true
+  turnout_direction_select:
+    A: D2
+    B: D3
+    C: D4
+    D: D5
+    E: D6
+    F: D7
+    G: D8
+    H: D9
+  yard_power:
+    "1": D10
+    "2": D11
+    "3": D12
+  unassigned: [D13]
+  # Active-low module flyback protection does NOT limit turnout solenoid pulse.
+  turnout_coil_pulse:
+    enabled: false
+    pin: null
+    commissioning_required: true
+ir_nano_esp32:
+  firmware: dedicated_ir_decoder
+  receiver_count: 14
+  configuration: config/ir_receivers.yaml
+other_controllers:
+  turntable: dedicated_xiao_esp32c6
+  tipper: dedicated_xiao_esp32c6
