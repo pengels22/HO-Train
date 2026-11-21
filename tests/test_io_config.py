@@ -10,15 +10,15 @@ def test_io_config_is_written_as_pi_csv_atomically(tmp_path, monkeypatch):
     target = tmp_path / "config" / "io_config.csv"
     monkeypatch.setattr(server, "IO_CONFIG_PATH", target)
     rows = server._save_io_config([
-        {"controller": "motion1", "channel": "CH1", "device_type": "Motor",
+        {"controller": "mega", "channel": "CH1", "device_type": "Motor",
          "tag": "1A", "configuration_status": "H-Bridge Motor 1", "bias": ""},
-        {"controller": "inputs1", "channel": "CH1", "device_type": "",
-         "tag": "As", "configuration_status": "configured", "bias": "Pull-up (internal)"},
+        {"controller": "ir", "channel": "CH1", "device_type": "IR Receiver",
+         "tag": "Mine", "configuration_status": "configured", "bias": "No bias"},
     ])
     assert rows[0]["tag"] == "1A"
     with target.open(newline="", encoding="utf-8") as stream:
         saved = list(csv.DictReader(stream))
-    assert saved[1]["controller"] == "inputs1"
+    assert saved[1]["controller"] == "ir"
     assert server._read_io_config() == saved
 
 
@@ -27,7 +27,7 @@ def test_io_config_rejects_unknown_controller_or_channel(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="unknown I/O controller"):
         server._save_io_config([{"controller": "turntable", "channel": "CH1"}])
     with pytest.raises(ValueError, match="invalid channel"):
-        server._save_io_config([{"controller": "motion1", "channel": "GPIO1"}])
+        server._save_io_config([{"controller": "mega", "channel": "GPIO1"}])
 
 
 def test_default_io_inventory_is_physical_and_complete():
@@ -44,36 +44,13 @@ def test_default_io_inventory_is_physical_and_complete():
     assert rows[-1]["controller"] == "ir"
 
 
-def test_motion2_csv_migration_is_safe_idempotent_and_recoverable(tmp_path, monkeypatch):
-    import yaml
-    target = tmp_path / "io_config.csv"
-    monkeypatch.setattr(server, "IO_CONFIG_PATH", target)
-    old = [{"controller": "motion2", "channel": "CH1", "device_type": "Motor",
-            "tag": "legacy motor", "configuration_status": "old", "bias": ""}]
-    server._save_io_config(old)
-    migrated = server._read_io_config()
-    assert migrated[0]["controller"] == "servo"
-    assert migrated[0]["device_type"] == "Unassigned"
-    # Saving an already migrated row does not create another backup or change it.
-    first = server._read_io_config()
-    server._save_io_config(first, hardware=yaml.safe_load((server.ROOT / "config/hardware.yaml").read_text()), backup=True)
-    assert server._read_io_config() == first
-    assert target.with_suffix(target.suffix + ".bak").exists()
-
-
-def test_servo_controller_rejects_motor_assignments(tmp_path, monkeypatch):
-    monkeypatch.setattr(server, "IO_CONFIG_PATH", tmp_path / "io.csv")
-    with pytest.raises(ValueError, match="servo controller"):
-        server._save_io_config([{"controller": "servo", "channel": "CH1", "device_type": "Motor"}])
-
-
 def test_rejected_registry_does_not_overwrite_csv_or_create_backup(tmp_path, monkeypatch):
     from railroad.hardware.registry import HardwareRegistry
 
     target = tmp_path / "config" / "io_config.csv"
     monkeypatch.setattr(server, "IO_CONFIG_PATH", target)
     existing = server._save_io_config([
-        {"controller": "motion1", "channel": "CH1", "device_type": "Motor",
+        {"controller": "mega", "channel": "CH1", "device_type": "Motor",
          "tag": "approved", "configuration_status": "configured"}
     ])
     before = target.read_bytes()
@@ -86,7 +63,7 @@ def test_rejected_registry_does_not_overwrite_csv_or_create_backup(tmp_path, mon
         patch.setattr(HardwareRegistry, "from_config", classmethod(reject_candidate))
         with pytest.raises(ValueError, match="candidate registry rejected"):
             server._save_io_config([
-                {"controller": "servo", "channel": "CH1", "device_type": "Servo",
+                {"controller": "mega", "channel": "CH2", "device_type": "Servo",
                  "tag": "unapproved"}
             ], backup=True)
     assert target.read_bytes() == before
@@ -101,7 +78,7 @@ def test_api_rejects_invalid_registry_without_replacing_runtime_state(tmp_path, 
     target = tmp_path / "config" / "io_config.csv"
     monkeypatch.setattr(server, "IO_CONFIG_PATH", target)
     approved_rows, approved_registry = server._save_io_config([
-        {"controller": "servo", "channel": "CH1", "device_type": "Servo",
+        {"controller": "mega", "channel": "CH1", "device_type": "Servo",
          "tag": "farm_gates"}
     ], with_registry=True)
     monkeypatch.setattr(server, "IO_CONFIG_STATE", approved_rows)
@@ -110,7 +87,7 @@ def test_api_rejects_invalid_registry_without_replacing_runtime_state(tmp_path, 
 
     class Request:
         def _json_body(self):
-            return {"rows": [{"controller": "servo", "channel": "CH2",
+            return {"rows": [{"controller": "mega", "channel": "CH2",
                               "device_type": "Servo", "tag": "candidate"}]}
 
         def _json_response(self, payload, status=200):

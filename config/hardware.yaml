@@ -4,15 +4,8 @@ mode: simulation
 firmata:
   enabled: true
   layout: config/firmata_layout.yaml
-# Legacy I2C entries are retained only for migration/config-file compatibility;
-# hardware mode does not open them when Firmata is enabled.
-i2c:
-  bus: 1
-  level_shifter_required: true
-  boards: {motor_1: 0x40, servo: 0x41, sensors_1: 0x20, sensors_2: 0x21}
-# Firmata USB is the active migration architecture. The I2C block below is
-# retained only for configuration-file compatibility and is not opened while
-# the Firmata block is present. Pi GPIO remains unassigned.
+# Firmata USB is the active controller architecture. Pi GPIO is not used for
+# railroad I/O. The dedicated XIAO controllers retain local USB links.
 # USB accessory controller registration and local STOP/watchdog propagation.
 controller_transport:
   serial_controllers:

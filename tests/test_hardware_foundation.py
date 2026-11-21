@@ -1,7 +1,6 @@
 from pathlib import Path
 import yaml
 
-from railroad.hardware.i2c import I2CBus
 from railroad.hardware.registry import HardwareRegistry
 from railroad.hardware.reed import ReedDebouncer, ReedState
 
@@ -29,45 +28,32 @@ def test_final_controller_assignments_keep_m5_fleet_and_xiao_accessories_distinc
     }
 
 
-def test_two_pca9685_architecture_has_seven_motors_two_servos_and_relay_turnouts():
+def test_firmata_architecture_has_seven_motors_two_servos_and_relay_turnouts():
     config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
-    boards = config["i2c"]["boards"]
-    assert boards == {"motor_1": 0x40, "servo": 0x41, "sensors_1": 0x20, "sensors_2": 0x21}
-    motors = yaml.safe_load((ROOT / "config/motors.yaml").read_text())["motors"]
-    servos = yaml.safe_load((ROOT / "config/servos.yaml").read_text())["servos"]
-    motor_channels = [channel for item in motors.values() for channel in item["channels"]]
-    servo_channels = [item["channel"] for item in servos.values()]
-    assert len(motors) == 7 and len(motor_channels) == 14 and len(set(motor_channels)) == 14
-    assert len(servos) == 2 and len(set(servo_channels)) == 2
-    assert set(range(16)) - set(motor_channels) == {14, 15}
-    assert set(servo_channels) == {14, 15}
-    assert "turnout_H" not in servos
-
     firmata = yaml.safe_load((ROOT / "config/firmata_layout.yaml").read_text())
+    assert config["firmata"]["enabled"] is True
+    assert len(firmata["mega"]["motor_outputs"]) == 7
+    assert set(firmata["mega"]["crossing_servos"]) == {"farm_gates", "town_gates"}
     assert {name: item for name, item in firmata["relay_nano"]["turnout_direction_select"].items()} == {
         name: f"D{index}" for index, name in enumerate("ABCDEFGH", 2)
     }
 
-    sensors = yaml.safe_load((ROOT / "config/sensors.yaml").read_text())["mcp23017"]
-    logical_inputs = [name for mapping in sensors.values() for name in mapping.values()]
-    assert logical_inputs[:21] == [
-        f"turnout_{turnout}_{role}"
-        for turnout in "ABCDEFG"
-        for role in ("common", "straight", "divergent")
-    ]
+    registry = HardwareRegistry.from_config(config).require_valid()
+    assert not any(entry.address is not None for entry in registry.entries)
+    assert all(entry.board in {"mega2560", "nano_classic", "nano_esp32"}
+               for entry in registry.entries)
 
 
-def test_hardware_startup_reports_each_declared_i2c_board_unavailable(monkeypatch):
-    import railroad.api.server as server
-    monkeypatch.setattr(server.I2CBus, "open", classmethod(
-        lambda cls, bus=1, **kwargs: (_ for _ in ()).throw(OSError("no I2C bus"))))
-    config = yaml.safe_load((ROOT / "config/hardware.yaml").read_text())
-    assert server._start_hardware_devices(config) is None
-    assert set(server.I2C_DEVICES) == set()
-    assert all(not item["connected"] for item in server.I2C_STATUS.values())
-    assert all(item["state"] == "UNAVAILABLE" for item in server.I2C_STATUS.values())
-    assert 0x42 not in {int(address) for address in config["i2c"]["boards"].values()}
-    server._close_hardware_devices()
+def test_firmata_runtime_keeps_missing_relay_nano_independent():
+    from railroad.hardware.firmata import FirmataControllerManager
+    layout = yaml.safe_load((ROOT / "config/firmata_layout.yaml").read_text())
+    layout["enabled"] = True
+    layout["mega"]["port"] = None
+    layout["relay_nano"]["port"] = None
+    statuses = FirmataControllerManager(layout).connect_all()
+    assert statuses["mega"].connected is False  # no hardware opened in tests
+    assert statuses["relay_nano"].connected is False
+    assert "persistent USB path" in statuses["relay_nano"].error
 
 
 def test_registry_expands_firmata_channels_and_applies_saved_metadata():
