@@ -192,7 +192,10 @@ class Dispatcher:
             raise TypeError("expected ReedEvent")
         with self.lock:
             self.reed_states[event.sensor] = event.state.value
-            self.reed_pulse_counts[event.sensor] = event.pulse_number
+            # CLOSED events do not increment the completed open/close count.
+            self.reed_pulse_counts[event.sensor] = max(
+                self.reed_pulse_counts.get(event.sensor, 0),
+                event.pulse_number)
             self.reed_events.append({"sensor": event.sensor, "state": event.state.value,
                                      "timestamp": event.timestamp,
                                      "pulse_number": event.pulse_number,
