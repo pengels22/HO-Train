@@ -1,8 +1,0 @@
-board: {address: 0x41}
-servos:
-  farm_gates: {channel: 14, min_us: 600, max_us: 2400, home_angle: 90, active_angle: 0, return_angle: 90}
-  town_gates: {channel: 15, home_angle: 90, active_angle: 0, return_angle: 90}
-  # CH0-6 are turnout relays; CH7-13 remain spare for future accessory outputs.
-  # The tipper lock is controlled by the dedicated XIAO ESP32-C6.
-  # Yard and turnout outputs are relay loads, not servos; see the relay maps.
-  # The turnout relay map is authoritative for the relay channels.
