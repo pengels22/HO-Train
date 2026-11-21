@@ -4,7 +4,7 @@ These tests perform no serial, GPIO, network, or physical motion.
 """
 from pathlib import Path
 
-from railroad.transport.estop import EStopFanout
+from railroad.transport.locomotive import LocomotiveStopFanout
 from railroad.transport.udp import Command
 from railroad.transport.usb import ControllerRegistry, RegisteredController
 
@@ -26,14 +26,14 @@ def test_locomotive_rearm_not_blocked_by_disconnected_accessory():
 
     tipper = RegisteredController("tipper", "/dev/not-connected", disconnected)
     registry = ControllerRegistry([tipper])
-    registry.set_estop_active(True)
+    registry.set_stop_active(True)
     sender = RecordingSender()
-    fanout = EStopFanout(sender, registry)
+    fanout = LocomotiveStopFanout(sender, registry)
 
     # Locomotive rearm must not open/rearm a faulted USB accessory.
     fanout.rearm("train-rearm-001")
     assert sender.transactions == ["train-rearm-001"]
-    assert registry.estop_active is False
+    assert registry.stop_active is False
     assert tipper.port is None
     assert tipper.connected is False
 
@@ -72,7 +72,7 @@ def test_yard_has_no_assigned_io_and_pi_gpio_is_unused():
     root = Path(__file__).resolve().parents[1]
     hardware = (root / "config" / "hardware.yaml").read_text()
     yard = (root / "config" / "yard_power.yaml").read_text()
-    assert "relay_outputs: {}" in yard
+    assert "relay_output_source: config/firmata_layout.yaml#relay_nano.yard_power" in yard
     assert "bcm:" not in yard
     assert "reserved_bcm_pins:" not in hardware
     assert "yard_track_1_relay" not in hardware

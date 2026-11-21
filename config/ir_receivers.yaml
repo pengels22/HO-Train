@@ -17,3 +17,10 @@ receivers:
   - {id: stall_1b, channel: 9, pin: D10, description: Stall 1B, zones: []}
   - {id: stall_2, channel: 10, pin: D11, description: Stall 2, zones: []}
   - {id: stall_3, channel: 11, pin: D12, description: Stall 3, zones: []}
+
+  # Three destination receivers previously tracked separately on MCP inputs.
+  # These channels are part of the production decoder map; physical receiver
+  # wiring remains a commissioning item until measured on the harness.
+  - {id: mine_station, channel: 12, pin: A0, description: Mine Station, zones: [MINE-1], verified: false}
+  - {id: farm_station, channel: 13, pin: A1, description: Farm Station, zones: [FARM-1], verified: false}
+  - {id: town_station, channel: 14, pin: A2, description: Town Station, zones: [MAIN-1], verified: false}

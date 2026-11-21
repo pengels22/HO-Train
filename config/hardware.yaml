@@ -1,19 +1,23 @@
 mode: simulation
-i2c:
-  bus: 1
-  level_shifter_required: true
-  boards: {motor_1: 0x40, motor_2: 0x41, servo: 0x42, sensors_1: 0x20, sensors_2: 0x21}
-# All sensor and accessory IO goes through MCP23017/PCA9685/ESP32 boards.
-# Pi GPIO is unassigned; I2C SDA/SCL are only bus communications.
-# No Raspberry Pi GPIO E-Stop is installed in this railroad configuration.
-# The serial controller registry remains the transport for controller-local
-# stop/watchdog handling and dispatcher stop propagation.
-estop:
+# Firmata is the commissioned USB architecture. Keep disabled until the
+# persistent USB paths and electrical harness are verified on the Pi.
+firmata:
+  enabled: true
+  layout: config/firmata_layout.yaml
+# Firmata USB is the active controller architecture. Pi GPIO is not used for
+# railroad I/O. The dedicated XIAO controllers retain local USB links.
+# USB accessory controller registration and local STOP/watchdog propagation.
+controller_transport:
   serial_controllers:
     - {id: turntable, type: xiao_esp32_c6_turntable, port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:5C-if00}
     - {id: tipper, type: xiao_esp32_c6_tipper, port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AA:64:AC-if00}
   serial_baudrate: 115200
-bench_ir_receiver:
+yard_outputs:
+  # Three physical sections; pins and active-low polarity live in firmata_layout.yaml.
+  - {track: 1, sections: [1A, 1B], requested: false, verified: false}
+  - {track: 2, sections: [2], requested: false, verified: false}
+  - {track: 3, sections: [3], requested: false, verified: false}
+ir_receiver_nano_esp32:
   enabled: true
   port: /dev/serial/by-id/usb-Arduino_Nano_ESP32_4827E2FC9A24-if01
   baudrate: 115200
@@ -21,44 +25,13 @@ bench_ir_receiver:
 # placeholders. Each locomotive is an independent operating unit: a missing
 # or faulted M5 blocks only that locomotive, not the other three.
 locomotive_controllers:
-  - {id: 1, type: m5_atom_echo, transport: udp, address: 192.168.20.101}
+  # Temporary Train 1 commissioning override: active UDP-compatible C6 at
+  # .46 has proven command reception. Lab 1 reports accepted commands as
+  # explicitly unverified command feedback until real UDP telemetry is proven.
+  # The C6 firmware watchdog remains the final loss-of-communications stop.
+  - {id: 1, type: xiao_esp32_c6, transport: udp, address: 192.168.20.46, control_only: true}
   - {id: 2, type: m5_atom_echo, transport: udp, address: 192.168.20.102}
   - {id: 3, type: m5_atom_echo, transport: udp, address: 192.168.20.103}
   - {id: 4, type: m5_atom_echo, transport: udp, address: 192.168.20.104}
 # The dedicated XIAO ESP32-C6 USB controllers above are accessory controllers,
 # not locomotive controllers; exact device paths are deployment placeholders.
-# Declarative inventory used for validation and SETTINGS display. This list is
-# safe to load on macOS; it does not open a bus or write an output.
-io_registry:
-  - {board: mcp23017_0x20, address: 0x20, channel: GPA0, device_type: mcp23017, function: turnout_A_1, location: turnout A, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPA1, device_type: mcp23017, function: turnout_A_2, location: turnout A, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPA2, device_type: mcp23017, function: turnout_A_3, location: turnout A, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPA3, device_type: mcp23017, function: turnout_B_1, location: turnout B, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPA4, device_type: mcp23017, function: turnout_B_2, location: turnout B, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPA5, device_type: mcp23017, function: turnout_B_3, location: turnout B, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPA6, device_type: mcp23017, function: turnout_C_1, location: turnout C, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPA7, device_type: mcp23017, function: turnout_C_2, location: turnout C, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPB0, device_type: mcp23017, function: turnout_C_3, location: turnout C, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPB1, device_type: mcp23017, function: turnout_D_1, location: turnout D, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPB2, device_type: mcp23017, function: turnout_D_2, location: turnout D, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPB3, device_type: mcp23017, function: turnout_D_3, location: turnout D, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPB4, device_type: mcp23017, function: turnout_E_1, location: turnout E, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPB5, device_type: mcp23017, function: turnout_E_2, location: turnout E, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPB6, device_type: mcp23017, function: turnout_E_3, location: turnout E, direction: input, polarity: active_low}
-  - {board: mcp23017_0x20, address: 0x20, channel: GPB7, device_type: mcp23017, function: spare_20_GPB7, location: spare, direction: input, polarity: active_low, spare: true}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPA0, device_type: mcp23017, function: turnout_F_1, location: turnout F, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPA1, device_type: mcp23017, function: turnout_F_2, location: turnout F, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPA2, device_type: mcp23017, function: turnout_F_3, location: turnout F, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPA3, device_type: mcp23017, function: turnout_G_1, location: turnout G, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPA4, device_type: mcp23017, function: turnout_G_2, location: turnout G, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPA5, device_type: mcp23017, function: turnout_G_3, location: turnout G, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPA6, device_type: mcp23017, function: mine_loading, location: mine, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPA7, device_type: mcp23017, function: farm_loading, location: farm, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB0, device_type: mcp23017, function: ski_lodge, location: ski, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB1, device_type: mcp23017, function: town, location: town, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB2, device_type: mcp23017, function: farm_station_ir, location: farm, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB3, device_type: mcp23017, function: town_station_ir, location: town, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB4, device_type: mcp23017, function: mine_station_ir, location: mine, direction: input, polarity: active_low}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB5, device_type: mcp23017, function: spare_21_GPB5, location: spare, direction: input, polarity: active_low, spare: true}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB6, device_type: mcp23017, function: spare_21_GPB6, location: spare, direction: input, polarity: active_low, spare: true}
-  - {board: mcp23017_0x21, address: 0x21, channel: GPB7, device_type: mcp23017, function: spare_21_GPB7, location: spare, direction: input, polarity: active_low, spare: true}

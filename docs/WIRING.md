@@ -1,3 +1,3 @@
-# Wiring
+# Current wiring architecture
 
-The documented arrangement is provisional: Pi USB-C power, level-shifted I²C, shared signal ground, fused 5V accessory distribution, separate fused motor branches, constant 12V track feeds, and separately fused 16V decoupler supply. Verify actual current and fuse coordination during installation.
+See [Control tray](CONTROL_TRAY.md) and [Hardware decisions](HARDWARE_DECISIONS.md). USB replaces Pi I2C railroad I/O. 5V/18A and 12V/18A supplies, separately fused branches, shared signal return where required. Grey field terminals are 5V/I/O, blue 12V. No AC mains on field DIN rail. Protect mains terminals and bond exposed metal if applicable. Confirm separate decoupler supply voltage and branch protection before commissioning. Verify USB power paths, wire ratings, startup levels and fuse coordination. Historical wiring PDF predates Firmata and is not an installation authority.

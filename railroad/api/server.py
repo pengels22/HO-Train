@@ -12,13 +12,15 @@ from railroad.dispatcher import Dispatcher, SafetyError
 from railroad.simulator.engine import SimulationEngine, SpeedProfile, Consist, Car
 from railroad.geography import load_geography
 from railroad.track_geometry import load_centerlines
-from railroad.transport.estop import create_bench_sender
+from railroad.transport.locomotive import create_bench_sender
 from railroad.transport.usb import ControllerRegistry, RegisteredController, pyserial_connector
 from railroad.transport.telemetry import ControllerHealthRegistry
 from railroad.transport.ir_bench import BenchIRReader
-from railroad.hardware.gpio import GPIO
 from railroad.hardware.registry import HardwareRegistry
-from railroad.safety.emergency_stop import EmergencyStop as PhysicalEmergencyStop
+from railroad.hardware.yard_power import YardPowerAdapter
+from railroad.routing.planner import RoutePlanner
+from railroad.hardware.firmata import (FirmataControllerManager,
+                                        FirmataRelayOutputs)
 
 DISPATCHER = Dispatcher()
 
@@ -30,17 +32,24 @@ def _load_paths():
     return yaml.safe_load(path.read_text()) or {"verified": False, "paths": {}}
 
 SIMULATION = SimulationEngine(DISPATCHER, _load_paths())
-PHYSICAL_ESTOP = None
 USB_CONTROLLERS = ControllerRegistry()
 HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
 TELEMETRY_STOP = None
 TELEMETRY_SOCKET = None
 IR_BENCH = None
 IO_CONFIG_PATH = ROOT / "config" / "io_config.csv"
+IO_CONFIG_STATE: list[dict] = []
+IO_HARDWARE_REGISTRY: HardwareRegistry | None = None
+IO_MIGRATION_WARNINGS: list[str] = []
+FIRMATA_MANAGER: FirmataControllerManager | None = None
+FIRMATA_RELAYS: FirmataRelayOutputs | None = None
 
 
-IO_CONFIG_COLUMNS = ("controller", "channel", "device_type", "tag", "configuration_status", "bias")
-IO_CONFIG_CONTROLLERS = {"motion1", "motion2", "inputs1", "inputs2", "ir"}
+IO_CONFIG_COLUMNS = ("controller", "channel", "board", "address", "physical_channel",
+                     "direction", "polarity", "device_type", "tag", "configuration_status", "bias",
+                     "assignment_type")
+IO_CONFIG_CONTROLLERS = {"mega", "relay_nano", "ir"}
+OUTPUT_TYPES = {"", "Motor", "Relay", "Servo", "Unassigned"}
 
 
 def _read_io_config():
@@ -50,11 +59,82 @@ def _read_io_config():
         return list(csv.DictReader(stream))
 
 
-def _save_io_config(rows):
-    """Persist the UI's controller map atomically on the Pi filesystem."""
-    if not isinstance(rows, list) or len(rows) > 64:
-        raise ValueError("rows must be a list of at most 64 channels")
+def _default_io_config(hardware):
+    """Return the physical channel inventory from the Firmata layout."""
+    firmata = hardware.get("firmata")
+    if not firmata:
+        raise RuntimeError("Firmata configuration is required; legacy I/O layouts are unsupported")
+    import yaml
+    layout_path = ROOT / str(firmata.get("layout", "config/firmata_layout.yaml"))
+    return _default_firmata_io_config(yaml.safe_load(layout_path.read_text()) or {})
+
+
+def _default_firmata_io_config(layout):
+    """Build the editable Mega/Nano/IR inventory from firmata_layout.yaml."""
+    rows = []
+    mega = layout.get("mega", {}) or {}
+    logical = 0
+    for motor, spec in (mega.get("motor_outputs", {}) or {}).items():
+        for direction, pin in (("forward", spec["forward"]), ("reverse", spec["reverse"])):
+            rows.append({"controller": "mega", "channel": f"CH{logical + 1}",
+                         "board": "mega2560", "address": "", "physical_channel": str(pin),
+                         "direction": "output", "polarity": "active_high", "device_type": "Motor",
+                         "tag": f"{motor}_{direction}", "configuration_status": "configured",
+                         "bias": ""})
+            logical += 1
+    for name, pin in (mega.get("crossing_servos", {}) or {}).items():
+        rows.append({"controller": "mega", "channel": f"CH{logical + 1}",
+                     "board": "mega2560", "address": "", "physical_channel": str(pin),
+                     "direction": "output", "polarity": "active_high", "device_type": "Servo",
+                     "tag": name, "configuration_status": "configured", "bias": ""})
+        logical += 1
+    for name, pin in (mega.get("reed_pins", {}) or {}).items():
+        rows.append({"controller": "mega", "channel": f"CH{logical + 1}",
+                     "board": "mega2560", "address": "", "physical_channel": str(name),
+                     "direction": "input", "polarity": "active_low", "device_type": "Digital Input",
+                     "tag": str(pin), "configuration_status": "configured",
+                     "bias": "Pull-up (internal)"})
+        logical += 1
+    nano = layout.get("relay_nano", {}) or {}
+    relay_rows = list((nano.get("turnout_direction_select", {}) or {}).items())
+    relay_rows += [(f"yard_{name}", pin) for name, pin in (nano.get("yard_power", {}) or {}).items()]
+    for index, (name, pin) in enumerate(relay_rows, 1):
+        rows.append({"controller": "relay_nano", "channel": f"CH{index}",
+                     "board": "nano_classic", "address": "", "physical_channel": str(pin),
+                     "direction": "output", "polarity": "active_low", "device_type": "Relay",
+                     "tag": str(name), "configuration_status": "configured", "bias": ""})
+    receiver_count = int((layout.get("ir_nano_esp32", {}) or {}).get("receiver_count", 14))
+    for channel in range(1, receiver_count + 1):
+        rows.append({"controller": "ir", "channel": f"CH{channel}", "board": "nano_esp32",
+                     "address": "", "physical_channel": f"CH{channel}", "direction": "input",
+                     "polarity": "active_high", "device_type": "IR Receiver", "tag": "",
+                     "configuration_status": "configured", "bias": "No bias"})
+    return rows
+
+
+def _effective_io_config(hardware):
+    rows = _read_io_config()
+    if not rows:
+        return _default_io_config(hardware)
+    global IO_MIGRATION_WARNINGS
+    IO_MIGRATION_WARNINGS = []
+    return rows
+
+
+def _save_io_config(rows, *, hardware=None, backup=False, with_registry=False):
+    """Validate a candidate registry before atomically replacing the Pi CSV.
+
+    With ``with_registry=True`` the caller receives the already-validated
+    registry alongside the saved rows; no second post-write validation occurs.
+    """
+    if not isinstance(rows, list) or len(rows) > 76:
+        raise ValueError("rows must be a list of at most 76 channels")
+    if hardware is None:
+        import yaml
+        hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
+    warnings = []
     normalized = []
+    seen = set()
     for row in rows:
         if not isinstance(row, dict):
             raise ValueError("each I/O row must be an object")
@@ -62,14 +142,43 @@ def _save_io_config(rows):
         channel = str(row.get("channel", ""))
         if controller not in IO_CONFIG_CONTROLLERS:
             raise ValueError(f"unknown I/O controller: {controller}")
-        if channel not in {f"CH{i}" for i in range(1, 17)}:
+        # The UI exposes sixteen logical slots for each controller.  The
+        # physical Firmata layout populates 44 Mega channels, 11 relay-Nano
+        # channels, and 14 IR channels; unused logical slots remain
+        # Unassigned and are retained in the CSV for configuration editing.
+        max_channel = 44 if controller == "mega" else (16 if controller == "relay_nano" else 14)
+        if channel not in {f"CH{i}" for i in range(1, max_channel + 1)}:
             raise ValueError(f"invalid channel: {channel}")
+        key = (controller, channel)
+        if key in seen:
+            raise ValueError(f"duplicate I/O channel: {controller}/{channel}")
+        seen.add(key)
         values = {key: str(row.get(key, "")).strip() for key in IO_CONFIG_COLUMNS}
         values["controller"], values["channel"] = controller, channel
+        if values["direction"] and values["direction"] not in {"input", "output"}:
+            raise ValueError("direction must be input or output")
+        if values["polarity"] and values["polarity"] not in {"active_low", "active_high", "none"}:
+            raise ValueError("invalid polarity")
+        device = values["device_type"]
+        if controller == "mega" and device not in {"", "Motor", "Relay", "Servo", "Digital Input", "IR Receiver", "Unassigned"}:
+            raise ValueError("Mega channels support only Motor, Relay, Servo, Digital Input, IR Receiver, or Unassigned")
+        if controller == "relay_nano" and device not in {"", "Relay", "Unassigned"}:
+            raise ValueError("relay Nano channels support only Relay or Unassigned")
+        if controller == "ir" and channel not in {f"CH{i}" for i in range(1, 15)}:
+            raise ValueError("IR receiver channels are CH1 through CH14")
         if any(len(value) > 120 for value in values.values()):
             raise ValueError("I/O fields must be 120 characters or less")
         normalized.append(values)
+    # Validate the full effective runtime registry BEFORE touching the filesystem.
+    # A rejected candidate cannot replace a working configuration or create a
+    # migration backup. The physical registry remains side-effect free.
+    candidate_registry = HardwareRegistry.from_config(hardware, normalized).require_valid()
     IO_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if backup and IO_CONFIG_PATH.exists():
+        backup_path = IO_CONFIG_PATH.with_suffix(IO_CONFIG_PATH.suffix + ".bak")
+        if not backup_path.exists():
+            import shutil
+            shutil.copy2(IO_CONFIG_PATH, backup_path)
     fd, temporary = tempfile.mkstemp(prefix="io_config.", suffix=".csv", dir=IO_CONFIG_PATH.parent)
     try:
         with os.fdopen(fd, "w", newline="", encoding="utf-8") as stream:
@@ -82,7 +191,9 @@ def _save_io_config(rows):
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
-    return normalized
+    global IO_MIGRATION_WARNINGS
+    IO_MIGRATION_WARNINGS = warnings
+    return (normalized, candidate_registry) if with_registry else normalized
 
 
 def _stop_telemetry_listener():
@@ -92,6 +203,30 @@ def _stop_telemetry_listener():
         try: TELEMETRY_SOCKET.close()
         except OSError: pass
     TELEMETRY_STOP = TELEMETRY_SOCKET = None
+
+
+def _close_hardware_devices():
+    global FIRMATA_MANAGER, FIRMATA_RELAYS
+    if FIRMATA_MANAGER:
+        FIRMATA_MANAGER.close()
+    FIRMATA_MANAGER = None
+    FIRMATA_RELAYS = None
+
+
+def _start_firmata_devices(layout: dict) -> None:
+    """Start independent Firmata controllers; disabled layouts do no I/O."""
+    global FIRMATA_MANAGER, FIRMATA_RELAYS
+    if FIRMATA_MANAGER:
+        FIRMATA_MANAGER.close()
+    FIRMATA_MANAGER = FirmataControllerManager(layout)
+    FIRMATA_MANAGER.connect_all()
+    FIRMATA_RELAYS = FirmataRelayOutputs(FIRMATA_MANAGER)
+    if FIRMATA_MANAGER.status["mega"].connected:
+        FIRMATA_MANAGER.start_reeds(DISPATCHER.handle_reed_event)
+
+
+def _firmata_snapshot() -> dict:
+    return FIRMATA_MANAGER.snapshot() if FIRMATA_MANAGER else {}
 
 
 def _start_telemetry_listener():
@@ -128,7 +263,8 @@ def _start_ir_bench(hardware):
     global IR_BENCH
     import yaml
     _stop_ir_bench()
-    config = hardware.get("bench_ir_receiver", {}) or {}
+    config = (hardware.get("ir_receiver_nano_esp32")
+              or hardware.get("bench_ir_receiver", {}) or {})
     if not config.get("enabled") or not config.get("port"):
         return
     ir_config = yaml.safe_load((ROOT / "config/ir_receivers.yaml").read_text()) or {}
@@ -147,92 +283,107 @@ def _start_ir_bench(hardware):
     IR_BENCH.start()
 
 
+def load_locomotive_controller_config(hardware: dict, known_ids: set[int]) -> list[dict]:
+    """Validate the declarative four-locomotive controller inventory."""
+    entries = hardware.get("locomotive_controllers") or []
+    allowed = {"m5_atom_echo", "xiao_esp32_c6"}
+    ids = []
+    for entry in entries:
+        if not isinstance(entry, dict) or type(entry.get("id")) is not int:
+            raise RuntimeError("locomotive_controllers entries require integer id and type")
+        if entry.get("type") not in allowed:
+            raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}")
+        ids.append(entry["id"])
+    if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
+        raise RuntimeError("invalid or inconsistent locomotive_controllers IDs")
+    return [dict(entry) for entry in entries]
+
+
 def configure_runtime(mode: str = "simulation") -> None:
     """Configure the command gate; network transmission is never implicit."""
-    global PHYSICAL_ESTOP, USB_CONTROLLERS, HEALTH
+    global USB_CONTROLLERS, HEALTH, IO_CONFIG_STATE, IO_HARDWARE_REGISTRY
     if mode not in {"simulation", "hardware", "bench"}:
         raise ValueError("mode must be simulation, hardware, or bench")
     if mode == "simulation":
+        _close_hardware_devices()
         _stop_telemetry_listener()
         _stop_ir_bench()
-        if PHYSICAL_ESTOP:
-            PHYSICAL_ESTOP.stop()
-            PHYSICAL_ESTOP = None
-        if DISPATCHER.estop_controller:
-            shutdown = getattr(DISPATCHER.estop_controller, "shutdown", None)
+        if DISPATCHER.motion_transport:
+            shutdown = getattr(DISPATCHER.motion_transport, "shutdown", None)
             if shutdown:
                 shutdown()
-            DISPATCHER.estop_controller = None
+            DISPATCHER.motion_transport = None
         USB_CONTROLLERS.close()
         HEALTH.stop_monitor()
         USB_CONTROLLERS = ControllerRegistry()
         HEALTH = ControllerHealthRegistry(USB_CONTROLLERS)
         DISPATCHER.attach_controller_health(HEALTH)
-        DISPATCHER.physical_estop = None
+        DISPATCHER.yard_adapter = None
+        IO_CONFIG_STATE = []
+        IO_HARDWARE_REGISTRY = None
         DISPATCHER.accessory_errors.clear()
         DISPATCHER.simulation = True
         DISPATCHER.disarm()
         return
-    # ``hardware``/``bench`` are explicit opt-ins. Missing accessories and an
-    # uninstalled physical E-stop are not startup errors.
+    # Hardware and bench modes are explicit opt-ins; no physical stop switch required.
     import yaml
     hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
-    estop_config = hardware.get("estop", {}) or {}
-    rpi_gpio = None
-    if estop_config.get("gpio") is not None:
-        try:
-            import RPi.GPIO as rpi_gpio_module
-        except ImportError as exc:
-            raise RuntimeError("hardware safety configuration incomplete: RPi.GPIO unavailable") from exc
-        rpi_gpio = rpi_gpio_module
-    locomotive_config = hardware.get("locomotive_controllers") or []
+    topology = yaml.safe_load((ROOT / "config/track_topology.yaml").read_text()) or {}
+    DISPATCHER.route_planner = RoutePlanner.from_topology(topology)
+    # Re-load the Pi-persisted editor data through the same validator used by
+    # POST. This is the authoritative runtime view; browser local storage is
+    # never consulted by hardware adapters.
+    IO_CONFIG_STATE = _effective_io_config(hardware)
+    IO_HARDWARE_REGISTRY = HardwareRegistry.from_config(hardware, IO_CONFIG_STATE).require_valid()
+    firmata = hardware.get("firmata")
+    if not firmata:
+        raise RuntimeError("Firmata configuration is required; legacy I2C runtime has been removed")
+    import yaml
+    layout_path = ROOT / str(firmata.get("layout", "config/firmata_layout.yaml"))
+    layout = yaml.safe_load(layout_path.read_text()) or {}
+    layout["enabled"] = bool(firmata.get("enabled", False))
+    _start_firmata_devices(layout)
+    hardware_error = None
+    if FIRMATA_RELAYS:
+        DISPATCHER.attach_turnout_command(FIRMATA_RELAYS.turnout)
+    error_key = "firmata"
+    if hardware_error:
+        DISPATCHER.accessory_errors[error_key] = hardware_error
+    else:
+        DISPATCHER.accessory_errors.pop(error_key, None)
+    controller_transport_config = hardware.get("controller_transport", {}) or {}
     configured = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
     known_ids = {int(item["id"]) for item in configured.get("locomotives", [])}
-    ids = []
-    for entry in locomotive_config:
-        if not isinstance(entry, dict) or type(entry.get("id")) is not int:
-            raise RuntimeError("locomotive_controllers entries require integer id and type")
-        if entry.get("type") != "m5_atom_echo":
-            raise RuntimeError(f"unsupported locomotive controller type: {entry.get('type')}")
-        ids.append(entry["id"])
-    if len(ids) != len(set(ids)) or any(i < 1 or i > 4 for i in ids) or not set(ids) <= known_ids:
-        raise RuntimeError("invalid or inconsistent locomotive_controllers IDs")
+    locomotive_config = load_locomotive_controller_config(hardware, known_ids)
     USB_CONTROLLERS = ControllerRegistry()
-    for entry in estop_config.get("serial_controllers", []) or []:
+    for entry in controller_transport_config.get("serial_controllers", []) or []:
         controller_id, port_name = entry.get("id"), entry.get("port")
         if not controller_id or not port_name:
             continue
-        baudrate = int(entry.get("baudrate", estop_config.get("serial_baudrate", 115200)))
+        baudrate = int(entry.get("baudrate", controller_transport_config.get("serial_baudrate", 115200)))
         connector = lambda port, baudrate=baudrate: pyserial_connector(port, baudrate=baudrate)
         USB_CONTROLLERS.controllers.append(RegisteredController(
             controller_id, port_name, connector,
             controller_type=entry.get("type", "usb_controller")))
     locomotive_ids = [int(i["id"]) for i in hardware.get("locomotive_controllers", [])]
-    HEALTH = ControllerHealthRegistry(USB_CONTROLLERS, locomotive_ids=locomotive_ids,
-                                      independent_locomotives=True)
+    HEALTH = ControllerHealthRegistry(
+        USB_CONTROLLERS, locomotive_ids=locomotive_ids,
+        locomotive_types={int(item["id"]): item["type"] for item in locomotive_config},
+        control_only_locomotives={int(item["id"]) for item in locomotive_config if item.get("control_only")},
+        independent_locomotives=True)
     DISPATCHER.attach_controller_health(HEALTH)
+    # Yard topology lives in hardware.yaml; physical pins come only from Firmata.
+    DISPATCHER.yard_adapter = YardPowerAdapter.from_firmata(
+        hardware, layout, writer=lambda output, enabled: FIRMATA_RELAYS.yard_power(output.track, enabled))
     DISPATCHER.simulation = False
     DISPATCHER.bench_mode = mode == "bench"
     # Healthy locomotive operation is independent of accessory availability.
-    DISPATCHER.attach_estop(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS, start_armed=True), require_rearm=False)
+    DISPATCHER.attach_motion_transport(create_bench_sender(enable_network=True, controllers=USB_CONTROLLERS, start_armed=True), require_rearm=False)
     HEALTH.on_failure = None
     USB_CONTROLLERS.start_heartbeat()
     HEALTH.start_monitor()
     _start_ir_bench(hardware)
     _start_telemetry_listener()
-    pin = estop_config.get("gpio")
-    if pin is not None:
-        # The backend is intentionally imported only for an explicit hardware
-        # run with a configured pin; simulation never touches GPIO.
-        class _RPiBackend:
-            def setup_input(self, pin, *, pull_down):
-                rpi_gpio.setmode(rpi_gpio.BCM)
-                rpi_gpio.setup(pin, rpi_gpio.IN, pull_up_down=rpi_gpio.PUD_DOWN)
-            def read(self, pin): return rpi_gpio.input(pin)
-        gpio = GPIO(enabled=True, backend=_RPiBackend(), estop_pin=int(pin))
-        DISPATCHER.attach_physical_estop(lambda: gpio.estop_pressed)
-        PHYSICAL_ESTOP = PhysicalEmergencyStop(gpio, DISPATCHER)
-        PHYSICAL_ESTOP.start()
 
 class DashboardHandler(BaseHTTPRequestHandler):
 
@@ -287,14 +438,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             HEALTH.check_freshness()
             status = DISPATCHER.snapshot()
             status["simulation"] = SIMULATION.snapshot()
-            status["estop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}
+            status["firmata"] = _firmata_snapshot()
+            status["stop_transport"] = {"registered_usb": USB_CONTROLLERS.status()}
             bench = IR_BENCH.status() if IR_BENCH else {"enabled": False, "connected": False}
-            status["bench_ir_receiver"] = bench
+            status["ir_receiver_nano_esp32"] = bench
             # The Nano is a real, read-only controller in hardware mode.  Keep
             # it in the same inventory as the locomotive and accessory boards
             # so the headline count reflects every connected controller.
             status["controllers"].append({
-                "id": "nano-ir-bench",
+                "id": "nano-ir",
                 "type": "arduino_nano_esp32_ir",
                 "required": False,
                 "connected": bool(bench.get("connected")),
@@ -302,7 +454,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "state": "RECEIVING" if bench.get("connected") else None,
                 "faults": (["receiver_unavailable"] if bench.get("last_error") else []),
                 "status": {
-                    "controller": "nano_ir_bench",
+                    "controller": "nano_esp32_ir",
                     "events": bench.get("events", 0),
                     "last_event": bench.get("last_event"),
                 },
@@ -331,26 +483,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
         elif self.path == "/api/config":
             import yaml
             hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
-            ir = yaml.safe_load((ROOT / "config/ir_receivers.yaml").read_text()) or {}
             locomotives = yaml.safe_load((ROOT / "config/locomotives.yaml").read_text()) or {}
             wifi = locomotives.get("wifi", {})
-            io = [{"device": "Raspberry Pi GPIO", "io": "unassigned", "location": "Raspberry Pi", "function": "general-purpose I/O", "polarity": "n/a", "status": "reserved"}]
-            registry = HardwareRegistry.from_config(hardware)
-            io = [{"device": entry.device_type, "io": f"{entry.board}:{entry.channel}",
+            io = [{"device": "Arduino USB", "io": "unassigned", "location": "USB controllers", "function": "Firmata I/O", "polarity": "n/a", "status": "commissioning"}]
+            registry = IO_HARDWARE_REGISTRY or HardwareRegistry.from_config(hardware, _effective_io_config(hardware)).require_valid()
+            io = [{"device": entry.device_type, "assignment": entry.assignment_type,
+                   "io": f"{entry.board}:{entry.channel}",
                    "address": entry.address, "location": entry.location,
-                   "function": entry.function, "direction": entry.direction,
+                   "function": entry.tag or entry.function, "controller": entry.controller,
+                   "configuration_status": entry.configuration_status,
+                   "direction": entry.direction,
                    "polarity": entry.polarity,
-                   "status": "spare" if entry.spare else ("active" if entry.active else "reserved")}
+                   "status": entry.configuration_status or ("spare" if entry.spare else ("active" if entry.active else "reserved"))}
                   for entry in registry.entries]
-            for board, address in (hardware.get("i2c", {}).get("boards", {}) or {}).items():
-                device = "MCP23017" if board.startswith("sensors") else ("PCA9685" if board in {"motor_1", "motor_2", "servo"} else "I2C / " + board)
-                io.append({"device": device, "io": hex(address) if isinstance(address, int) else str(address), "location": "Raspberry Pi I2C", "function": board, "polarity": "n/a", "status": "configured"})
-            for receiver in ir.get("receivers", []):
-                io.append({"device": "Arduino Nano", "io": receiver.get("pin", "unassigned"), "location": ", ".join(receiver.get("zones", [])) or "Yard", "function": receiver.get("description", "IR receiver"), "polarity": "active_high", "status": "configured"})
-            body = json.dumps({"io": io, "registry_errors": registry.validate(), "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "i2c_bus": hardware.get("i2c", {}).get("bus", 1), "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": "3 physical sections (1A + 1B share Track 1)"}}).encode()
+            body = json.dumps({"io": io, "registry_errors": registry.validate(), "io_config": _effective_io_config(hardware), "locomotives": locomotives.get("locomotives", []), "controller": {"hardware_mode": hardware.get("mode", "simulation"), "transport": "Firmata USB", "wifi_ssid": wifi.get("ssid", ""), "controller_ip": wifi.get("controller_ip", ""), "udp_broadcast": wifi.get("broadcast", ""), "udp_port": wifi.get("udp_port", 4210), "yard_relays": hardware.get("yard_outputs", [])}}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         elif self.path == "/api/io-config":
-            self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": _read_io_config()})
+            import yaml
+            hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
+            self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": _effective_io_config(hardware)})
         elif self.path == "/api/geography":
             body = json.dumps(load_geography(ROOT)).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
@@ -453,9 +604,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(status); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
 
     def _save_io_config(self):
+        global IO_CONFIG_STATE, IO_HARDWARE_REGISTRY
         try:
-            rows = _save_io_config(self._json_body().get("rows"))
-            self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": rows})
+            import yaml
+            hardware = yaml.safe_load((ROOT / "config/hardware.yaml").read_text()) or {}
+            rows, validated_registry = _save_io_config(
+                self._json_body().get("rows"), hardware=hardware, with_registry=True
+            )
+            # Publish both runtime views only after the validated CSV is committed.
+            IO_CONFIG_STATE = rows
+            IO_HARDWARE_REGISTRY = validated_registry
+            self._json_response({"ok": True, "path": str(IO_CONFIG_PATH), "rows": rows,
+                                 "migration_warnings": IO_MIGRATION_WARNINGS})
         except (AttributeError, TypeError, ValueError, json.JSONDecodeError) as exc:
             self._json_response({"ok": False, "error": str(exc)}, 400)
 
@@ -505,11 +665,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             elif action == "set_operator_mode":
                 DISPATCHER.set_operator_mode(payload["mode"])
             elif action == "start_dispatcher":
+                DISPATCHER.enable_automatic()
                 DISPATCHER.start_dispatcher()
             elif action == "stop_dispatcher":
+                DISPATCHER.disable_automatic()
                 DISPATCHER.stop_dispatcher()
             elif action == "run_cycle_once":
                 DISPATCHER.run_cycle_once()
+            elif action == "enable_automatic":
+                DISPATCHER.enable_automatic()
+            elif action == "disable_automatic":
+                DISPATCHER.disable_automatic()
             elif action == "set_train_mode":
                 DISPATCHER.set_train_mode(int(payload["train_id"]), payload["mode"])
             elif action == "yard_power":
@@ -524,10 +690,48 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 # Assignment changes dispatcher state only; it never issues
                 # a motion command to a locomotive or accessory.
                 DISPATCHER.assign_destination(train_id, destination)
+            elif action == "submit_request":
+                DISPATCHER.submit_request(
+                    int(payload["train_id"]), str(payload["destination"]),
+                    origin=payload.get("origin"), priority=int(payload.get("priority", 0)))
+            elif action == "cancel_request":
+                DISPATCHER.cancel_request(int(payload["train_id"]))
+            elif action == "manual_takeover":
+                DISPATCHER.manual_takeover(int(payload["train_id"]))
+            elif action == "plan_route":
+                plan = DISPATCHER.plan_route(int(payload["train_id"]), str(payload["origin"]), str(payload["destination"]))
+                self._json_response({"ok": plan.status.value == "AVAILABLE",
+                                     "plan": plan.__dict__, "status": DISPATCHER.snapshot()})
+                return
             elif action == "stop_train":
                 DISPATCHER.stop_train(int(payload["train_id"]))
             elif action == "command_motion":
                 DISPATCHER.command_motion(int(payload["train_id"]), int(payload["speed"]))
+            elif action == "speed_calibration_arm":
+                DISPATCHER.arm_speed_calibration(
+                    int(payload["train_id"]), str(payload["start_receiver"]),
+                    str(payload["end_receiver"]), float(payload.get("distance_mm", 914.4)),
+                    int(payload.get("stop_delay_ms", 1000)),
+                    bool(payload.get("turnout_c_straight_confirmed", False)))
+            elif action == "speed_calibration_cancel":
+                DISPATCHER.cancel_speed_calibration()
+            elif action == "speed_calibration_save":
+                calibration = DISPATCHER.speed_calibration
+                if calibration.get("state") != "COMPLETE":
+                    raise SafetyError("speed calibration is not complete")
+                import yaml
+                path = ROOT / "config/locomotives.yaml"
+                data = yaml.safe_load(path.read_text()) or {}
+                train_id = int(calibration["train_id"])
+                value = float(calibration["speed_mm_s_at_255"])
+                for locomotive in data.get("locomotives", []):
+                    if int(locomotive.get("id")) == train_id:
+                        locomotive["speed_mm_s_at_255"] = value
+                        locomotive["calibration_status"] = "verified_two_receiver_run"
+                        break
+                else:
+                    raise KeyError(f"unknown locomotive {train_id}")
+                path.write_text(yaml.safe_dump(data, sort_keys=False))
             elif action == "controller_command":
                 controller_id = str(payload["controller_id"])
                 command = str(payload["command"])

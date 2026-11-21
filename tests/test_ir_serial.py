@@ -29,3 +29,15 @@ def test_bench_reader_resolves_physical_channel_from_config():
     payload = reader._resolve_configured_receiver({"channel": 1, "pin": "D2", "train_id": 2})
     assert payload["station_id"] == "mine_station"
     assert "receiver" not in payload
+
+
+def test_bench_reader_delivers_real_event_and_suppresses_no_train():
+    events = []
+    reader = BenchIRReader("/dev/null", 115200, events.append,
+                           receiver_map={("channel", "1"): "mine_station"})
+    reader._handle_line(b'{"channel":1,"train_id":2,"timestamp_ms":123}\n')
+    reader._handle_line(b'{"channel":1,"train_id":"no_train"}\n')
+    assert len(events) == 1
+    assert events[0].receiver_id == "Mine Station"
+    assert events[0].train_id == 2
+    assert reader.last_event["train_id"] == "no_train"

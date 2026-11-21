@@ -13,7 +13,7 @@ powered_turnouts:
   E: {default: straight, common: UND-2, straight: SKI-3, diverging: yard_throat}
   F: {default: straight, common: yard_throat, straight: yard_track_1, diverging: yard_track_2_3}
   G: {default: straight, common: yard_track_2_3, straight: stall_2, diverging: stall_3}
-  H: {default: straight, common: TBD, straight: TBD, diverging: UND-4} # exact straight connection awaiting JMRI graph association
+  H: {default: straight, common: TBD, straight: TBD, diverging: UND-4, surveyed: false} # powered; geometry awaits physical verification
 passive_turnouts: [P1, P2, P3]
 yard_tracks: {"1": ["1A", "1B"], "2": ["2"], "3": ["3"]}
 tipper_protected_zones: [MAIN-3, UND-1]

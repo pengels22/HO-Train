@@ -72,10 +72,13 @@ class LocomotiveTelemetry:
 class ControllerHealthRegistry:
     """Thread-safe health view; sequences are monotonic within each boot session."""
     def __init__(self, usb_registry, locomotive_ids=(), freshness_s: float = 0.75,
-                 clock=time.monotonic, *, independent_locomotives: bool = False):
+                 clock=time.monotonic, *, independent_locomotives: bool = False,
+                 locomotive_types=None, control_only_locomotives=()):
         self.usb_registry = usb_registry
         self.required_locomotives = set(locomotive_ids)
         self.independent_locomotives = bool(independent_locomotives)
+        self.locomotive_types = {int(k): str(v) for k, v in (locomotive_types or {}).items()}
+        self.control_only_locomotives = {int(i) for i in control_only_locomotives}
         self.freshness_s = float(freshness_s)
         self.clock = clock
         self.telemetry = {}
@@ -84,11 +87,16 @@ class ControllerHealthRegistry:
         self._monitor_thread = self._monitor_stop = None
         self.on_failure = None
         self.motion_provider = None
+        self.command_provider = None
         usb_registry.on_failure = self._usb_failure
 
     def set_motion_provider(self, provider) -> None:
         """Supply the dispatcher’s current commanded-motion state."""
         self.motion_provider = provider
+
+    def set_command_provider(self, provider) -> None:
+        """Supply last accepted commands as explicitly non-measured feedback."""
+        self.command_provider = provider
 
     def _fail(self, controller, reason):
         key = f"{controller}:{reason}"
@@ -201,11 +209,18 @@ class ControllerHealthRegistry:
             if locomotive_id is None and self.independent_locomotives:
                 return self.usb_registry.all_required_ready()
             if locomotive_id is not None:
+                if int(locomotive_id) in self.control_only_locomotives:
+                    return True
                 item = self.telemetry.get(int(locomotive_id))
                 if item is None or now - item[1] > self.freshness_s:
                     return False
                 telemetry, _ = item
-                return (self.usb_registry.all_required_ready() and telemetry.state == "ARMED" and
+                # Locomotive UDP operation is independent of USB accessory
+                # controllers.  A disconnected turntable, tipper, or other
+                # accessory must not block a locomotive whose own telemetry is
+                # fresh and safe; route-level operations apply their own
+                # accessory prerequisites separately.
+                return (telemetry.state == "ARMED" and
                         telemetry.armed and not telemetry.estop and not telemetry.communication_fault and
                         not any(k.startswith(f"locomotive-{int(locomotive_id)}:") for k in self._failures))
             fresh = all(i in self.telemetry and now - self.telemetry[i][1] <= self.freshness_s for i in self.required_locomotives)
@@ -244,17 +259,30 @@ class ControllerHealthRegistry:
     def status(self, *, moving_locomotives=None):
         result = list(self.usb_registry.status()); now = self.clock()
         moving_locomotives = moving_locomotives or {}
+        commanded = self.command_provider() if self.command_provider else {}
         with self._lock:
             for ident in sorted(self.required_locomotives):
+                if ident in self.control_only_locomotives:
+                    feedback = commanded.get(ident)
+                    item = {"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": False, "connected": True, "state": "COMMAND_FEEDBACK" if feedback else "CONTROL_ONLY", "faults": [], "armed": True, "estop": False, "control_only": True, "telemetry_source": "command_feedback" if feedback else "none", "telemetry_confirmed": False, "offline_reason": None}
+                    if feedback:
+                        item.update(feedback)
+                    result.append(item)
+                    continue
                 moving = bool(moving_locomotives.get(ident, False))
                 item = self.telemetry.get(ident)
                 if item is None:
-                    result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": not self.independent_locomotives, "connected": False, "state": "OFFLINE_MOVING" if moving else "PARKED_OFFLINE", "faults": ["telemetry_missing"] if moving else [], "unverified": True, "offline_reason": "moving" if moving else "parked"}); continue
+                    feedback = commanded.get(ident)
+                    if feedback:
+                        result.append({"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": not self.independent_locomotives, "connected": True, "state": "COMMAND_FEEDBACK", "faults": [], "armed": True, "estop": False, "telemetry_source": "command_feedback", "telemetry_confirmed": False, "offline_reason": None, **feedback})
+                    else:
+                        result.append({"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": not self.independent_locomotives, "connected": False, "state": "OFFLINE_MOVING" if moving else "PARKED_OFFLINE", "faults": ["telemetry_missing"] if moving else [], "unverified": True, "offline_reason": "moving" if moving else "parked"})
+                    continue
                 telemetry, received = item
                 faults = [key.split(":", 1)[1] for key in self._failures if key.startswith(f"locomotive-{ident}:")]
                 if telemetry.communication_fault and "reported unsafe state" not in faults:
                     faults.append("reported unsafe state")
                 if not moving:
                     faults = [fault for fault in faults if fault not in {"telemetry stale or missing", "telemetry_missing"}]
-                result.append({"id": f"locomotive-{ident}", "type": "m5_atom_echo", "required": not self.independent_locomotives, "connected": now - received <= self.freshness_s, "state": telemetry.state if moving or now - received <= self.freshness_s else "PARKED_OFFLINE", "faults": faults, "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "last_command_sequence": telemetry.last_command_sequence, "session": telemetry.session, "last_success": received, "offline_reason": "moving" if moving and now - received > self.freshness_s else ("parked" if not moving and now - received > self.freshness_s else None)})
+                result.append({"id": f"locomotive-{ident}", "type": self.locomotive_types.get(ident, "m5_atom_echo"), "required": not self.independent_locomotives, "connected": now - received <= self.freshness_s, "state": telemetry.state if moving or now - received <= self.freshness_s else "PARKED_OFFLINE", "faults": faults, "armed": telemetry.armed, "estop": telemetry.estop, "last_sequence": telemetry.sequence, "last_command_sequence": telemetry.last_command_sequence, "session": telemetry.session, "last_success": received, "offline_reason": "moving" if moving and now - received > self.freshness_s else ("parked" if not moving and now - received > self.freshness_s else None)})
         return result

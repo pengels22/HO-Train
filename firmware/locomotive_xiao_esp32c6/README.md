@@ -30,4 +30,6 @@ arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C6 \
 
 Change only `LOCOMOTIVE_ID` for another independent locomotive. Supply Wi-Fi
 credentials through an untracked `wifi_credentials.h`; no credentials belong
-in this sketch or in the repository.
+in this sketch or in the repository. Telemetry targets Lab 1 at
+`192.168.20.36:4211` by default; define `HO_CONTROLLER_IP` at build time for
+another dispatcher address.

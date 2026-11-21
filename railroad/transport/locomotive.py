@@ -1,8 +1,7 @@
-"""Fail-closed UDP emergency-stop sender for an explicitly enabled bench/hardware session.
+"""Locomotive command transport with dispatcher stop and explicit motion authorization.
 
-This module is NOT started by the simulation dashboard. A hardware runtime must
-opt in, and each registered locomotive/accessory controller must implement the
-ESTOP flag and local watchdog.
+Wire flag 0x80 is kept for compatibility with existing locomotive firmware.
+It is not a physical emergency-stop system.
 """
 from __future__ import annotations
 
@@ -13,7 +12,7 @@ import time
 from railroad.transport.udp import Broadcaster, Command
 from railroad.transport.usb import ControllerRegistry
 
-ESTOP_FLAG = 0x80
+GLOBAL_STOP_FLAG = 0x80
 REARM_FLAG = 0x40
 ALL_TRAINS = 0xFF
 DEFAULT_PERIOD_S = 0.100
@@ -23,8 +22,8 @@ class Sender(Protocol):
     def send(self, command: Command) -> None: ...
 
 
-class EStopFanout:
-    """Send normal commands over UDP and E-Stop text to registered USB ports."""
+class LocomotiveStopFanout:
+    """Send normal commands over UDP and dispatcher stop text to registered USB ports."""
     def __init__(self, udp_sender: Sender, controllers: ControllerRegistry | None = None):
         self.udp_sender = udp_sender
         self.controllers = controllers or ControllerRegistry()
@@ -40,14 +39,14 @@ class EStopFanout:
             self.udp_sender.send(command)
         except Exception as exc:
             errors.append(exc)
-        if command.flags & ESTOP_FLAG:
-            self.controllers.set_estop_active(True)
+        if command.flags & GLOBAL_STOP_FLAG:
+            self.controllers.set_stop_active(True)
             try:
-                self.controllers.send_estop()
+                self.controllers.send_stop()
             except Exception as exc:
                 errors.append(exc)
         if errors:
-            raise OSError("E-Stop transport delivery incomplete") from errors[0]
+            raise OSError("dispatcher stop transport delivery incomplete") from errors[0]
 
     def rearm(self, transaction: str | None = None) -> None:
         transaction = transaction or f"rearm-{time.monotonic_ns()}"
@@ -59,9 +58,9 @@ class EStopFanout:
             self.udp_sender.send(Command(ALL_TRAINS, self._next_sequence(), 0, flags=REARM_FLAG))
         # Accessory faults remain local. A disconnected/faulted tipper or
         # turntable must not prevent independent locomotive rearm.
-        # Accessories keep their own E-stop latch until explicitly rearmed
+        # Accessories keep their own stop latch until explicitly rearmed
         # through their validated local workflow.
-        self.controllers.set_estop_active(False)
+        self.controllers.set_stop_active(False)
 
     def close(self) -> None:
         close = getattr(self.udp_sender, "close", None)
@@ -70,12 +69,14 @@ class EStopFanout:
         self.controllers.close()
 
 
-class EmergencyStop:
+class LocomotiveCommandTransport:
     """Own the command stream so ordinary throttle commands cannot bypass a latch.
 
-    Starts DISARMED; only explicit rearm permits motion. An E-Stop sends an
-    immediate zero command and continues at 100 ms until cleared. Clearing
-    keeps the system DISARMED, with all trains stopped.
+    Starts DISARMED; only explicit rearm permits motion. Each locomotive's most
+    recent command is rebroadcast at the transport cadence so its communication
+    watchdog sees a fresh command even when the UI is idle. A dispatcher stop
+    sends an immediate zero command and continues at 100 ms until cleared.
+    Clearing keeps the system DISARMED, with all trains stopped.
     """
 
     def __init__(self, sender: Sender, period_s: float = DEFAULT_PERIOD_S, *, start_armed: bool = False):
@@ -86,98 +87,126 @@ class EmergencyStop:
         self._lock = RLock()
         self._wake = Event()
         self._closed = False
-        self._estop = False
+        self._stopped = False
         self._armed = start_armed
         self._sequence = 0
+        self._current_commands: dict[int, tuple[int, int, int]] = {}
         self._last_error: Exception | None = None
-        self._thread = Thread(target=self._broadcast_loop, name="ho-estop", daemon=True)
+        self._thread = Thread(target=self._broadcast_loop, name="ho-stopped", daemon=True)
         self._thread.start()
 
     @property
     def active(self) -> bool:
         with self._lock:
-            return self._estop
+            return self._stopped
 
     @property
     def armed(self) -> bool:
         with self._lock:
-            return self._armed and not self._estop
+            return self._armed and not self._stopped
 
     @property
     def last_error(self) -> Exception | None:
         with self._lock:
             return self._last_error
 
-    def _next(self, *, estop: bool, train_id: int = ALL_TRAINS,
+    def _next(self, *, stopped: bool, train_id: int = ALL_TRAINS,
               speed: int = 0, target: int = 0, flags: int = 0) -> Command:
         self._sequence = (self._sequence + 1) & 0xFFFF
         return Command(
-            train_id=train_id, sequence=self._sequence, speed=0 if estop else speed,
-            target=0 if estop else target, flags=ESTOP_FLAG if estop else flags,
+            train_id=train_id, sequence=self._sequence, speed=0 if stopped else speed,
+            target=0 if stopped else target, flags=GLOBAL_STOP_FLAG if stopped else flags,
         )
 
-    def _send_estop(self) -> None:
+    def _send_stop(self) -> None:
         # Lock is held through send: no concurrent throttle packet can race
-        # across the E-Stop boundary.
+        # across the dispatcher stop boundary.
         with self._lock:
-            if not self._estop or self._closed:
+            if not self._stopped or self._closed:
                 return
             try:
-                self._sender.send(self._next(estop=True))
+                self._sender.send(self._next(stopped=True))
                 self._last_error = None
             except Exception as exc:
                 # Any transport can fail; stay latched and retry independently.
                 self._last_error = exc
 
     def activate(self) -> None:
-        """Immediately broadcast ESTOP; keep broadcasting until clear()."""
+        """Immediately broadcast STOP; keep broadcasting until clear()."""
         with self._lock:
             if self._closed:
-                raise RuntimeError("E-Stop sender is closed")
-            self._estop = True
+                raise RuntimeError("dispatcher stop sender is closed")
+            self._stopped = True
             self._armed = False
-            self._send_estop()
+            self._send_stop()
             self._wake.set()
 
     def clear(self) -> None:
-        """Stop E-Stop repetition; NEVER resume prior throttle commands."""
+        """Stop dispatcher stop repetition; NEVER resume prior throttle commands."""
         with self._lock:
-            self._estop = False
+            self._stopped = False
             self._armed = False
+            self._current_commands.clear()
             setter = getattr(self._sender, "controllers", None)
             if setter is not None:
-                setter.set_estop_active(False)
+                setter.set_stop_active(False)
             self._wake.set()
 
     def rearm(self, transaction: str | None = None) -> None:
         """Explicit second step after clear; caller must verify safety first."""
         with self._lock:
-            if self._closed or self._estop:
-                raise RuntimeError("cannot rearm with E-Stop active or sender closed")
+            if self._closed or self._stopped:
+                raise RuntimeError("cannot rearm with dispatcher stop active or sender closed")
             if self._last_error:
                 raise RuntimeError("unresolved broadcast error")
             # Explicit zero-speed handshake. Normal zero heartbeats never
-            # clear a controller's local watchdog/E-Stop latch.
+            # clear a controller's local watchdog/dispatcher stop latch.
             try:
                 rearm = getattr(self._sender, "rearm", None)
                 if rearm:
                     rearm(transaction)
                 else:
-                    self._sender.send(self._next(estop=False, flags=REARM_FLAG))
+                    self._sender.send(self._next(stopped=False, flags=REARM_FLAG))
             except Exception as exc:
                 self._last_error = exc
                 raise RuntimeError("rearm handshake delivery failed") from exc
+            # Rearm never resumes a stale throttle command. Motion must be
+            # requested explicitly after the handshake.
+            self._current_commands.clear()
             self._armed = True
 
     def send_motion(self, train_id: int, speed: int, target: int = 0, flags: int = 0) -> None:
         """Sole path for motion packets in the hardware command runtime."""
         with self._lock:
-            if self._closed or self._estop or not self._armed:
-                raise RuntimeError("motion command blocked: E-Stop or disarmed")
-            if flags & ESTOP_FLAG or train_id == ALL_TRAINS:
-                raise ValueError("reserved E-Stop flag or broadcast train ID")
-            self._sender.send(self._next(estop=False, train_id=train_id,
-                                          speed=speed, target=target, flags=flags))
+            # A zero-speed command is the individual locomotive STOP path and
+            # remains available while the dispatcher is disarmed.
+            if speed != 0 and (self._closed or self._stopped or not self._armed):
+                raise RuntimeError("motion command blocked: dispatcher stop or disarmed")
+            if flags & GLOBAL_STOP_FLAG or train_id == ALL_TRAINS:
+                raise ValueError("reserved dispatcher stop flag or broadcast train ID")
+            command = self._next(stopped=False, train_id=train_id,
+                                 speed=speed, target=target, flags=flags)
+            self._sender.send(command)
+            self._current_commands[train_id] = (speed, target, flags)
+
+    def _send_current_commands(self) -> None:
+        """Refresh each locomotive's watchdog with its latest command."""
+        with self._lock:
+            if self._closed or self._stopped or not self._current_commands:
+                return
+            for train_id, (speed, target, flags) in tuple(self._current_commands.items()):
+                try:
+                    self._sender.send(self._next(
+                        stopped=False,
+                        train_id=train_id,
+                        speed=speed,
+                        target=target,
+                        flags=flags,
+                    ))
+                    self._last_error = None
+                except Exception as exc:
+                    # Keep the latest command cached and retry on the next tick.
+                    self._last_error = exc
 
     def _broadcast_loop(self) -> None:
         while True:
@@ -187,9 +216,11 @@ class EmergencyStop:
             with self._lock:
                 if self._closed:
                     return
-                active = self._estop
+                active = self._stopped
             if active:
-                self._send_estop()
+                self._send_stop()
+            else:
+                self._send_current_commands()
 
     def shutdown(self) -> None:
         """Stop the worker. A supervising service must handle hardware shutdown."""
@@ -203,8 +234,8 @@ class EmergencyStop:
             close()
 
 
-def create_bench_sender(*, enable_network: bool = False, controllers: ControllerRegistry | None = None, start_armed: bool = False) -> EmergencyStop:
+def create_bench_sender(*, enable_network: bool = False, controllers: ControllerRegistry | None = None, start_armed: bool = False) -> LocomotiveCommandTransport:
     """Explicit opt-in only. Never call from simulation runtime."""
     if not enable_network:
         raise RuntimeError("hardware network broadcasts are disabled by default")
-    return EmergencyStop(EStopFanout(Broadcaster(), controllers), start_armed=start_armed)
+    return LocomotiveCommandTransport(LocomotiveStopFanout(Broadcaster(), controllers), start_armed=start_armed)

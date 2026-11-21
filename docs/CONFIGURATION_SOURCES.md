@@ -17,6 +17,13 @@ are documented in `config/turntable.yaml`. Simulation remains the default and
 all hardware output configuration is disabled unless explicitly supplied by a
 validated deployment.
 
+The current powered turnout roster is A-H. These are three-wire SPDT loads
+switched by active-low Nano Classic Firmata relay outputs D2-D9 as defined in
+`config/firmata_layout.yaml`: NC is straight and NO is diverging. Turnout
+position reeds are logically mapped on Mega D14-D37 but remain physically
+unverified. The H references in imported JMRI geometry are therefore part of
+the current logical inventory, while physical commissioning remains pending.
+
 The I/O documentation's “passive splitters” (`P1`–`P3`) are physical track
 branches from the imported JMRI layout, not electrical I/O points and not
 powered turnouts. They therefore do not appear as GPIO or relay assignments.

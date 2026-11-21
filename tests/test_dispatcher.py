@@ -1,7 +1,9 @@
 import pytest
 from railroad.dispatcher import Dispatcher,Cargo,SafetyError
 from railroad.transport.udp import Command
+from railroad.transport.locomotive import LocomotiveCommandTransport
 from railroad.tracking.ir_serial import parse_event
+from railroad.tracking.receivers import ReceiverEvent
 from railroad.yard import YardPower
 
 def test_exclusive_zone_and_destination():
@@ -13,6 +15,46 @@ def test_exclusive_zone_and_destination():
     with pytest.raises(SafetyError):d.tail_clear(1,"MAIN-2",last_car_confirmed=False)
     d.hall_clear(1,"MAIN-2",detected_cars=3,expected_cars=3)
     assert d.zones["MAIN-2"] is None
+
+
+def test_ir_receiver_updates_station_and_yard_location():
+    d = Dispatcher()
+    d.process_ir_event(ReceiverEvent("Mine Station", 1, 1.0))
+    assert d.trains[1].location == "Mine"
+    assert d.trains[1].parked is None
+    d.process_ir_event(ReceiverEvent("Stall 2", 1, 2.0))
+    assert d.trains[1].location == "Yard · Stall 2"
+    assert d.trains[1].parked == "2"
+
+
+def test_two_receiver_speed_calibration_normalizes_and_stops():
+    class Sender:
+        def __init__(self): self.commands = []
+        def send(self, command): self.commands.append(command)
+    sender = Sender()
+    d = Dispatcher()
+    d.attach_motion_transport(LocomotiveCommandTransport(sender, start_armed=True), require_rearm=False)
+    d.set_turnout_feedback("C", "straight")
+    d.command_motion(1, 255)
+    d.arm_speed_calibration(1, "Tunnel Exit West", "Tunnel Exit East", stop_delay_ms=0)
+    d.process_ir_event(ReceiverEvent("Tunnel Exit West", 1, 10.0))
+    assert d.speed_calibration["state"] == "TIMING"
+    d.process_ir_event(ReceiverEvent("Tunnel Exit East", 1, 22.0))
+    import time
+    time.sleep(0.02)
+    assert d.speed_calibration["state"] == "COMPLETE"
+    assert d.speed_calibration["elapsed_s"] == 12.0
+    assert d.speed_calibration["turnout_alignment_source"] == "relay_command_assumed"
+    assert d.trains[1].velocity == 0
+    assert d.speed_mm_s_at_255[1] == pytest.approx(914.4 / 12.0)
+
+
+def test_speed_calibration_assumes_open_loop_turnout_relay_command():
+    d = Dispatcher()
+    calibration = d.arm_speed_calibration(
+        1, "Tunnel Exit West", "Tunnel Exit East")
+    assert calibration["turnout_alignment_source"] == "relay_command_assumed"
+    assert d.turnouts["C"] == "straight"
 
 def test_destination_planning_remains_available_while_stopped():
     d = Dispatcher()

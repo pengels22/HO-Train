@@ -3,7 +3,7 @@ import time
 import json
 
 from railroad.dispatcher import Dispatcher
-from railroad.transport.estop import EStopFanout, EmergencyStop
+from railroad.transport.locomotive import LocomotiveStopFanout, LocomotiveCommandTransport
 from railroad.transport.telemetry import ControllerHealthRegistry, LocomotiveTelemetry
 from railroad.transport.usb import ControllerRegistry, RegisteredController
 
@@ -78,6 +78,49 @@ def test_independent_locomotives_do_not_require_missing_fleet_members():
     assert health.operating_ready()
     status = {item["id"]: item for item in health.status()}
     assert status["locomotive-2"]["required"] is False
+
+
+def test_individual_locomotive_motion_does_not_require_usb_accessories():
+    accessory = RegisteredController("tipper", "/dev/missing", lambda _: None)
+    health = ControllerHealthRegistry(
+        ControllerRegistry([accessory]), locomotive_ids=[1],
+        independent_locomotives=True,
+    )
+    health.update(telemetry(sequence=1).encode(), now=time.monotonic())
+    assert not health.usb_registry.all_required_ready()
+    assert health.operating_ready(1)
+
+
+def test_control_only_locomotive_can_use_udp_when_telemetry_is_unavailable():
+    health = ControllerHealthRegistry(
+        ControllerRegistry(), locomotive_ids=[1],
+        control_only_locomotives=[1], independent_locomotives=True,
+    )
+    assert health.operating_ready(1)
+    status = health.status()[0]
+    assert status["state"] == "CONTROL_ONLY"
+    assert status["control_only"] is True
+
+
+def test_command_feedback_reports_requested_motion_without_claiming_telemetry():
+    health = ControllerHealthRegistry(
+        ControllerRegistry(), locomotive_ids=[1],
+        control_only_locomotives=[1], independent_locomotives=True,
+    )
+    class Sender:
+        def send(self, command):
+            self.last = command
+    dispatcher = Dispatcher()
+    dispatcher.attach_controller_health(health)
+    dispatcher._rearm_required = False
+    dispatcher.attach_motion_transport(LocomotiveCommandTransport(Sender(), start_armed=True), require_rearm=False)
+    dispatcher.command_motion(1, 128)
+    status = health.status()[0]
+    assert status["state"] == "COMMAND_FEEDBACK"
+    assert status["speed"] == 128
+    assert status["direction"] == "forward"
+    assert status["telemetry_source"] == "command_feedback"
+    assert status["telemetry_confirmed"] is False
 
 
 def test_parked_missing_telemetry_is_not_a_fault_but_moving_is():
@@ -182,8 +225,8 @@ def test_dispatcher_rearm_requires_usb_safe_state_ack():
     port = Port()
     usb = ControllerRegistry([RegisteredController("turntable", "/dev/tt", lambda _: port)])
     health = ControllerHealthRegistry(usb)
-    stop = EmergencyStop(EStopFanout(UDP(), usb), period_s=0.02)
-    dispatcher = Dispatcher(); dispatcher.attach_estop(stop, require_rearm=True); dispatcher.attach_controller_health(health)
+    stop = LocomotiveCommandTransport(LocomotiveStopFanout(UDP(), usb), period_s=0.02)
+    dispatcher = Dispatcher(); dispatcher.attach_motion_transport(stop, require_rearm=True); dispatcher.attach_controller_health(health)
     try:
         dispatcher.rearm()
         dispatcher.command_motion(1, 10)

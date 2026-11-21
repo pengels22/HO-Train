@@ -4,7 +4,7 @@ from threading import Lock
 import pytest
 
 from railroad.dispatcher import Dispatcher, SafetyError
-from railroad.transport.estop import ALL_TRAINS, ESTOP_FLAG, EmergencyStop
+from railroad.transport.locomotive import ALL_TRAINS, GLOBAL_STOP_FLAG, LocomotiveCommandTransport
 
 
 class FakeSender:
@@ -19,9 +19,9 @@ class FakeSender:
 
 def test_global_stop_immediately_stops_all_and_blocks_motion_until_rearm():
     sender = FakeSender()
-    estop = EmergencyStop(sender, period_s=0.02)
+    estop = LocomotiveCommandTransport(sender, period_s=0.02)
     dispatcher = Dispatcher()
-    dispatcher.attach_estop(estop, require_rearm=True)
+    dispatcher.attach_motion_transport(estop, require_rearm=True)
     try:
         with pytest.raises(SafetyError):
             dispatcher.command_motion(1, 100)
@@ -31,9 +31,9 @@ def test_global_stop_immediately_stops_all_and_blocks_motion_until_rearm():
         dispatcher.stop_all("missed checkpoint")
         assert [dispatcher.trains[n].velocity for n in range(1, 5)] == [0, 0, 0, 0]
         assert sender.frames[-1].train_id == ALL_TRAINS
-        assert sender.frames[-1].flags == ESTOP_FLAG
+        assert sender.frames[-1].flags == GLOBAL_STOP_FLAG
         dispatcher.clear_stop()
-        assert not dispatcher.estop_active
+        assert not dispatcher.stop_transport_active
         with pytest.raises(SafetyError):
             dispatcher.command_motion(1, 100)
         dispatcher.rearm()
@@ -45,25 +45,25 @@ def test_global_stop_immediately_stops_all_and_blocks_motion_until_rearm():
 
 def test_safety_global_stop_repeats_and_packet_loss_does_not_clear_latch():
     sender = FakeSender()
-    estop = EmergencyStop(sender, period_s=0.02)
+    estop = LocomotiveCommandTransport(sender, period_s=0.02)
     dispatcher = Dispatcher()
-    dispatcher.attach_estop(estop, require_rearm=False)
+    dispatcher.attach_motion_transport(estop, require_rearm=False)
     try:
         dispatcher.trains[1].expected_checkpoint = "IR-1"
         dispatcher.trains[1].checkpoint_deadline = 1
         dispatcher.check_deadlines(now=2)
         first_count = len(sender.frames)
-        assert dispatcher.global_stop and dispatcher.estop_active
+        assert dispatcher.global_stop and dispatcher.stop_transport_active
         time.sleep(0.055)
         assert len(sender.frames) >= first_count + 2
         # Simulate lost later packets: the local sender/receiver latch remains.
         with pytest.raises(SafetyError):
             dispatcher.clear_stop()
-        assert dispatcher.estop_active
+        assert dispatcher.stop_transport_active
         dispatcher.trains[1].expected_checkpoint = None
         dispatcher.trains[1].checkpoint_deadline = None
         dispatcher.clear_stop()
-        assert not dispatcher.estop_active
+        assert not dispatcher.stop_transport_active
         assert dispatcher.snapshot()["motion_armed"] is False
         with pytest.raises(SafetyError):
             dispatcher.command_motion(1, 50)
@@ -73,27 +73,27 @@ def test_safety_global_stop_repeats_and_packet_loss_does_not_clear_latch():
 
 def test_one_broadcast_targets_multiple_locomotives_and_startup_sender_is_disarmed():
     sender = FakeSender()
-    estop = EmergencyStop(sender, period_s=0.02)
+    estop = LocomotiveCommandTransport(sender, period_s=0.02)
     try:
         assert not estop.armed
         estop.activate()
         assert sender.frames[-1].train_id == ALL_TRAINS
         assert sender.frames[-1].speed == 0
-        assert sender.frames[-1].flags == ESTOP_FLAG
+        assert sender.frames[-1].flags == GLOBAL_STOP_FLAG
     finally:
         estop.shutdown()
 
 
 def test_continuous_speed_updates_remain_armed_until_estop_then_recover():
     sender = FakeSender()
-    estop = EmergencyStop(sender, period_s=0.02)
-    dispatcher = Dispatcher(); dispatcher.attach_estop(estop, require_rearm=True)
+    estop = LocomotiveCommandTransport(sender, period_s=0.02)
+    dispatcher = Dispatcher(); dispatcher.attach_motion_transport(estop, require_rearm=True)
     try:
         dispatcher.rearm()
         for speed in range(1, 21):
             dispatcher.command_motion(1, speed)
         assert dispatcher.trains[1].velocity == 20
-        dispatcher.stop_all("operator E-Stop")
+        dispatcher.stop_all("operator global stop")
         with pytest.raises(SafetyError): dispatcher.command_motion(1, 1)
         dispatcher.clear_stop()
         with pytest.raises(SafetyError): dispatcher.command_motion(1, 1)

@@ -75,7 +75,7 @@ def test_global_stop_invalidates_simulator_target_and_does_not_restart_after_rea
     engine.advance(0.5)
     before = engine.trains[1].distance_mm
     assert before > 0
-    dispatcher.stop_all("operator E-Stop")
+    dispatcher.stop_all("operator global stop")
     assert not engine.running
     assert engine.trains[1].speed_mm_s == 0
     assert engine.trains[1].target_speed_mm_s == 0
