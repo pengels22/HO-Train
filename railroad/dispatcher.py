@@ -7,6 +7,7 @@ import time
 from typing import Callable
 from railroad.routing.planner import RoutePlan, RoutePlanner, RouteStatus
 from railroad.hardware.turnout_return import TurnoutAutoReturn
+from railroad.hardware.reed import ReedEvent, ReedState
 
 ZONES = tuple(f"{line}-{n}" for line in ("SKI", "FARM", "UND", "MINE", "MAIN") for n in (1, 2, 3))
 STALLS = ("1A", "1B", "2", "3")
@@ -83,6 +84,9 @@ class Dispatcher:
     cycle_motion_command: Callable[[int, int], None] | None = field(default=None, repr=False)
     turnout_command: Callable[[str, str], None] | None = field(default=None, repr=False)
     turnout_auto_return: TurnoutAutoReturn | None = field(default=None, repr=False)
+    reed_states: dict[str, str] = field(default_factory=dict)
+    reed_pulse_counts: dict[str, int] = field(default_factory=dict)
+    reed_events: list[dict] = field(default_factory=list, repr=False)
     route_planner: RoutePlanner = field(default_factory=RoutePlanner, repr=False)
     pending_requests: list[dict] = field(default_factory=list)
     request_history: list[dict] = field(default_factory=list)
@@ -181,6 +185,22 @@ class Dispatcher:
             if self.turnout_command is None:
                 raise SafetyError("turnout relay output is not connected")
             self.turnout_auto_return = TurnoutAutoReturn(self.turnout_command)
+
+    def handle_reed_event(self, event: ReedEvent) -> None:
+        """Process a stable Mega reed event. OPEN alone is not tail clearance."""
+        if not isinstance(event, ReedEvent):
+            raise TypeError("expected ReedEvent")
+        with self.lock:
+            self.reed_states[event.sensor] = event.state.value
+            self.reed_pulse_counts[event.sensor] = event.pulse_number
+            self.reed_events.append({"sensor": event.sensor, "state": event.state.value,
+                                     "timestamp": event.timestamp,
+                                     "pulse_number": event.pulse_number,
+                                     "duration_s": event.duration_s})
+            if len(self.reed_events) > 512:
+                del self.reed_events[:-512]
+            self.turnout_reed_event(event.sensor,
+                closed=(event.state is ReedState.CLOSED), now=event.timestamp)
 
     def turnout_reed_event(self, sensor: str, *, closed: bool, now: float) -> None:
         """Forward stable Mega reed edges; never infer clearance from OPEN alone."""

@@ -41,7 +41,7 @@ class FirmataBoard:
     def pin(self, number: int, mode: str):
         if self.board is None:
             raise FirmataNotReady("Board is not connected")
-        if mode not in {"i", "o", "p", "s"}:
+        if mode not in {"i", "u", "o", "p", "s"}:
             raise ValueError("Unsupported pin mode")
         return self.board.get_pin(f"d:{int(number)}:{mode}")
 

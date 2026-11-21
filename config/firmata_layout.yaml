@@ -8,6 +8,8 @@ mega:
   board: mega2560
   reed_active_low: true
   reed_pullups: true
+  reed_debounce_ms: 15
+  reed_reader_poll_ms: 10
   reed_pins:
     D14: turnout_A_common
     D15: turnout_A_straight
