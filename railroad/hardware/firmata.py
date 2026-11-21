@@ -102,31 +102,44 @@ class FirmataControllerManager:
         self.reeds: MegaReedReader | None = None
         self._poll_stop: Event | None = None
         self._poll_thread: Thread | None = None
+        self._connect_threads: list[Thread] = []
         self._lock = Lock()
 
     def connect_all(self) -> dict[str, FirmataStatus]:
         if not self.enabled:
             return self.status
-        for name, spec in (("mega", self.layout.get("mega", {})),
-                           ("relay_nano", self.layout.get("relay_nano", {}))):
-            port = spec.get("port")
-            if not port:
-                self.status[name].error = "verified persistent USB path is not configured"
-                continue
-            board = FirmataBoard(kind=spec.get("board", ""), port=port,
-                                 enabled=True, factory=self.factories.get(name))
-            try:
-                board.connect()
-                self.boards[name] = board
-                self.status[name].connected = True
-                self.status[name].error = None
-                self.status[name].last_success = self.clock()
-                self._safe_initialize(name)
-            except Exception as exc:
-                self.status[name].connected = False
-                self.status[name].error = str(exc)
-                board.close()
+        # Each USB controller has its own connection attempt.  A missing relay
+        # Nano therefore cannot delay or fail the commissioned Mega loop.
+        self._connect_threads = []
+        for name in ("mega", "relay_nano"):
+            thread = Thread(target=self._connect_one, args=(name,),
+                            name=f"ho-firmata-{name}", daemon=True)
+            self._connect_threads.append(thread)
+            thread.start()
+        for thread in self._connect_threads:
+            thread.join(timeout=10.0)
         return self.status
+
+    def _connect_one(self, name: str) -> None:
+        spec = self.layout.get(name, {}) or {}
+        port = spec.get("port")
+        if not port:
+            self.status[name].error = "verified persistent USB path is not configured"
+            return
+        board = FirmataBoard(kind=spec.get("board", ""), port=port,
+                             enabled=True, factory=self.factories.get(name))
+        try:
+            board.connect()
+            with self._lock:
+                self.boards[name] = board
+            self.status[name].connected = True
+            self.status[name].error = None
+            self.status[name].last_success = self.clock()
+            self._safe_initialize(name)
+        except Exception as exc:
+            self.status[name].connected = False
+            self.status[name].error = str(exc)
+            board.close()
 
     def _safe_initialize(self, name: str) -> None:
         """Initialize all outputs to their non-driving state."""
@@ -171,6 +184,7 @@ class FirmataControllerManager:
         if self._poll_thread:
             self._poll_thread.join(timeout=1.0)
         self._poll_stop = self._poll_thread = None
+        self._connect_threads = []
         for board in self.boards.values():
             board.close()
         self.boards.clear()

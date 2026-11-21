@@ -8,9 +8,10 @@ from railroad.hardware.firmata import FirmataBoard, FirmataNotReady, validate_pi
 CONFIG = Path(__file__).resolve().parents[1] / "config" / "firmata_layout.yaml"
 
 
-def test_proposed_pin_map_is_unique_and_disabled():
+def test_commissioned_pin_map_is_unique_with_optional_relay_nano():
     data = yaml.safe_load(CONFIG.read_text())
-    assert data["enabled"] is False
+    assert data["enabled"] is True
+    assert data["relay_nano"]["port"] is None
     assert validate_pin_map(data) == []
     assert list(data["mega"]["reed_pins"])[0] == "D14"
     assert list(data["mega"]["reed_pins"])[23] == "D37"

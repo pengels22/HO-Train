@@ -1,6 +1,7 @@
 # Proposed Mega/Nano Firmata migration, November 20 2026.
-# Not commissioned. Do not automatically open serial ports or arm outputs.
-enabled: false
+# Mega is commissioned; relay Nano remains optional while its port is unset.
+# Do not arm motor/relay power until electrical commissioning is complete.
+enabled: true
 transport: usb_serial
 library: pyfirmata2
 mega:

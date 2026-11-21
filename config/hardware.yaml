@@ -2,7 +2,7 @@ mode: simulation
 # Firmata is the commissioned USB architecture. Keep disabled until the
 # persistent USB paths and electrical harness are verified on the Pi.
 firmata:
-  enabled: false
+  enabled: true
   layout: config/firmata_layout.yaml
 # Legacy I2C entries are retained only for migration/config-file compatibility;
 # hardware mode does not open them when Firmata is enabled.

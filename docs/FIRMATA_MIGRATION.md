@@ -14,8 +14,8 @@ inventory to two USB Firmata boards:
 ## Commissioning state
 
 `config/firmata_layout.yaml` is the authoritative physical map. Firmata is
-deliberately disabled by default (`enabled: false`) and both USB ports are
-unset until stable `/dev/serial/by-id/` paths have been verified on the Pi.
+enabled for the commissioned Mega, while the relay Nano remains optional
+until its stable `/dev/serial/by-id/` path is verified on the Pi.
 Loading or validating the configuration is side-effect free. The runtime does
 not open the old I²C devices when the Firmata block is present.
 
@@ -27,7 +27,7 @@ python3 -m pip install -e '.[hardware]'
 
 Use a matching StandardFirmata/StandardFirmataPlus-compatible sketch on the
 Mega and Nano. Verify board identity, serial path, firmware, and pin wiring
-before setting `firmata.enabled` to `true`. The first connection must be made
+before connecting relay and actuator power. The first connection must be made
 with motor, relay, and servo power disconnected. Startup initializes motors
 to zero, crossing servos to neutral (90°), and active-low relays HIGH.
 
@@ -46,8 +46,9 @@ until the rest of the repository is pruned. They are not selected by the
 Firmata runtime. Locomotive UDP protocol fields, including the legacy `0x80`
 stop flag, remain unchanged pending coordinated firmware migration.
 
-Firmware is not flashed automatically by the runtime, and no physical output
-is enabled by this migration.
+Firmware is not flashed automatically by the runtime. When hardware mode is
+explicitly started, the Mega is initialized to zero/neutral outputs; the
+relay Nano remains offline-tolerant until connected.
 
 ## Lab 1 commissioning record
 
